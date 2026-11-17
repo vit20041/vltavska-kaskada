@@ -26,6 +26,10 @@ jobs:
       - name: Stáhnout data z pvl.cz
         run: node fetch_pvl.mjs live/pvl.new.json
 
+      - name: Diagnostika spojení (jen při chybě)
+        if: failure()
+        run: curl -sS -v -o /dev/null --max-time 30 https://www.pvl.cz/portal/nadrze/cz/pc/Prehled.aspx 2>&1 | grep -Ei "connected|ssl|tls|certificate|issuer|subject|HTTP/|error|timed" || true
+
       - name: Uložit, pokud přibylo nové měření
         run: |
           new=$(node -e "console.log(require('./live/pvl.new.json').tMs)")

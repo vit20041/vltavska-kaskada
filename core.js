@@ -138,7 +138,7 @@ const PLACES_DEF = [
   { id: 'cb', name: 'České Budějovice', km: 240, kind: 'q', src: 'cb', warn: 350, crit: 570, note: '3. SPA na LG Č. Budějovice; Q20 ≈ 570 m³/s (2002: 1 310 m³/s)' },
   { id: 'tyn', name: 'Týn nad Vltavou', km: 201.5, kind: 'qh', src: 'tyn', dam: 'orlik', warn: 600, crit: 1000, hWarn: 353.0, hCrit: 353.8, note: 'ohrožuje ho průtok Vltavy s Lužnicí i vzdutí Orlíku' },
   { id: 'zvikov', name: 'Zvíkov, Podolsko (břehy Orlíku)', km: 169, kind: 'h', dam: 'orlik', warn: 353.60, crit: 354.30, note: 'chaty, kempy a silnice na březích Orlíku' },
-  { id: 'stech', name: 'Štěchovice', km: 84.0, kind: 'q', src: 'stech', warn: 1200, crit: 2000, note: 'obec pod hrází, soutok se Sázavou' },
+  { id: 'stech', name: 'Štěchovice', km: 84.0, kind: 'q', src: 'stech', warn: 1200, crit: 2000, note: 'obec pod hrází VD Štěchovice; Sázava ústí níže, u Davle' },
   { id: 'davle', name: 'Davle (soutok se Sázavou)', km: 78.5, kind: 'q', src: 'davle', warn: 1300, crit: 2200, note: 'Vltava + Sázava v nádrži Vrané' },
   { id: 'zbraslav', name: 'Praha-Zbraslav, Radotín', km: 62.5, kind: 'q', src: 'praha', warn: 1500, crit: 2500, note: '3. SPA v Chuchli; níže soutok s Berounkou' },
   { id: 'praha', name: 'Praha – centrum (Karlín, Holešovice)', km: 56, kind: 'q', src: 'praha', warn: 2500, crit: 5300, note: 'protipovodňová ochrana Prahy je dimenzována na povodeň 2002 + rezerva' }

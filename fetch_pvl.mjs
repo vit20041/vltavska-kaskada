@@ -54,7 +54,7 @@ async function get(path) {
       const r = await fetch(BASE + path, { headers: { 'User-Agent': 'vltavska-kaskada-simulator (GitHub Actions)', 'Accept-Language': 'cs' } });
       if (r.ok) return await r.text();
       console.error(`HTTP ${r.status} ${path}`);
-    } catch (e) { console.error(`${e.message} ${path}`); }
+    } catch (e) { const c = e.cause || {}; console.error(`${e.message} ${path} [${c.code || ''} ${c.message || ''}]`); }
     await new Promise(res => setTimeout(res, 5000 * (i + 1)));
   }
   throw new Error('Nelze stáhnout ' + path);
