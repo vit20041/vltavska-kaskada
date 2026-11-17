@@ -23,6 +23,29 @@ jobs:
         with:
           node-version: '20'
 
+      # pvl.cz neposílá úplný řetězec certifikátů (chybí mezilehlý CA). Prohlížeče si ho dotáhnou přes AIA,
+      # Node ne. Dohledáme chybějící CA stejně (AIA „CA Issuers“) a přidáme je Node; ověření proti systémovým
+      # kořenovým CA zůstává zapnuté – nic se nevypíná.
+      - name: Doplnit chybějící mezilehlé certifikáty pvl.cz (AIA)
+        run: |
+          set -e
+          openssl s_client -connect www.pvl.cz:443 -servername www.pvl.cz -showcerts </dev/null 2>/dev/null \
+            | awk '/BEGIN CERT/{n++} n{print > ("srv" n ".pem")} /END CERT/{n=n}' || true
+          last=$(ls srv*.pem | sort -V | tail -1); : > extra-ca.pem
+          for i in 1 2 3; do
+            url=$(openssl x509 -in "$last" -noout -ext authorityInfoAccess 2>/dev/null | sed -n 's/.*CA Issuers - URI:\(.*\)/\1/p' | head -1)
+            [ -z "$url" ] && break
+            echo "AIA: $url"
+            curl -sSfL --max-time 20 "$url" -o ca.bin
+            openssl x509 -inform DER -in ca.bin -out ca$i.pem 2>/dev/null || openssl x509 -in ca.bin -out ca$i.pem
+            openssl x509 -in ca$i.pem -noout -subject -issuer
+            cat ca$i.pem >> extra-ca.pem; last=ca$i.pem
+            # skončit, jakmile je vydavatel v systémovém úložišti
+            openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt ca$i.pem >/dev/null 2>&1 && break
+          done
+          echo "NODE_EXTRA_CA_CERTS=$PWD/extra-ca.pem" >> "$GITHUB_ENV"
+          rm -f srv*.pem ca.bin
+
       - name: Stáhnout data z pvl.cz
         run: node fetch_pvl.mjs live/pvl.new.json
 
