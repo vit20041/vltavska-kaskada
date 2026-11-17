@@ -46,8 +46,12 @@ budoucí Orlík 2033 (2×Francis 95 MW + 2×reverzní Francis 87 MW, čerpání 
    naplněn; naplánovaná úloha `vltava-zive-data-pvl` (každou hodinu, běží jen při zapnutém PC s Claude app) spustí
    fetch_pvl.js ve vestavěném prohlížeči a zapíše JSON. Anonymní návštěvníci vidí jen vestavěná data (db jen pro přihlášené).
    POZOR: fetch_pvl.js počítá tMs jako hh-1 (SEČ) – v letním čase ověřit, zda PVL udává SEČ nebo SELČ.
-   Další krok: GitHub Pages + GitHub Actions cron (živá data pro všechny, krátký odkaz). Projekt NENÍ ve vlastním gitu –
-   git repo je celý domovský adresář C:\Users\vit20, pro GitHub založit samostatné repo jen v této složce.
+   HOTOVO 17. 11. 2026: GitHub Pages https://vit20041.github.io/vltavska-kaskada/ (repo vit20041/vltavska-kaskada, vlastní
+   git v této složce, Pages z main /). Workflow `.github/workflows/pvl.yml` každou hodinu spustí `fetch_pvl.mjs` (Node, bez DOM)
+   a commitne `live/pvl.json` jen při novém měření; UI ho na webu načítá každých 10 min (v artefaktu čte db).
+   pvl.cz posílá neúplný řetězec certifikátů (chybí „Alpiro RSA DV SSL CA 2“) → workflow ho dohledá přes AIA od listového
+   certifikátu a předá přes NODE_EXTRA_CA_CERTS (ověřování zůstává zapnuté). Po `git push` vždy nejdřív `git pull`
+   (bot commituje data). Publikovat = build.ps1 → commit index.html → push (+ republikovat artefakt).
 - Sestavení na Windows (bez Pythonu): `powershell -ExecutionPolicy Bypass -File build.ps1` – vloží detail.js i core.js
   do ui.html a zapíše index.html + Vltavska-kaskada-simulator.html (ruční splice detail.js už není potřeba).
 2. Krátký odkaz: zkracovač (tinyurl/bit.ly) nebo GitHub Pages.
