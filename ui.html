@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="cs" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulátor Vltavské kaskády</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{ --font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; --mono:'JetBrains Mono',ui-monospace,'Cascadia Mono',Consolas,monospace; --r:14px; }
+[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0a0e14; --surface:#121821; --surface-2:#18202b; --surface-3:#202a37; --border:#222c3a; --border-2:#2f3b4d;
+  --text:#eef2f7; --text-2:#a9b4c2; --muted:#728095;
+  --accent:#4b97ee; --accent-weak:rgba(75,151,238,.13); --on-accent:#fff;
+  --earth-1:#2a2822; --earth-2:#15140f; --strata:rgba(255,255,255,.035); --bed:#6b6352; --hill-1:#16202c; --hill-2:#1b2735;
+  --water-1:#58a7f7; --water-2:#123f78; --water-line:#9fd0ff;
+  --conc-1:#d5dae1; --conc-2:#7d8796; --light:#ffd166;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#0ca30c; --s7:#9085e9; --s8:#e66767;
+  --good:#2ec05a; --warning:#fab219; --serious:#ec835a; --critical:#ef5155;
+  --zone-stale:#2b3442; --zone-zas:#1d4170; --zone-ret:#5a3524; --grid:#1b2430; --shadow:0 10px 34px rgba(0,0,0,.42);
+}
+[data-theme="light"]{
+  color-scheme:light;
+  --bg:#edf1f6; --surface:#ffffff; --surface-2:#f4f6fa; --surface-3:#e8edf3; --border:#e0e5ec; --border-2:#cbd3de;
+  --text:#0d1622; --text-2:#465365; --muted:#7a8698;
+  --accent:#2a78d6; --accent-weak:rgba(42,120,214,.09); --on-accent:#fff;
+  --earth-1:#cdbd9f; --earth-2:#e9dfcc; --strata:rgba(80,60,30,.06); --bed:#98835f; --hill-1:#c4d6c2; --hill-2:#aec7ae;
+  --water-1:#6db3fa; --water-2:#2468c4; --water-line:#174f9b;
+  --conc-1:#f2f4f7; --conc-2:#9aa3b0; --light:#f5a300;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#6250d6; --s8:#e34948;
+  --good:#0f9d36; --warning:#d99100; --serious:#e0703f; --critical:#d03b3b;
+  --zone-stale:#d8dde5; --zone-zas:#cfe2f8; --zone-ret:#f7dccb; --grid:#edf0f4; --shadow:0 10px 30px rgba(20,35,60,.10);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+button,select,input,textarea{font:inherit;color:inherit}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+a{color:var(--accent)}
+.muted{color:var(--muted)}
+/* header */
+header{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(12px)}
+.bar{display:flex;align-items:center;gap:12px;padding:10px 20px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand b{font-size:16px;font-weight:750;letter-spacing:-.02em;white-space:nowrap}
+.pillbox{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px}
+.ib{border:0;background:transparent;border-radius:999px;padding:6px 11px;cursor:pointer;font-weight:550;color:var(--text-2);white-space:nowrap;font-size:13px}
+.ib:hover{background:var(--surface-3);color:var(--text)}
+.ib.on{background:var(--accent);color:var(--on-accent)}
+.play{width:38px;height:38px;border-radius:50%;border:0;background:var(--accent);display:grid;place-items:center;cursor:pointer;box-shadow:0 4px 16px color-mix(in srgb,var(--accent) 45%,transparent)}
+.play:hover{filter:brightness(1.08)}
+select.scen{appearance:none;border:0;background:transparent;font-weight:600;padding:6px 26px 6px 12px;cursor:pointer;max-width:290px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' fill='none' stroke-width='1.6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+select.scen option{background:var(--surface);color:var(--text)}
+.speedw{display:flex;align-items:center;gap:8px;padding:0 8px}
+.speedw input{width:110px}
+.speedw span{font-family:var(--mono);font-size:12.5px;min-width:62px;color:var(--text-2)}
+.clock{display:flex;flex-direction:column;line-height:1.1;padding:0 12px 0 6px}
+.clock b{font-family:var(--mono);font-size:16px;font-weight:600}
+.clock small{font-size:11.5px;color:var(--muted)}
+.sp{flex:1}
+/* kpi */
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;padding:2px 20px 12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;position:relative;overflow:hidden;min-width:0;cursor:default}
+.kpi .l{font-size:12px;color:var(--muted);font-weight:550;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.kpi .l i{width:8px;height:8px;border-radius:50%;background:var(--kc,var(--accent));display:inline-block}
+.kpi .v{font-family:var(--mono);font-size:22px;font-weight:650;line-height:1.3;white-space:nowrap;letter-spacing:-.03em}
+.kpi .v small{font-size:12px;color:var(--text-2);font-weight:500;margin-left:4px;letter-spacing:0}
+.kpi .s{font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;z-index:1}
+.kpi canvas{position:absolute;right:0;bottom:0;width:50%;height:34px;opacity:.55;pointer-events:none}
+.tag{display:inline-flex;align-items:center;border-radius:999px;padding:0 8px;font-size:11.5px;font-weight:650;line-height:19px;background:color-mix(in srgb,currentColor 14%,transparent)}
+/* layout */
+main{padding:0 20px 40px;display:grid;gap:14px}
+.hero{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;position:relative}
+.hero > .evc{max-width:calc(100% - 24px)}
+.hero svg{display:block;width:100%;height:auto}
+.hero .cap{font-size:12.5px;color:var(--text-2);padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:baseline}
+.hero .cap b{color:var(--text);font-size:13px;white-space:nowrap}
+.work{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:14px;align-items:start}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;min-width:0}
+.chead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.tabs{display:flex;gap:2px;flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--border);padding:3px;border-radius:11px}
+.tab{border:0;background:transparent;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-2);white-space:nowrap}
+.tab:hover{color:var(--text)} .tab.on{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.side{position:sticky;top:150px;max-height:calc(100vh - 162px);overflow:auto;scrollbar-width:thin}
+/* charts */
+.chartbox{position:relative}
+.chartbox+.chartbox{margin-top:18px}
+.ctitle{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.ctitle b{font-size:14px;font-weight:650}
+.legend{display:flex;flex-wrap:wrap;gap:5px}
+.legend button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface-2);border-radius:999px;padding:2px 10px 2px 8px;cursor:pointer;color:var(--text-2);font-size:12px;font-weight:550}
+.legend button.off{opacity:.4}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+canvas.ch{width:100%;height:280px;display:block;cursor:crosshair;user-select:none}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border-2);border-radius:11px;padding:9px 11px;font-size:12.5px;box-shadow:var(--shadow);display:none;z-index:5;white-space:nowrap;min-width:170px}
+.tip .t{color:var(--muted);margin-bottom:4px;font-size:11.5px;font-weight:550}
+.tip .r{display:flex;gap:16px;justify-content:space-between;line-height:1.65} .tip .r b{font-family:var(--mono);font-weight:600}
+.tip i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px}
+.zoomnote{font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.btn{border:1px solid var(--border-2);background:var(--surface-2);border-radius:9px;padding:6px 12px;cursor:pointer;font-weight:550;white-space:nowrap;font-size:13px}
+.btn:hover{border-color:var(--accent)}
+.btn.sm{padding:3px 9px;font-size:12px;border-radius:7px}
+.btn.acc{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.danger{color:var(--critical);border-color:color-mix(in srgb,var(--critical) 50%,var(--border-2))}
+/* dams grid */
+.dams{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:10px}
+.dam{border:1px solid var(--border);border-radius:12px;padding:10px 12px;cursor:pointer;background:var(--surface-2);transition:border-color .15s,transform .12s;position:relative;overflow:hidden}
+.dam:hover{transform:translateY(-1px);border-color:var(--border-2)}
+.dam.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.dam .nm{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:13.5px}
+.dam .lv{font-family:var(--mono);font-size:19px;font-weight:650;letter-spacing:-.03em;margin-top:2px}
+.dam .lv small{font-size:11.5px;color:var(--muted);font-weight:500;letter-spacing:0}
+.fill{height:6px;border-radius:3px;background:var(--zone-stale);margin:6px 0;position:relative;overflow:hidden}
+.fill i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--water-2),var(--water-1));border-radius:3px}
+.fill u{position:absolute;top:0;bottom:0;width:2px;background:var(--text);opacity:.45}
+.dam .ln{display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--text-2);white-space:nowrap}
+.dam .ln b{font-family:var(--mono);font-weight:550;color:var(--text)}
+.dam canvas{width:100%;height:26px;display:block;margin-top:4px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--muted);vertical-align:middle}
+.dot.on{background:var(--good);box-shadow:0 0 7px var(--good)} .dot.pump{background:var(--s7);box-shadow:0 0 7px var(--s7)}
+.badge{display:inline-flex;align-items:center;font-size:10.5px;border-radius:6px;padding:1px 6px;font-weight:700;letter-spacing:.02em;background:var(--surface-3);color:var(--text-2)}
+.badge.crit{background:color-mix(in srgb,var(--critical) 18%,transparent);color:var(--critical)} .badge.warn{background:color-mix(in srgb,var(--serious) 18%,transparent);color:var(--serious)} .badge.acc{background:var(--accent-weak);color:var(--accent)}
+/* inspector */
+.insp h3{margin:0;font-size:20px;font-weight:750;letter-spacing:-.02em}
+.insp .role{font-size:12.5px;color:var(--muted);margin:2px 0 12px}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:3px;gap:2px}
+.seg button{flex:1;border:0;background:transparent;border-radius:8px;padding:6px 6px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text-2);white-space:nowrap}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+.vis{display:grid;grid-template-columns:96px 1fr;gap:14px;margin:14px 0 6px;align-items:stretch}
+.vis svg{width:96px;height:210px;display:block}
+.bigs{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start}
+.bigs > div{background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:7px 10px}
+.bigs .l{font-size:11px;color:var(--muted);font-weight:550}
+.bigs .v{font-family:var(--mono);font-size:17px;font-weight:650;letter-spacing:-.03em}
+.bigs .v small{font-size:11px;color:var(--muted);font-weight:500}
+.bigs .wide{grid-column:1/-1}
+.phase{font-size:12.5px;margin:4px 0 0;padding:7px 10px;border-radius:9px;background:var(--accent-weak);color:var(--text)}
+.sect{margin-top:14px}
+.sect > .h{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.sl{margin:10px 0}
+.sl .top{display:flex;justify-content:space-between;font-size:13px;color:var(--text-2);margin-bottom:2px}
+.sl .top b{font-family:var(--mono);color:var(--text);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent);height:18px}
+.units{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px}
+.ut{border:1px solid var(--border);background:var(--surface-2);border-radius:12px;padding:8px 6px 6px;text-align:center;cursor:pointer;position:relative}
+.ut.off{opacity:.45;border-style:dashed}
+.ut svg{width:54px;height:54px;display:block;margin:0 auto}
+.ut .n{font-size:11.5px;font-weight:700;color:var(--text-2)}
+.ut .p{font-family:var(--mono);font-size:12px;font-weight:600}
+.ut input{margin-top:4px}
+details.adv{margin-top:12px;border-top:1px solid var(--border);padding-top:10px}
+details.adv summary{cursor:pointer;font-size:12.5px;font-weight:650;color:var(--text-2)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:3px 12px;font-size:12.5px;margin-top:8px}
+.kv span:nth-child(odd){color:var(--text-2)} .kv span:nth-child(even){font-family:var(--mono);text-align:right}
+.field{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:7px 0;font-size:13px}
+.field label{color:var(--text-2)}
+input[type=number],input[type=text],select.f{background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:5px 8px;outline:none;width:92px}
+input:focus,select:focus{border-color:var(--accent)}
+.grid24{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.grid24 input{width:100%;padding:3px 4px;font-size:12px}
+.grid24 small{display:block;font-size:10px;color:var(--muted);text-align:center}
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.qa button{display:flex;align-items:center;gap:8px;text-align:left;border:1px solid var(--border);background:var(--surface-2);border-radius:11px;padding:9px 10px;cursor:pointer;font-weight:600;font-size:12.5px}
+.qa button:hover{border-color:var(--accent)}
+.qa button span{font-size:17px}
+.qa button.danger{color:var(--critical)}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin:8px 0 0}
+/* tables, nodes */
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:6px 7px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:12px}
+th:first-child,td:first-child{text-align:left}
+td input[type=number]{width:62px;padding:3px 6px;font-size:12.5px}
+.nodes{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.nd{border:1px solid var(--border);background:var(--surface-2);border-radius:12px;padding:10px 12px}
+.nd .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.nd .top span{font-weight:650;font-size:13px;min-width:0}
+.nd .top b{font-family:var(--mono);font-size:16px;font-weight:650;white-space:nowrap}
+.nd canvas{width:100%;height:30px;display:block;margin:4px 0}
+.chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.chip{border:1px solid var(--border-2);background:transparent;border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:600;cursor:pointer;color:var(--text-2)}
+.chip:hover{border-color:var(--accent);color:var(--text)} .chip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.log{max-height:460px;overflow:auto;font-size:13px}
+.log div{padding:7px 2px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:18px auto 1fr;gap:10px}
+.log .tm{font-family:var(--mono);color:var(--muted);white-space:nowrap;font-size:12px}
+.log .crit .ic{color:var(--critical)} .log .warn .ic{color:var(--serious)} .log .info .ic{color:var(--accent)}
+.two{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
+.two > div{min-width:0;overflow-x:auto}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.g3 > div{background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:8px 10px}
+.g3 .l{font-size:11px;color:var(--muted)} .g3 .v{font-family:var(--mono);font-size:18px;font-weight:650}
+.srcs{font-size:12.5px;columns:2;column-gap:28px;padding-left:18px} .srcs li{break-inside:avoid;margin-bottom:5px}
+#csvOut{width:100%;height:110px;font-family:var(--mono);font-size:11px;display:none;margin-top:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px}
+.toast{position:fixed;left:20px;bottom:20px;z-index:50;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast div{background:var(--surface);border:1px solid var(--border-2);border-left:4px solid var(--accent);border-radius:11px;padding:8px 12px;box-shadow:var(--shadow);font-size:12.5px;max-width:330px;animation:tin .25s ease-out}
+.toast .crit{border-left-color:var(--critical)} .toast .warn{border-left-color:var(--serious)}
+@keyframes tin{from{transform:translateY(10px);opacity:0}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60;display:none;place-items:center;padding:20px}
+.modal.on{display:grid}
+.modal .box{background:var(--surface);border:1px solid var(--border-2);border-radius:16px;max-width:760px;width:100%;padding:22px 24px;box-shadow:var(--shadow);max-height:88vh;overflow:auto}
+.modal h3{margin:0 0 10px;font-size:18px}
+kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);border-bottom-width:2px;border-radius:5px;padding:0 6px;background:var(--surface-2)}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13.5px;margin:12px 0}
+/* detail */
+.det{position:fixed;inset:0;background:rgba(5,8,14,.62);z-index:70;display:none;place-items:center;padding:18px;backdrop-filter:blur(3px)}
+.det.on{display:grid}
+.dbox{background:var(--surface);border:1px solid var(--border-2);border-radius:18px;width:min(1320px,97vw);max-height:94vh;overflow:auto;box-shadow:var(--shadow)}
+.dhead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.dhead h3{margin:0;font-size:19px;font-weight:750}
+.dhead small{color:var(--muted);font-size:12.5px}
+.dbody{display:grid;grid-template-columns:minmax(0,1fr) 300px}
+.dbody svg{width:100%;height:auto;display:block}
+.dside{border-left:1px solid var(--border);padding:14px 16px;font-size:13px}
+.flowrow{display:grid;grid-template-columns:110px 1fr 72px;gap:8px;align-items:center;margin:5px 0;font-size:12.5px;color:var(--text-2)}
+.flowrow .b{height:8px;border-radius:4px;background:var(--surface-3);overflow:hidden}.flowrow .b i{display:block;height:100%;border-radius:4px}
+.flowrow b{font-family:var(--mono);text-align:right;color:var(--text)}
+.bigbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1px solid var(--accent);background:var(--accent-weak);color:var(--text);border-radius:11px;padding:9px;font-weight:650;cursor:pointer;margin-top:12px}
+.bigbtn:hover{background:var(--accent);color:var(--on-accent)}
+/* tour */
+.tour{position:fixed;inset:0;z-index:80;display:none}
+.tour.on{display:block}
+.tour .spot{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(4,8,15,.62);transition:all .3s ease;pointer-events:none;border:2px solid var(--accent)}
+.tour .tc{position:fixed;width:400px;border:2px solid var(--accent)!important;background:var(--surface);border:1px solid var(--border-2);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);transition:top .3s,left .3s}
+.tour .tc h4{margin:0 0 8px;font-size:18px}
+.tour .tc p{margin:0;color:var(--text-2);font-size:14.5px;line-height:1.6}
+.tour .tc .nav{display:flex;gap:8px;margin-top:14px;align-items:center}
+.tour .tc .dots{flex:1;font-size:12px;color:var(--muted)}
+.man h4{margin:16px 0 6px;font-size:14.5px}
+.man p,.man li{color:var(--text-2);font-size:13.5px;line-height:1.6}
+.man ul{padding-left:18px;margin:4px 0}
+.man details{border:1px solid var(--border);border-radius:11px;padding:9px 12px;margin:8px 0;background:var(--surface-2)}
+.man summary{cursor:pointer;font-weight:650}
+/* svg anim */
+@keyframes pulse{0%{stroke-width:3;opacity:.95;transform:scale(1)}100%{stroke-width:1;opacity:0;transform:scale(3.2)}} .pulse.on{animation:pulse 1.3s ease-out infinite;transform-box:fill-box;transform-origin:center}
+.evc{position:absolute;z-index:6;width:340px;background:var(--surface);border:1px solid var(--border-2);border-left:5px solid var(--warning);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);display:none}
+.evc.on{display:block;animation:tin .25s ease-out}
+.evc.crit{border-left-color:var(--critical)}
+.evc h4{margin:0 0 4px;font-size:15px}
+.evc .m1{font-size:12px;color:var(--muted);margin-bottom:6px;font-family:var(--mono)}
+.evc p{margin:0;font-size:13px;color:var(--text-2);line-height:1.55}
+.evc .nav{display:flex;gap:6px;margin-top:12px;align-items:center;flex-wrap:wrap}
+.evc label{font-size:11.5px;color:var(--muted);display:flex;gap:5px;align-items:center;margin-right:auto}
+@keyframes flow{to{stroke-dashoffset:-40}} .flowing{animation:flow 1.4s linear infinite}
+@keyframes shim{to{stroke-dashoffset:-60}} .shim{animation:shim 6s linear infinite}
+@keyframes rain{from{transform:translate(0,-60px)}to{transform:translate(-14px,120px)}} .drop{animation:rain .7s linear infinite}
+.paused .flowing,.paused .shim,.paused .drop{animation-play-state:paused}
+.hit{cursor:pointer}
+.hit:hover .tagbox{stroke:var(--accent);stroke-width:2}
+#profile .m{font-family:var(--mono)}
+@keyframes glowb{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent)}50%{box-shadow:0 0 0 6px transparent}}
+#tourBtn{background:var(--accent);color:var(--on-accent);animation:glowb 2s ease-in-out 4}
+@media (max-width:760px){
+  body{font-size:13.5px}
+  .bar{flex-wrap:wrap;gap:8px;padding:8px 10px}
+  .brand b{font-size:15px}
+  html,body{overflow-x:hidden}
+  #pScen{order:3;flex:1 1 100%;min-width:0}
+  select.scen{max-width:none;flex:1;min-width:0}
+  #pTime{order:4;flex:1 1 100%;min-width:0;flex-wrap:wrap;border-radius:18px;justify-content:space-between}
+  #pTime .clock{order:-1;flex:1}
+  .speedw{flex:1}
+  .sp{display:none}
+  .speedw input{width:70px}
+  .clock{padding:0 6px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:2px 10px 10px}
+  .kpi{padding:8px 10px}.kpi .v{font-size:18px}
+  main{padding:0 10px 30px}
+  .hero{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .hero svg{min-width:900px}
+  .hero .cap{min-width:0;flex-direction:column;gap:2px}
+  header{position:static}
+  .work{grid-template-columns:1fr}
+  .side{position:static;max-height:none;order:-1}
+  .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;max-width:100%}
+  .chead{flex-direction:column;align-items:stretch}
+  canvas.ch{height:220px}
+  .two{grid-template-columns:1fr}
+  .dbox{width:100vw;max-height:100vh;border-radius:0}
+  .det{padding:0}
+  .dbody{grid-template-columns:1fr}
+  .dbody > svg{min-width:720px}
+  .dbody{overflow-x:auto}
+  .dside{border-left:0;border-top:1px solid var(--border)}
+  .dhead .muted{display:none}
+  .tour .tc{width:calc(100vw - 24px)!important;left:12px!important}
+  .nodes{grid-template-columns:1fr}
+  .qa{grid-template-columns:1fr 1fr}
+  .srcs{columns:1}
+  input[type=range]{height:28px}
+  .seg button,.tab,.ib{padding:8px 11px}
+}
+@media (max-width:1300px){ .kpis{grid-template-columns:repeat(3,1fr)} .speedw input{width:80px} }
+@media (max-width:1100px){ .work{grid-template-columns:1fr} .side{position:static;max-height:none} .two{grid-template-columns:1fr} .srcs{columns:1} .bar{flex-wrap:wrap} }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">
+      <svg width="32" height="32" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="var(--accent)"/><path d="M6 11h6l-1 14H6zM15 15h5l-1 10h-4zM23 19h5v6h-5z" fill="#fff"/><path d="M4 28c3 0 3-2 6-2s3 2 6 2 3-2 6-2 3 2 6 2" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
+      <b>Vltavská kaskáda</b>
+    </div>
+    <div class="pillbox" id="pScen"><select class="scen" id="scen" title="Scénář"></select><button class="ib" id="load">Načíst</button></div>
+    <div class="pillbox" id="pTime">
+      <button class="play" id="play" title="Spustit / pozastavit (mezerník)" aria-label="Spustit"></button>
+      <div class="speedw" title="Rychlost simulace"><input type="range" id="speed" min="0" max="6" step="1" value="2"><span id="speedL">1 h/s</span></div>
+      <button class="ib" data-adv="3600" title="H">+1 h</button><button class="ib" data-adv="86400" title="D">+1 den</button><button class="ib" data-adv="604800" title="W">+7 dní</button>
+      <div class="clock"><b id="clockT">—</b><small id="clockD">—</small></div>
+    </div>
+    <div class="sp"></div>
+    <div class="pillbox">
+      <button class="ib" id="theme" title="Světlý / tmavý režim (T)"><svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-3px"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
+      <button class="ib" id="liveB" title="Aktuální data z portálu Povodí Vltavy – klikni pro načtení" style="display:none"></button><button class="ib" id="tourBtn" title="Interaktivní průvodce">▶ Průvodce</button><button class="ib" id="help" title="Manuál (?)">Manuál</button>
+    </div>
+  </div>
+  <div class="kpis">
+    <div class="kpi" id="kPraha"><div class="l"><i></i>Praha – Chuchle</div><div class="v">—</div><div class="s">—</div><canvas></canvas></div>
+    <div class="kpi" id="kPow" style="--kc:var(--s4)"><div class="l"><i></i>Výkon kaskády</div><div class="v">—</div><div class="s">—</div><canvas></canvas></div>
+    <div class="kpi" id="kVol" style="--kc:var(--s3)"><div class="l"><i></i>Zásoba vody</div><div class="v">—</div><div class="s">—</div><canvas></canvas></div>
+    <div class="kpi" id="kOr" style="--kc:var(--s1)"><div class="l"><i></i>Orlík</div><div class="v">—</div><div class="s">—</div><canvas></canvas></div>
+    <div class="kpi" id="kSl" style="--kc:var(--s7)"><div class="l"><i></i>Slapy</div><div class="v">—</div><div class="s">—</div><canvas></canvas></div>
+    <div class="kpi" id="kVr" style="--kc:var(--s5)"><div class="l"><i></i>Odtok z kaskády</div><div class="v">—</div><div class="s">—</div><canvas></canvas></div>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="hero">
+    <svg id="profile" viewBox="0 0 1200 510" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Podélný profil Vltavské kaskády"></svg>
+    <div class="cap" id="cap"><b id="capT"></b><span id="capD"></span></div>
+    <div class="evc" id="evc"><h4 id="evT"></h4><div class="m1" id="evM"></div><p id="evP"></p><div class="nav"><label><input type="checkbox" id="evMute"> tento typ už nezastavovat</label><button class="btn sm" id="evDet">🔍 Detail</button><button class="btn sm acc" id="evGo">Pokračovat ▶</button></div><div class="nav" style="margin-top:6px"><button class="btn sm" id="evSum">📋 Souhrn</button><button class="btn sm" id="evSkip">⏭ Přeskočit vše</button></div><div id="evS" style="display:none;margin-top:10px;max-height:220px;overflow:auto;border-top:1px solid var(--border);padding-top:8px"></div></div>
+  </section>
+
+  <div class="work">
+    <div class="col">
+      <section class="card">
+        <div class="chead">
+          <div class="tabs" id="ctabs"></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="zoomnote" id="zoomN"></span>
+            <div class="tabs" id="win"><button class="tab" data-w="24">1 d</button><button class="tab on" data-w="72">3 d</button><button class="tab" data-w="168">7 d</button><button class="tab" data-w="720">30 d</button><button class="tab" data-w="0">vše</button></div>
+          </div>
+        </div>
+        <div id="charts"></div>
+        <p class="note" id="chartNote"></p>
+      </section>
+      <section class="card">
+        <div class="chead"><div class="tabs" id="btabs"></div></div>
+        <div id="bpanel"></div>
+      </section>
+    </div>
+    <aside class="col side">
+      <section class="card insp" id="ctrl"></section>
+      <section class="card">
+        <div class="sect" style="margin-top:0"><div class="h">Rychlé akce</div></div>
+        <div class="qa">
+          <button data-qa="q20"><span>🌧</span>Povodeň Q20</button>
+          <button data-qa="q100"><span>🌊</span>Povodeň Q100</button>
+          <button data-qa="rain"><span>☔</span>Vydatný déšť</button>
+          <button data-qa="dry"><span>☀️</span>Sucho ×0,5</button>
+          <button data-qa="pre"><span>⬇️</span>Předpustit Orlík</button>
+          <button data-qa="trip" class="danger"><span>⚡</span>Výpadek bloku</button>
+          <button data-qa="auto"><span>↺</span>Vše na automatiku</button>
+          <button data-qa="norm"><span>≈</span>Přítoky dle scénáře</button>
+        </div>
+        <p class="note">Povodně nastupují za 12 h na všech přítocích. Předpouštění sníží cílovou hladinu Orlíku o 3 m.</p>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+<div class="modal" id="modal"><div class="box man">
+  <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Manuál simulátoru</h3><button class="btn" id="modalClose">Zavřít</button></div>
+  <p>Simulátor počítá v reálném čase vodní bilanci všech devíti děl Vltavské kaskády, výrobu elektřiny, povodně, sucho i podpůrné služby pro ČEPS. Vše běží v prohlížeči.</p>
+  <details open><summary>1. První kroky (2 minuty)</summary><ul>
+    <li>Nahoře vyber <b>scénář</b> a klikni <b>Načíst</b>. Doporučený začátek: „Povodeň srpen 2002“.</li>
+    <li>Tlačítkem <b>▶</b> spusť čas, posuvníkem vedle nastav rychlost (1 h/s je dobrý start).</li>
+    <li>Sleduj <b>podélný profil</b>: hladiny, svítící elektrárny, pěnu na přelivech, průtok v Praze. Pod každým štítkem je popisek, co dílo právě dělá.</li>
+    <li><b>Ukázkový režim</b> (zapnutý): při důležité události se simulace sama zastaví a vysvětlí, co se děje. Pokračuješ tlačítkem nebo mezerníkem; vypnout jde v Nastavení.</li>
+    <li>Klikni na přehradu – vpravo se otevře její <b>řízení</b>. Tlačítkem <b>🔍 Detail elektrárny</b> ji přiblížíš v řezu.</li>
+  </ul></details>
+  <details><summary>2. Ovládání času</summary><ul><li><kbd>Mezerník</kbd> spustit/pozastavit, <kbd>H</kbd>/<kbd>D</kbd>/<kbd>W</kbd> skok o hodinu/den/týden, <kbd>←</kbd><kbd>→</kbd> rychlost.</li><li>V Nastavení lze zvolit časový krok výpočtu a úsporný režim překreslování pro slabší počítače.</li></ul></details>
+  <details><summary>3. Řízení vodních děl</summary><ul>
+    <li><b>Automatika MŘ</b> – dílo se řídí zjednodušeným manipulačním řádem: drží cílové hladiny, při povodni pouští neškodný odtok, při suchu nadlepšuje odtok z Vraného.</li>
+    <li><b>Ruční</b> – sám nastavíš výkon každého soustrojí, otevření přelivu a spodních výpustí.</li>
+    <li><b>Plán výkonu</b> – hodinový diagram MW, podle kterého elektrárna jede.</li>
+    <li>Kliknutím na soustrojí ho odstavíš (porucha, revize).</li>
+    <li><b>Předpouštění</b> sníží dočasně cílovou hladinu – tak se před povodní vytváří volný prostor.</li></ul></details>
+  <details><summary>4. Povodně a sucho</summary><ul>
+    <li>Přítoky můžeš nastavit ručně (posuvník, tlačítka Q355 … Q100) nebo přidat povodňovou vlnu Q1–Q1000.</li>
+    <li><b>Ochrana Prahy</b>: Orlík a Slapy omezují odtok tak, aby v Chuchli nebyl překročen limit (Berounka a Sázava se odečítají).</li>
+    <li>Stupně povodňové aktivity v Chuchli: 450 / 1 000 / 1 500 m³/s.</li>
+    <li>Sucho: Orlík nadlepšuje do kóty 334,60, pak přebírají Slapy, po jejich vyčerpání pokračuje Orlík do stálého nadržení.</li></ul></details>
+  <details><summary>5. Elektřina a podpůrné služby</summary><ul>
+    <li>Špičkové elektrárny (Lipno I, Orlík, Slapy) pouští vodu hlavně ve špičkách, vyrovnávací nádrže pod nimi odtok vyhlazují.</li>
+    <li>V záložce Podpůrné služby nastavíš nabídky FCR, aFRR, mFRR5 (MZ5) a mFRR15 (MZ15). Tlačítko „Výpadek bloku“ nasimuluje výpadek 1 000 MW v soustavě.</li></ul></details>
+  <details><summary>6. Orlík 2033 – přečerpávání</summary><p>Podle plánu ČEZ budou na Orlíku 2 klasické Francisovy turbíny 95 MW a 2 reverzní Francisovy turbíny 87 MW, které umí čerpat vodu z Kamýku zpět do Orlíku. Zapneš to v řízení Orlíku nebo scénářem „Orlík 2033“. Automatika čerpá v levných hodinách (poledne, noc) a vyrábí ve špičce; čerpání omezuje malý objem Kamýku.</p></details>
+  <details><summary>7. Model a jeho omezení</summary><p>Hladiny se počítají z bilance přítok − odtok a z čar objemů proložených známými body Povodí Vltavy. Řízení je zjednodušená interpretace manipulačních řádů. Některé parametry (neškodné odtoky Orlíku a Slap, kapacity přelivů mimo Lipno/Štěchovice/Orlík, mezipovodí) jsou odhady – přehled je v záložce Parametry a zdroje.</p></details>
+  <div class="keys"><kbd>Mezerník</kbd><span>spustit / pozastavit</span><kbd>H D W</kbd><span>+1 h / +1 den / +7 dní</span><kbd>← →</kbd><span>rychlost</span><kbd>1–9</kbd><span>vybrat dílo, <kbd>0</kbd> PVE</span><kbd>Enter</kbd><span>detail vybraného díla</span><kbd>T</kbd><span>světlý / tmavý režim</span></div>
+  <div style="text-align:right"><button class="btn acc" id="manTour">Spustit interaktivního průvodce</button></div>
+</div></div>
+<div class="det" id="det"><div class="dbox">
+  <div class="dhead"><button class="ib" id="dPrev" title="Předchozí (←)">‹</button><div><h3 id="dName"></h3><small id="dRole"></small></div><button class="ib" id="dNext" title="Další (→)">›</button><span class="sp"></span><span class="muted" style="font-size:12px">← → přepínání · Esc zavřít</span><button class="ib" id="dClose">✕</button></div>
+  <div class="dbody"><svg id="dsvg" viewBox="0 0 1000 560"></svg><div class="dside" id="dside"></div></div>
+</div></div>
+<div class="modal" id="welcome"><div class="box" style="max-width:560px;text-align:center;padding:30px 30px 24px">
+  <svg width="64" height="64" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="var(--accent)"/><path d="M6 11h6l-1 14H6zM15 15h5l-1 10h-4zM23 19h5v6h-5z" fill="#fff"/><path d="M4 28c3 0 3-2 6-2s3 2 6 2 3-2 6-2 3 2 6 2" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
+  <h3 style="font-size:24px;margin:12px 0 6px">Simulátor Vltavské kaskády</h3>
+  <p style="color:var(--text-2);margin:0 0 18px;font-size:14.5px;line-height:1.6">Řiď devět přehrad od Lipna po Vrané, ochraň obce před povodní, udrž vodu v suchu a vyráběj elektřinu. Než začneš, doporučuju krátkého průvodce – zabere asi 2 minuty.</p>
+  <button class="btn acc" id="wTour" style="font-size:16px;padding:12px 26px;border-radius:12px">▶ Spustit průvodce</button>
+  <div style="display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap"><button class="btn" id="wMan">📖 Manuál</button><button class="btn" id="wGo">Rovnou začít</button></div>
+  <label style="display:inline-flex;gap:6px;align-items:center;margin-top:14px;font-size:12.5px;color:var(--muted)"><input type="checkbox" id="wNo"> Příště nezobrazovat</label>
+</div></div>
+<div class="tour" id="tour"><div class="spot" id="tSpot"></div><div class="tc" id="tCard"><h4 id="tT"></h4><p id="tP"></p><div class="nav"><span class="dots" id="tN"></span><button class="btn sm" id="tSkip">Přeskočit</button><button class="btn sm" id="tBack">Zpět</button><button class="btn sm acc" id="tNext">Další</button></div></div></div>
+
+<script>
+/*CORE*/
+</script>
+<script>
+(function(){
+'use strict';
+const {Sim, loadScenario, addEvent, SCENARIOS, PPS_DEF, PPS_PLANTS, QN, PVE_DEF, DAMS_DEF, NODES_DEF} = VK;
+const sim=new Sim();
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const root=document.documentElement;
+const CC={}; const css=v=>CC[v]!==undefined?CC[v]:(CC[v]=getComputedStyle(root).getPropertyValue(v).trim()); const clearCss=()=>{ for (const k in CC) delete CC[k]; };
+const fmt=(x,d=0)=>(x==null||!isFinite(x))?'—':x.toLocaleString('cs-CZ',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtQ=q=>!isFinite(q)?'—':q>=100?fmt(q,0):q>=10?fmt(q,1):fmt(q,2);
+const pad=n=>String(n).padStart(2,'0');
+const DOW=['neděle','pondělí','úterý','středa','čtvrtek','pátek','sobota'];
+const dateOf=t=>new Date(sim.t0+t*1000+3600e3);
+function tStr(t,y){ const d=dateOf(t); return `${d.getUTCDate()}. ${d.getUTCMonth()+1}.${y?' '+d.getUTCFullYear():''} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; }
+const clamp01=x=>x<0?0:x>1?1:x, lerp=(a,b,t)=>a+(b-a)*t;
+const PLANT_NAME={lipno1:'Lipno I',orlik:'Orlík',slapy:'Slapy',stechovice:'Štěchovice I',kamyk:'Kamýk',pve:'PVE Štěchovice II'};
+const ORDER=['lipno1','lipno2','hnevkovice','korensko','orlik','kamyk','slapy','stechovice','vrane'];
+const SPEEDS=[[600,'10 min/s'],[1800,'30 min/s'],[3600,'1 h/s'],[21600,'6 h/s'],[86400,'1 den/s'],[604800,'7 dní/s'],[1e9,'maximum']];
+let selected='orlik', running=false, speed=3600, winH=72, zoom=null, chartTab='hl', botTab='dams';
+const hidden={};
+
+/* ---------- motiv, nápověda, toasty ---------- */
+try{ const t=localStorage.getItem('vk-theme'); if (t) root.dataset.theme=t; }catch(e){}
+function setTheme(t){ root.dataset.theme=t; clearCss(); try{ localStorage.setItem('vk-theme',t); }catch(e){} buildProfile(); if (detId) buildDetail(); buildCtrl(); buildCharts(); renderAll(); }
+$('#theme').onclick=()=>setTheme(root.dataset.theme==='dark'?'light':'dark');
+$('#help').onclick=()=>$('#modal').classList.add('on'); $('#modalClose').onclick=()=>$('#modal').classList.remove('on'); $('#manTour').onclick=()=>{ $('#modal').classList.remove('on'); startTour(); }; $('#tourBtn').onclick=()=>startTour();
+$('#modal').onclick=e=>{ if (e.target.id==='modal') $('#modal').classList.remove('on'); };
+sim.listeners.push(e=>{ if (e.sev==='info' && e.type!=='scénář') return; toast(e.msg,e.sev); });
+function toast(msg,sev){ const b=$('#toast'); while (b.children.length>1) b.firstChild.remove(); const d=document.createElement('div'); d.className=sev||'info'; d.textContent=msg; b.appendChild(d); setTimeout(()=>d.remove(),sev==='crit'?5000:3500); }
+
+/* ---------- scénáře a běh ---------- */
+for (const k in SCENARIOS){ const o=document.createElement('option'); o.value=k; o.textContent=SCENARIOS[k].name; $('#scen').appendChild(o); }
+function doLoad(){ evQueue.length=0; evCur=null; if (typeof story!=='undefined') story.length=0; $('#evc').classList.remove('on'); const k=$('#scen').value; loadScenario(sim,k,{N:+($('#qnN')?.value||100)}); zoom=null; setCap(k); buildProfile(); buildCtrl(); buildBottom(); buildCharts(); sim.step(); renderAll(); }
+function setCap(k){ $('#capT').textContent=SCENARIOS[k].name; $('#capD').textContent=SCENARIOS[k].desc; }
+$('#load').onclick=doLoad;
+const PLAY='<svg width="16" height="16" viewBox="0 0 16 16"><path d="M4.5 2.5l9 5.5-9 5.5z" fill="#fff"/></svg>', PAUSE='<svg width="16" height="16" viewBox="0 0 16 16"><rect x="3.5" y="2.5" width="3.2" height="11" rx="1" fill="#fff"/><rect x="9.3" y="2.5" width="3.2" height="11" rx="1" fill="#fff"/></svg>';
+function setRun(r){ running=r; $('#play').innerHTML=r?PAUSE:PLAY; $('#hero').classList.toggle('paused',!r); last=performance.now(); }
+$('#play').onclick=()=>setRun(!running);
+function setSpeed(i){ i=Math.max(0,Math.min(SPEEDS.length-1,i)); $('#speed').value=i; speed=SPEEDS[i][0]; $('#speedL').textContent=SPEEDS[i][1]; }
+$('#speed').oninput=e=>setSpeed(+e.target.value);
+$$('[data-adv]').forEach(b=>b.onclick=()=>advance(+b.dataset.adv));
+function advance(sec){ const n=Math.round(sec/sim.dt), t0=performance.now(); for (let i=0;i<n;i++){ if (typeof storyDue==='function'&&storyDue()){ const s=story.shift(); evQueue.push(s.inf); if (!evCur) showEv(); break; } sim.step(); if (performance.now()-t0>5000) break; } renderAll(); }
+let last=performance.now(), acc=0, lu=0, lc=0, ls=0, lg=0, lastHistN=-1, smoothMode='hi';
+try{ smoothMode=localStorage.getItem('vk-smooth')||'hi'; }catch(e){}
+function loop(now){
+  const dtr=Math.min(0.25,(now-last)/1000); last=now;
+  if (running){ acc+=speed*dtr; const t0=performance.now(), budget=smoothMode==='hi'?9:6; while (acc>=sim.dt && performance.now()-t0<budget && !storyDue()){ sim.step(); acc-=sim.dt; } if (storyDue()){ acc=0; const s=story.shift(); evQueue.push(s.inf); if (!evCur) showEv(); } acc=speed>=1e9?0:Math.min(acc,sim.dt*2000); }
+  const hi=smoothMode==='hi';
+  if (now-lg>=(hi?0:60)){ const dg=(now-lg)/1000; lg=now; animProfile(Math.min(.25,dg)); if (detId) animDetail(Math.min(.25,dg)); }
+  if (now-lu>(hi?220:500)){ lu=now; renderLive(); }
+  if (now-lc>(hi?1000:2500) && sim.hist.n!==lastHistN){ lc=now; lastHistN=sim.hist.n; drawCharts(); }
+  if (now-ls>(hi?2000:5000)){ ls=now; drawSparks(); }
+  requestAnimationFrame(loop);
+}
+document.addEventListener('keydown',e=>{
+  if (e.target.matches('input,select,textarea')) return; const k=e.key.toLowerCase();
+  if (detId){ if (k==='arrowright'){ stepDetail(1); return; } if (k==='arrowleft'){ stepDetail(-1); return; } if (k==='escape'){ closeDetail(); return; } }
+  if (tourOn){ if (k==='arrowright'||k==='enter'){ tourGo(1); return; } if (k==='arrowleft'){ tourGo(-1); return; } }
+  if (k===' '){ e.preventDefault(); if (evCur){ evContinue(); return; } setRun(!running); } else if (k==='h') advance(3600); else if (k==='d') advance(86400); else if (k==='w') advance(604800);
+  else if (k==='arrowright') setSpeed(+$('#speed').value+1); else if (k==='arrowleft') setSpeed(+$('#speed').value-1);
+  else if (k==='t') $('#theme').click(); else if (k==='?') $('#modal').classList.toggle('on'); else if (k==='escape'){ $('#modal').classList.remove('on'); closeDetail(); endTour(); } else if (k==='enter') openDetail(selected);
+  else if (/^[1-9]$/.test(k)) select(ORDER[+k-1]); else if (k==='0') select('pve');
+});
+
+/* ===================== PROFIL ===================== */
+const GEO={lipno1:{L:42,bed:704},lipno2:{L:1.8,bed:552},hnevkovice:{L:9.9,bed:353},korensko:{L:6.5,bed:344},orlik:{L:68,bed:282},kamyk:{L:10,bed:265},slapy:{L:44,bed:213},stechovice:{L:9.4,bed:199},vrane:{L:12,bed:186}};
+const TRIBS=[{id:'malse',km:239.6,label:'Malše'},{id:'luznice',km:202.5,label:'Lužnice'},{id:'otava',km:169.5,label:'Otava'},{id:'sazava',km:78.3,label:'Sázava'},{id:'berounka',km:62.0,label:'Berounka'}];
+const VW=1200, VH=510, PX0=20, PX1=1180;
+const XA=[[373,0],[318,0.15],[222,0.27],[199,0.35],[144.65,0.57],[134.7,0.635],[91.5,0.785],[84.4,0.84],[71.3,0.915],[55,1]];
+function X(km){ for (let i=0;i<XA.length-1;i++){ const [a,fa]=XA[i],[b,fb]=XA[i+1]; if (km<=a&&km>=b) return PX0+(fa+(fb-fa)*(a-km)/(a-b))*(PX1-PX0); } return km>373?PX0:PX1; }
+// spojitá nelineární výšková osa: Lipno nahoře, střední pásmo stlačené
+const YS=[[745,92],[550,190],[380,222],[180,440]];
+function Y(h){ for (let i=0;i<YS.length-1;i++){ const [a,ya]=YS[i],[b,yb]=YS[i+1]; if (h<=a&&h>=b) return ya+(a-h)/(a-b)*(yb-ya); } return h>745?92:440; }
+const NS='http://www.w3.org/2000/svg';
+function el(t,a,p){ const e=document.createElementNS(NS,t); for (const k in a) e.setAttribute(k,a[k]); if (p) p.appendChild(e); return e; }
+function rnd(seed){ let s=seed; return ()=>{ s=(s*16807)%2147483647; return s/2147483647; }; }
+// rozmístění štítků (dráha y, posun x)
+const TAG={lipno1:[0,10],lipno2:[100,74],hnevkovice:[-20,10],korensko:[50,74],orlik:[0,10],kamyk:[0,74],slapy:[-20,10],stechovice:[10,74],vrane:[0,138]};
+const prof={};
+function skyStops(hod,dark){
+  // [hodina, horní, dolní]
+  const L=[[0,'#16233b','#2c3e5c'],[5,'#1d2c48','#3d4f6e'],[6.5,'#6f86b5','#f3c39b'],[8.5,'#9cc8f2','#dcebfa'],[16,'#a7cff5','#e4f0fb'],[18.5,'#7d8fc4','#f5b98e'],[20,'#2a3a5e','#4a5a7c'],[24,'#16233b','#2c3e5c']];
+  const D=[[0,'#060a12','#0b1220'],[5,'#08101c','#111b2c'],[6.5,'#1a2540','#3a3346'],[8.5,'#11233b','#162a42'],[16,'#11233b','#172b44'],[18.5,'#1d2240','#40303a'],[20,'#0a1222','#111b2c'],[24,'#060a12','#0b1220']];
+  const T=dark?D:L; let i=0; while (i<T.length-2 && hod>=T[i+1][0]) i++; const [h0,a0,b0]=T[i],[h1,a1,b1]=T[i+1]; const t=(hod-h0)/(h1-h0);
+  const mix=(c1,c2)=>{ const p=c=>[1,3,5].map(j=>parseInt(c.slice(j,j+2),16)); const x=p(c1),y=p(c2); return '#'+x.map((v,k)=>Math.round(lerp(v,y[k],t)).toString(16).padStart(2,'0')).join(''); };
+  return [mix(a0,a1),mix(b0,b1)];
+}
+function buildProfile(){
+  const svg=$('#profile'); svg.innerHTML=''; const defs=el('defs',{},svg);
+  const lg=(id,stops)=>{ const g=el('linearGradient',{id,x1:0,y1:0,x2:0,y2:1},defs); stops.forEach(([o,c,op])=>el('stop',{offset:o,'stop-color':c,'stop-opacity':op??1},g)); return g; };
+  prof.sky=lg('gSky',[[0,'#000'],[1,'#000']]);
+  lg('gWater',[[0,css('--water-1'),.92],[1,css('--water-2'),.98]]);
+  lg('gEarth',[[0,css('--earth-1')],[1,css('--earth-2')]]);
+  const gc=el('linearGradient',{id:'gConc',x1:0,y1:0,x2:1,y2:0},defs); el('stop',{offset:0,'stop-color':css('--conc-1')},gc); el('stop',{offset:1,'stop-color':css('--conc-2')},gc);
+  const pat=el('pattern',{id:'pStr',width:18,height:18,patternUnits:'userSpaceOnUse',patternTransform:'rotate(-12)'},defs); el('line',{x1:0,y1:9,x2:18,y2:9,stroke:css('--strata'),'stroke-width':3},pat);
+  const glow=el('filter',{id:'glow',x:'-50%',y:'-50%',width:'200%',height:'200%'},defs); el('feGaussianBlur',{stdDeviation:2.2},glow);
+  const mk=el('marker',{id:'arr',markerWidth:8,markerHeight:8,refX:4,refY:6,orient:'auto'},defs); el('path',{d:'M0,0 L8,0 L4,8 z',fill:css('--water-1')},mk);
+  el('rect',{x:0,y:0,width:VW,height:VH,fill:'url(#gSky)'},svg);
+  // slunce / měsíc
+  prof.sunGlow=el('circle',{r:26,fill:'#ffd166',opacity:.14},svg); prof.sun=el('circle',{r:14,fill:'#ffd166',opacity:.9},svg);
+  // kopce (dvě vrstvy)
+  const r=rnd(42);
+  for (const [col,base,amp,op] of [[css('--hill-1'),250,70,1],[css('--hill-2'),300,55,1]]){
+    let d=`M0,${VH} L0,${base}`; let y=base; for (let x=0;x<=VW;x+=40){ y=base-amp*(0.5+0.5*Math.sin(x/170+r()*1.5))*(0.6+r()*0.5); d+=` Q${x-20},${y-10} ${x},${y}`; } d+=` L${VW},${VH} Z`;
+    el('path',{d,fill:col,opacity:op},svg); }
+  // měřítko výšek
+  const ax=el('g',{'font-size':11,fill:css('--muted'),class:'m'},svg);
+  for (const h of [700,600,350,300,250,200]) { el('line',{x1:PX0+28,x2:PX1,y1:Y(h),y2:Y(h),stroke:css('--text'),'stroke-opacity':.06},svg); el('text',{x:PX0,y:Y(h)+4},ax).textContent=h; }
+  // dno a zem
+  const bed=[[373,745]]; for (const d of sim.dams){ const g=GEO[d.id]; bed.push([d.d.km+g.L,d.d.hRet]); bed.push([d.d.km,g.bed]); } bed.push([59.5,188],[55,187]); bed.sort((a,b)=>b[0]-a[0]); prof.bed=bed;
+  const pts=bed.map(([k,h])=>[X(k),Y(h)]); const dB='M'+pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L');
+  el('path',{d:`M0,${VH} L0,${pts[0][1]} `+pts.map(p=>`L${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')+` L${VW},${pts[pts.length-1][1]} L${VW},${VH} Z`,fill:'url(#gEarth)'},svg);
+  el('path',{d:`M0,${VH} L0,${pts[0][1]} `+pts.map(p=>`L${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')+` L${VW},${pts[pts.length-1][1]} L${VW},${VH} Z`,fill:'url(#pStr)'},svg);
+  el('path',{d:dB,fill:'none',stroke:css('--bed'),'stroke-width':2.2},svg);
+  // řeka (proudí)
+  prof.river=[];
+  for (const [a,b,src] of [[329.5,319.2,'lipno1'],[319.1,220.2,'lipno2'],[200.4,212.6,'korensko'],[71.3,55,'vrane']]){ const sp=bed.filter(p=>p[0]<=Math.max(a,b)&&p[0]>=Math.min(a,b)); if (sp.length<2) continue;
+    const d='M'+sp.map(([k,h])=>X(k).toFixed(1)+','+(Y(h)-1.5).toFixed(1)).join(' L');
+    const base=el('path',{d,fill:'none',stroke:css('--water-2'),'stroke-width':6,'stroke-linecap':'round',opacity:.75},svg);
+    const f=el('path',{d,fill:'none',stroke:css('--water-line'),'stroke-width':2,'stroke-dasharray':'5 13','stroke-linecap':'round',class:'flowing'},svg); prof.river.push({f,base,src}); }
+  // přítoky – zakřivené řeky přicházející z kopců
+  prof.tr={};
+  for (const t of TRIBS){ const x=X(t.km), y=Y(bedAt(t.km))-2; const sx=x-34, sy=y-48;
+    const d=`M${sx},${sy} C ${sx+8},${sy+30} ${x-18},${y-24} ${x},${y}`;
+    const w=el('path',{d,fill:'none',stroke:css('--water-2'),'stroke-width':4,'stroke-linecap':'round',opacity:.8},svg);
+    const f=el('path',{d,fill:'none',stroke:css('--water-line'),'stroke-width':1.6,'stroke-dasharray':'4 10',class:'flowing'},svg);
+    const g=el('g',{},svg); el('rect',{x:sx-40,y:sy-32,width:80,height:30,rx:8,fill:css('--surface'),opacity:.92,stroke:css('--border')},g);
+    el('text',{x:sx,y:sy-19.5,'font-size':10.5,'text-anchor':'middle',fill:css('--text-2'),'font-weight':650},g).textContent=t.label;
+    const v=el('text',{x:sx,y:sy-6.5,'font-size':11.5,'text-anchor':'middle',fill:css('--text'),class:'m','font-weight':600},g);
+    prof.tr[t.id]={v,w,f}; }
+  // nádrže + hráze
+  prof.res={};
+  for (const d of sim.dams){
+    const g=GEO[d.id], x0=X(d.d.km), x1=X(d.d.km+g.L);
+    const grp=el('g',{class:'hit'},svg); grp.onclick=()=>select(d.id); grp.ondblclick=()=>openDetail(d.id);
+    const water=el('path',{fill:'url(#gWater)'},grp);
+    const surf=el('line',{stroke:css('--water-line'),'stroke-width':1.8,'stroke-dasharray':'14 6',class:'shim',opacity:.9},grp);
+    if (x0-x1>14){ for (const [k,dash,col] of [['hZas','6 4','--good'],['hRet','6 4','--critical']]){ if (k==='hRet'&&Math.abs(d.d.hRet-d.d.hZas)<0.05) continue; el('line',{x1,x2:x0,y1:Y(d.d[k]),y2:Y(d.d[k]),stroke:css(col),'stroke-width':1.2,'stroke-dasharray':dash,opacity:.75},grp); } }
+    const yc=Y(d.d.hCrown), yb=Y(g.bed)+2, hgt=yb-yc, w=Math.max(6,Math.min(16,hgt*0.28));
+    el('path',{d:`M${x0-2},${yc} L${x0+3},${yc} L${x0+w},${yb} L${x0-3},${yb} Z`,fill:'url(#gConc)',stroke:css('--conc-2'),'stroke-width':.8},grp);
+    // strojovna
+    const ph=el('rect',{x:x0+w-1,y:yb-12,width:15,height:11,rx:2,fill:css('--conc-2')},grp);
+    const lights=[0,1,2].map(i=>el('rect',{x:x0+w+1+i*4.3,y:yb-9,width:2.6,height:4,rx:.6,fill:css('--light'),opacity:0},grp));
+    const glowC=el('circle',{cx:x0+w+7,cy:yb-7,r:9,fill:css('--light'),opacity:0,filter:'url(#glow)'},grp);
+    const foam=el('path',{d:`M${x0+2},${yc+4} Q${x0+w+10},${(yc+yb)/2} ${x0+w+4},${yb-3}`,fill:'none',stroke:'#fff','stroke-width':3.2,'stroke-dasharray':'3 6',class:'flowing',opacity:0},grp);
+    const outT={textContent:''};
+    // štítek
+    const [dx,ty]=TAG[d.id]; const bw=158, bh=60; const cx=x0+dx; const bx=Math.min(VW-bw-6,Math.max(6,cx-bw/2)); const by=ty;
+    el('line',{x1:Math.min(Math.max(cx,bx+10),bx+bw-10),y1:by+bh,x2:x0,y2:yc-3,stroke:css('--text'),'stroke-opacity':.25,'stroke-width':1},grp);
+    const box=el('rect',{class:'tagbox',x:bx,y:by,width:bw,height:bh,rx:11,fill:css('--surface'),opacity:.95,stroke:css('--border-2'),'stroke-width':1},grp);
+    const nm=el('text',{x:bx+10,y:by+17,'font-size':12.5,'font-weight':700,fill:css('--text')},grp); nm.textContent=d.name;
+    const pw=el('text',{x:bx+bw-10,y:by+36,'font-size':11,'text-anchor':'end','font-weight':650,class:'m'},grp);
+    const lv=el('text',{x:bx+10,y:by+36,'font-size':14,'font-weight':650,fill:css('--text'),class:'m'},grp);
+    const pc=el('text',{x:bx+bw-10,y:by+17,'font-size':11,'text-anchor':'end',fill:css('--muted'),class:'m'},grp);
+    const st=el('text',{x:bx+10,y:by+52,'font-size':10.5,'font-weight':600,fill:css('--muted')},grp);
+    const tt=el('title',{},grp);
+    const ring=el('circle',{cx:x0,cy:(yc+yb)/2,r:10,fill:'none',stroke:css('--warning'),'stroke-width':3,opacity:0,class:'pulse'},grp);
+    prof.res[d.id]={water,surf,nm,pw,lv,pc,box,lights,glowC,foam,outT,x0,x1,g,tt,st,ring,bx,by,bw,bh};
+  }
+  // obce a místa ohrožená povodní
+  prof.pl={};
+  const plOff={frymburk:[0,40],vbrod:[0,26],krumlov:[0,56],cb:[0,28],tyn:[-6,40],zvikov:[0,46],stech:[-8,30],davle:[4,54],zbraslav:[-4,28],praha:[-14,50]};
+  for (const p of sim.places){ const d=p.def, x=X(d.km)+(plOff[d.id]||[0,30])[0], yb=Y(bedAt(d.km)), y=yb+(plOff[d.id]||[0,30])[1];
+    const g=el('g',{class:'hit'},svg); g.onclick=()=>openDetail('obec:'+d.id);
+    el('line',{x1:x,x2:x,y1:yb+2,y2:y-10,stroke:css('--text'),'stroke-opacity':.2},g);
+    const house=el('path',{d:`M${x-7},${y} L${x-7},${y-7} L${x},${y-13} L${x+7},${y-7} L${x+7},${y} Z`,fill:css('--good'),stroke:css('--surface'),'stroke-width':1.2},g);
+    const t=el('text',{x,y:y+13,'font-size':10.5,'text-anchor':'middle','font-weight':650,fill:css('--text-2'),style:'paint-order:stroke',stroke:css('--earth-2'),'stroke-width':3},g); t.textContent=d.name.split(' (')[0].split(',')[0];
+    const tt=el('title',{},g); prof.pl[d.id]={house,t,tt}; }
+  // Orlík 2033 – čerpání z Kamýku (šipka proti proudu)
+  { const xo=X(144.65), xk=X(134.7), yo=Y(350), yk=Y(284); prof.opArr=el('g',{opacity:0},svg);
+    el('path',{d:`M${xk-6},${yk-6} C ${xk-20},${yk-60} ${xo+40},${yo-30} ${xo+12},${yo-10}`,stroke:css('--s7'),'stroke-width':3,fill:'none','stroke-dasharray':'7 6',class:'flowing','marker-end':'url(#arrP)'},prof.opArr);
+    const mp=el('marker',{id:'arrP',markerWidth:8,markerHeight:8,refX:4,refY:4,orient:'auto'},defs); el('path',{d:'M0,0 L8,4 L0,8 z',fill:css('--s7')},mp);
+    el('text',{x:(xo+xk)/2+8,y:yo-34,'font-size':11.5,'font-weight':700,fill:css('--s7')},prof.opArr).textContent='čerpání'; }
+  // PVE
+  const xs=X(84.4), pg=el('g',{class:'hit'},svg); pg.onclick=()=>select('pve');
+  const hx=xs-58, hy=Y(330);
+  el('path',{d:`M${xs+4},${Y(219)} C ${xs-6},${Y(250)} ${hx+30},${Y(300)} ${hx+12},${hy+4}`,stroke:css('--s7'),'stroke-width':2.4,fill:'none'},pg);
+  prof.pveW=el('rect',{x:hx-14,y:hy-8,width:30,height:10,rx:3,fill:css('--s7')},pg);
+  el('rect',{x:hx-16,y:hy-10,width:34,height:14,rx:4,fill:'none',stroke:css('--s7'),'stroke-width':1.2},pg);
+  const pb=el('rect',{class:'tagbox',x:hx-176,y:hy-22,width:152,height:40,rx:10,fill:css('--surface'),opacity:.95,stroke:css('--border-2')},pg);
+  el('text',{x:hx-166,y:hy-6,'font-size':12,'font-weight':700,fill:css('--text')},pg).textContent='PVE Homole';
+  prof.pve=el('text',{x:hx-166,y:hy+10,'font-size':11.5,fill:css('--text-2'),class:'m'},pg);
+  // Praha – silueta
+  const xp=X(59.5), yp=Y(188); const sk=el('g',{fill:css('--text'),opacity:.55},svg);
+  [[0,14],[7,22],[13,10],[19,28],[23,30],[27,18],[33,24],[40,12]].forEach(([dx,h])=>el('rect',{x:xp-26+dx,y:yp-h-2,width:5,height:h},sk));
+  el('path',{d:`M${xp-3},${yp-32} l3,-8 l3,8z`},sk);
+  const prg=el('g',{},svg); prof.prBox=el('rect',{x:xp-170,y:yp-196,width:150,height:50,rx:11,fill:css('--surface'),opacity:.95,stroke:css('--border-2')},prg);
+  el('line',{x1:xp-30,y1:yp-146,x2:xp-8,y2:yp-36,stroke:css('--text'),'stroke-opacity':.25},prg);
+  el('text',{x:xp-159,y:yp-177,'font-size':13,'font-weight':700,fill:css('--text')},prg).textContent='Praha-Chuchle';
+  prof.pr=el('text',{x:xp-159,y:yp-156,'font-size':15,'font-weight':650,fill:css('--text'),class:'m'},prg);
+  prof.prS=el('text',{x:xp-31,y:yp-156,'font-size':11,'text-anchor':'end','font-weight':700},prg);
+  // déšť
+  prof.rain=el('g',{opacity:0},svg); const rr=rnd(7);
+  for (let i=0;i<90;i++){ const x=rr()*VW, y=rr()*200; el('line',{x1:x,y1:y,x2:x-4,y2:y+12,stroke:css('--water-line'),'stroke-width':1.2,opacity:.55,class:'drop',style:`animation-delay:${-rr()*0.7}s;animation-duration:${0.55+rr()*0.35}s`},prof.rain); }
+  // legenda
+  const L=el('g',{'font-size':11.5,fill:css('--text-2')},svg); let lx=PX0+40; const ly=VH-14;
+  for (const [t,c] of [['max. zásobní hladina','--good'],['max. retenční hladina','--critical']]){ el('line',{x1:lx,x2:lx+20,y1:ly-4,y2:ly-4,stroke:css(c),'stroke-dasharray':'6 4','stroke-width':1.5},L); el('text',{x:lx+26,y:ly},L).textContent=t; lx+=170; }
+  el('rect',{x:lx,y:ly-9,width:10,height:6,rx:1,fill:css('--light')},L); el('text',{x:lx+16,y:ly},L).textContent='elektrárna vyrábí'; lx+=130;
+  el('line',{x1:lx,x2:lx+18,y1:ly-4,y2:ly-4,stroke:'#fff','stroke-width':3,'stroke-dasharray':'3 5'},L); el('text',{x:lx+24,y:ly},L).textContent='přepad přes přeliv';
+}
+function bedAt(km){ const p=prof.bed; for (let i=0;i<p.length-1;i++){ if (km<=p[i][0]&&km>=p[i+1][0]){ const t=(p[i][0]-km)/Math.max(1e-6,p[i][0]-p[i+1][0]); return p[i][1]+(p[i+1][1]-p[i][1])*t; } } return 188; }
+let prevQsum=0, rainLvl=0;
+const disp={};
+function animProfile(dt){ // plynulá geometrie: hladiny a šířky toků se dotahují k aktuálním hodnotám
+  if (!prof.res) return; const k=1-Math.exp(-dt*7);
+  for (const d of sim.dams){ const r=prof.res[d.id]; if (!r) continue; const o=disp[d.id]||(disp[d.id]={h:d.h,q:d.Qout});
+    o.h+=(d.h-o.h)*k; o.q+=(d.Qout-o.q)*k; const hb=r.g.bed, top=d.d.hRet, h=o.h;
+    const frac=clamp01((h-hb)/(top-hb)); const xe=r.x0+(r.x1-r.x0)*Math.min(1.06,frac<1?frac:1+(h-top)/(top-hb)*3);
+    const yb=Y(hb)+1, yh=Y(h); r.water.setAttribute('d',`M${r.x0.toFixed(1)},${yb.toFixed(1)} L${r.x0.toFixed(1)},${yh.toFixed(2)} L${xe.toFixed(1)},${yh.toFixed(2)} Z`);
+    r.surf.setAttribute('x1',xe.toFixed(1)); r.surf.setAttribute('x2',r.x0); r.surf.setAttribute('y1',yh.toFixed(2)); r.surf.setAttribute('y2',yh.toFixed(2)); }
+  for (const rv of prof.river){ const q=Math.max(.5,(disp[rv.src]||{q:1}).q); const w=1.4+Math.log10(q)*1.6; rv.f.setAttribute('stroke-width',(w*0.5).toFixed(2)); rv.base.setAttribute('stroke-width',(w*1.6).toFixed(2)); }
+  if (prof.opArr){ const p=sim.opump; prof.opArr.setAttribute('opacity',sim.orlik2033&&p.P>1?1:0); }
+}
+function renderProfile(){
+  const dark=root.dataset.theme==='dark', hod=sim.hourOfDay; const [a,b]=skyStops(hod,dark);
+  const st=prof.sky.children; st[0].setAttribute('stop-color',a); st[1].setAttribute('stop-color',b);
+  const ang=(hod-6)/12*Math.PI; const day=hod>=6&&hod<=18; const sx=day? lerp(80,VW-80,(hod-6)/12) : lerp(80,VW-80,((hod+6)%24)/12); const sy=95-Math.sin(day?ang:((hod+6)%24-0)/12*Math.PI)*80;
+  prof.sun.setAttribute('cx',sx); prof.sun.setAttribute('cy',sy); prof.sunGlow.setAttribute('cx',sx); prof.sunGlow.setAttribute('cy',sy);
+  prof.sun.setAttribute('fill',day?'#ffd166':'#e8edf5'); prof.sunGlow.setAttribute('fill',day?'#ffd166':'#cfd8e8'); prof.sun.setAttribute('r',day?14:9); prof.sunGlow.setAttribute('opacity',day?.16:.07);
+  for (const d of sim.dams){ const r=prof.res[d.id], h=d.h;
+    r.lv.textContent=fmt(h,2)+' m';
+    const V0=d.Vat(d.d.hStale), Vz=d.Vat(d.d.hZas); r.pc.textContent=fmt((d.V-V0)/(Vz-V0)*100,0)+' %';
+    const on=d.P>0.05; r.pw.textContent=on?'⚡'+fmt(d.P,d.P<10?1:0)+' MW':''; r.pw.setAttribute('fill',css('--good'));
+    if (d.id==='orlik'&&sim.orlik2033&&sim.opump.P>1){ r.pw.textContent='⟲ čerpá '+fmt(sim.opump.P,0)+' MW'; r.pw.setAttribute('fill',css('--s7')); }
+    r.lights.forEach(l=>l.setAttribute('opacity',on?1:0)); r.glowC.setAttribute('opacity',on?Math.min(.7,.25+d.P/150):0);
+    const sp=d.Qspill+d.Qoutl; r.foam.setAttribute('opacity',sp>1?Math.min(1,.35+Math.log10(1+sp)/4):0);
+    r.outT.textContent=fmtQ(d.Qout)+' m³/s';
+    const sel=d.id===selected, crit=d.h>d.d.hRet+0.01||d.h<d.d.hStale-0.01, warn=d.h>d.d.hZas+0.02;
+    r.box.setAttribute('stroke',sel?css('--accent'):crit?css('--critical'):warn?css('--serious'):css('--border-2')); r.box.setAttribute('stroke-width',sel||crit||warn?2:1);
+    { let t='', c='--muted'; const spq=d.Qspill+d.Qoutl;
+      if (d.trip){ t='⛔ turbíny pod vtokem'; c='--critical'; }
+      else if (d.drowned){ t='zatopeno vzdutím Orlíku'; }
+      else if (d.h>d.d.hRet+0.01){ t='⚠ nad max. retenční hladinou'; c='--critical'; }
+      else if (d.id==='orlik'&&sim.orlik2033&&sim.opump.P>1){ t='⟲ čerpá vodu z Kamýku'; c='--s7'; }
+      else if (spq>2){ t='💧 přeliv/výpusti '+fmtQ(spq)+' m³/s'; c='--serious'; }
+      else if (d.h>d.d.hZas+0.02){ t='▲ plní se retenční prostor'; c='--serious'; }
+      else if (d.h<d.d.hStale-0.01){ t='▼ pod stálým nadržením'; c='--critical'; }
+      else if (/sucho|nadlepš/.test(d.phase||'')){ t='▼ nadlepšuje průtok'; c='--warning'; }
+      else if (d.P>0.5 && d.d.role==='storage'){ t='⚡ špičkový provoz'; c='--good'; }
+      else { t=(d.phase||'').slice(0,26); }
+      r.st.textContent=t; r.st.setAttribute('fill',css(c)); }
+    r.tt.textContent=`${d.name}: ${fmt(h,2)} m n.m., přítok ${fmtQ(d.Qin)} m³/s, odtok ${fmtQ(d.Qout)} m³/s, výkon ${fmt(d.P,1)} MW – ${d.phase||''}`;
+  }
+
+  let qs=0, qa=0;
+  for (const t of TRIBS){ const v=sim.q?sim.q[t.id]:NaN, o=prof.tr[t.id]; o.v.textContent=fmtQ(v)+' m³/s'; const w=1.5+Math.log10(Math.max(1,v))*1.4; o.w.setAttribute('stroke-width',(w*1.6).toFixed(1)); o.f.setAttribute('stroke-width',(w*.5).toFixed(1)); }
+  if (sim.q) for (const n of sim.nodes){ qs+=sim.q[n.id]; qa+=n.def.Qa; }
+  const rising = qs>prevQsum*1.0005 && qs>qa*1.3; prevQsum=qs; rainLvl=lerp(rainLvl, rising?Math.min(1,(qs/qa-1.2)/3):0, .05); prof.rain.setAttribute('opacity',rainLvl.toFixed(2));
+  for (const p of sim.places){ const o=prof.pl[p.def.id]; if (!o) continue; const c=p.st===2?css('--critical'):p.st===1?css('--warning'):css('--good'); o.house.setAttribute('fill',c); o.t.setAttribute('fill',p.st?c:css('--text-2'));
+    o.tt.textContent=`${p.def.name}: ${p.def.kind==='h'?fmt(p.val,2)+' m n.m.':fmtQ(p.val)+' m³/s'} – ${p.st===2?'záplava, vážné škody':p.st===1?'voda se vylévá':'v pořádku'} (rozliv od ${fmt(p.def.warn,p.def.kind==='h'?2:0)}, škody od ${fmt(p.def.crit,p.def.kind==='h'?2:0)})`; }
+  prof.pr.textContent=fmtQ(sim.praha)+' m³/s'; const s=sim.spaState; const sc=s?css(['','--warning','--serious','--critical'][s]):css('--good');
+  prof.prBox.setAttribute('stroke',s?sc:css('--border-2')); prof.prBox.setAttribute('stroke-width',s?2.2:1); prof.prS.textContent=s?s+'. SPA':'normál'; prof.prS.setAttribute('fill',sc);
+  const p=sim.pve; prof.pve.textContent=p.P>0.5?`výroba ${fmt(p.P,0)} MW`:p.P<-0.5?`čerpá ${fmt(-p.P,0)} MW`:`stop · ${fmt(p.V/1e3,0)} tis. m³`;
+  prof.pveW.setAttribute('width',(30*p.V/PVE_DEF.Vmax).toFixed(1));
+}
+
+/* ===================== KPI ===================== */
+function renderKpi(){
+  const d=dateOf(sim.t); $('#clockT').textContent=`${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; $('#clockD').textContent=`${DOW[d.getUTCDay()]} ${d.getUTCDate()}. ${d.getUTCMonth()+1}. ${d.getUTCFullYear()}`;
+  const s=sim.spaState, sc=s?css(['','--warning','--serious','--critical'][s]):css('--s1'); $('#kPraha').style.setProperty('--kc',sc);
+  $('#kPraha .v').innerHTML=`${fmtQ(sim.praha)}<small>m³/s</small>`; $('#kPraha .s').innerHTML=s?`<span class="tag" style="color:${sc}">${s}. stupeň povodňové aktivity</span>`:'bez povodňové aktivity';
+  let Pm=0,E=0; for (const x of sim.dams){ Pm+=x.d.units.n*x.d.units.Pmax; E+=x.E; } Pm+=PVE_DEF.PtMax; E+=sim.pve.E;
+  $('#kPow .v').innerHTML=`${fmt(sim.Ptot||0,0)}<small>MW</small>`; $('#kPow .s').textContent=`z ${fmt(Pm,0)} MW · ${fmt(E/1000,1)} GWh`;
+  let Vz=0,Vf=0; for (const x of sim.dams){ const a=x.Vat(x.d.hStale), b=x.Vat(x.d.hZas); Vz+=b-a; Vf+=Math.max(0,Math.min(x.V,b)-a); }
+  $('#kVol .v').innerHTML=`${fmt(sim.totalStorage()/1e6,0)}<small>mil. m³</small>`; $('#kVol .s').textContent=`zásobní prostory ${fmt(Vf/Vz*100,0)} %`;
+  const O=sim.D.orlik, S=sim.D.slapy;
+  $('#kOr .v').innerHTML=`${fmt(O.h,2)}<small>m n.m.</small>`; $('#kOr .s').textContent=`${O.h>=O.d.hZas?'+':''}${fmt(O.h-O.d.hZas,2)} m k max. zásobní`;
+  $('#kSl .v').innerHTML=`${fmt(S.h,2)}<small>m n.m.</small>`; $('#kSl .s').textContent=`${S.h>=S.d.hZas?'+':''}${fmt(S.h-S.d.hZas,2)} m k max. zásobní`;
+  const V=sim.D.vrane, ok=V.Qout>=sim.glob.QminVrane-1; $('#kVr').style.setProperty('--kc',ok?css('--s5'):css('--critical'));
+  $('#kVr .v').innerHTML=`${fmtQ(V.Qout)}<small>m³/s</small>`; $('#kVr .s').innerHTML=ok?`minimum ${sim.glob.QminVrane} m³/s ✓`:`<span style="color:var(--critical)">pod minimem ${sim.glob.QminVrane} m³/s</span>`;
+}
+
+/* ===================== sparklines ===================== */
+function spark(cv,key,color,hours){
+  const H=sim.hist; if (!cv||H.n<2) return; const dpr=window.devicePixelRatio||1, w=cv.clientWidth, h=cv.clientHeight; if (!w) return;
+  if (cv.width!==Math.round(w*dpr)){ cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); }
+  const g=cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,w,h);
+  const tE=H.get('t',H.n-1), t0=tE-(hours||72); let lo=0,hi=H.n-1; while (hi-lo>1){ const m=(lo+hi)>>1; if (H.get('t',m)<t0) lo=m; else hi=m; }
+  const n=H.n-lo, st=Math.max(1,Math.floor(n/w)); const vs=[]; let mn=Infinity,mx=-Infinity;
+  for (let j=0;j<n;j+=st){ const v=H.get(key,lo+j); vs.push([H.get('t',lo+j),v]); if (v<mn) mn=v; if (v>mx) mx=v; }
+  if (mx-mn<1e-6){ mx+=.5; mn-=.5; } const span=Math.max(1e-6,tE-Math.max(t0,H.get('t',0)));
+  const xs=t=>(t-(tE-span))/span*(w-2)+1, ys=v=>h-3-(v-mn)/(mx-mn)*(h-6);
+  g.beginPath(); vs.forEach(([t,v],i)=>i?g.lineTo(xs(t),ys(v)):g.moveTo(xs(t),ys(v))); g.strokeStyle=color; g.lineWidth=1.6; g.lineJoin='round'; g.stroke();
+  g.lineTo(xs(vs[vs.length-1][0]),h); g.lineTo(xs(vs[0][0]),h); g.closePath(); const gr=g.createLinearGradient(0,0,0,h); gr.addColorStop(0,color+'50'); gr.addColorStop(1,color+'00'); g.fillStyle=gr; g.fill();
+}
+function drawSparks(){
+  spark($('#kPraha canvas'),'praha',css('--s1')); spark($('#kPow canvas'),'ptot',css('--s4')); spark($('#kVol canvas'),'vtot',css('--s3'));
+  spark($('#kOr canvas'),'orlik.h',css('--s1')); spark($('#kSl canvas'),'slapy.h',css('--s7')); spark($('#kVr canvas'),'vrane.qout',css('--s5'));
+  if (botTab==='dams'){ for (const d of sim.dams){ const c=$('#card-'+d.id); if (c) spark(c.querySelector('canvas'),d.id+'.h',css('--s1')); } const c=$('#card-pve'); if (c) spark(c.querySelector('canvas'),'pve.v',css('--s7')); }
+  if (botTab==='nodes') for (const n of sim.nodes){ if (n._cv) spark(n._cv,'q.'+n.id,css('--s1'),168); }
+}
+
+/* ===================== INSPEKTOR ===================== */
+function select(id){ selected=id; buildCtrl(); renderCards(); renderProfile(); buildCharts(); drawCharts(); }
+const ROLE={storage:'akumulační nádrž · špičková elektrárna',equal:'vyrovnávací nádrž',level:'stupeň s udržovanou hladinou',final:'koncový stupeň · minimální odtok'};
+const NOTE={lipno1:'MŘ Lipno (2019): odtok z Lipna II 6–20 m³/s, MZP 6 m³/s, do starého koryta 1,5 m³/s. Ochranný prostor 724,90–725,60; nad 725,30 se odpouští 90 m³/s.',
+ orlik:'Při suchu nadlepšuje minimální odtok z Vraného. Na kótě 334,60 se odtok váže na přítok a nadlepšování přebírají Slapy; po jejich vyčerpání pokračuje Orlík do 329,60. Při povodni neškodný odtok, s ochranou Prahy snížený o Berounku a Sázavu.',
+ slapy:'Zásobní prostor 246,60–270,60. V zimě se drží volný prostor 268,50–270,60. Nadlepšuje až po kótě 334,60 na Orlíku.',kamyk:'Vyrovnává špičkový odtok z Orlíku.',stechovice:'Vyrovnává odtok ze Slap spolu s Vraným.',
+ vrane:'Drží minimální odtok z kaskády a vyrovnává špičky Slap. Dolní nádrž PVE.',lipno2:'Vyrovnává špičky Lipna I na 6–20 m³/s.',hnevkovice:'Drží hladinu pro odběr vody JE Temelín.',korensko:'Drží hladinu v Týně nad Vltavou; při vysokém Orlíku je zatopeno.'};
+function sl(label,id,min,max,step,val,fmtf){ return `<div class="sl"><div class="top"><span>${label}</span><b id="${id}V">${fmtf(val)}</b></div><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`; }
+function bindSl(id,fmtf,fn){ const e=$('#'+id); if (!e) return; e.oninput=()=>{ $('#'+id+'V').textContent=fmtf(+e.value); fn(+e.value); }; }
+function buildCtrl(){
+  const box=$('#ctrl'); if (selected==='pve') return buildPve(box);
+  const d=sim.D[selected], u=d.d.units, isSt=d.d.role==='storage';
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:start"><div><h3>${d.name}</h3><div class="role">${ROLE[d.d.role]} · ř. km ${fmt(d.d.km,1)}</div></div><span class="badge" id="mB"></span></div>
+   <div class="seg" id="mseg"><button data-m="auto">Automatika MŘ</button><button data-m="manual">Ruční</button><button data-m="plan">Plán výkonu</button></div>
+   <div class="vis"><svg id="tank" viewBox="0 0 96 210"></svg>
+     <div class="bigs"><div class="wide"><div class="l">hladina</div><div class="v" id="bH"></div></div><div><div class="l">přítok</div><div class="v" id="bI"></div></div><div><div class="l">odtok</div><div class="v" id="bO"></div></div><div><div class="l">výkon</div><div class="v" id="bP"></div></div><div><div class="l">spád</div><div class="v" id="bS"></div></div></div></div>
+   <div class="phase" id="phase"></div>
+   <button class="bigbtn" id="openDet">🔍 Detail elektrárny – řez s přelivy, výpustmi a turbínami</button>
+   ${d.id==='orlik'?`<div class="sect"><div class="h"><span>Varianta elektrárny</span></div><div class="seg" id="o33"><button data-v="0">Dnes · 4× Kaplan</button><button data-v="1">2033 · Francis + přečerpávání</button></div>
+     ${sim.orlik2033?`<div class="field" style="margin-top:10px"><label>Čerpání z Kamýku</label><div class="seg" id="opm" style="width:auto"><button data-m="auto">auto</button><button data-m="manual">ručně</button><button data-m="off">vyp.</button></div></div>${sim.opump.mode==='manual'?sl('Počet čerpajících soustrojí','opn',0,2,1,sim.opump.man,v=>v+' × 87 MW'):''}<div class="kv" id="opInfo"></div>`:'<p class="note">Plán ČEZ do roku 2033: 2× Francis 95 MW + 2× reverzní Francis 87 MW, čerpání vody z Kamýku zpět do Orlíku (až 750 MWh v jednom cyklu).</p>'}</div>`:''}
+   <div class="sect"><div class="h">Řízení</div><div id="mpanel"></div></div>
+   <div class="sect"><div class="h"><span>Soustrojí · ${d.id==='orlik'&&sim.orlik2033?'2× Francis 95 + 2× reverzní 87 MW':u.n+'× '+(u.type==='F'?'Francis':'Kaplan')+' '+fmt(u.Pmax,u.Pmax<10?2:0)+' MW'}</span><span style="text-transform:none;letter-spacing:0;font-weight:500">klik = odstavit</span></div><div class="units" id="units"></div></div>
+   <details class="adv"><summary>Technické údaje a čára objemů</summary><div class="kv" id="dinfo"></div><canvas class="ch" id="vcurve" style="height:170px;cursor:default;margin-top:10px"></canvas></details>`;
+  $('#openDet').onclick=()=>openDetail(d.id);
+  box.querySelectorAll('#o33 button').forEach(b=>{ b.classList.toggle('on',(+b.dataset.v===1)===sim.orlik2033); b.onclick=()=>{ sim.setOrlikVariant(+b.dataset.v===1); buildCtrl(); buildCharts(); }; });
+  box.querySelectorAll('#opm button').forEach(b=>{ b.classList.toggle('on',b.dataset.m===sim.opump.mode); b.onclick=()=>{ sim.opump.mode=b.dataset.m; buildCtrl(); }; });
+  bindSl('opn',v=>v+' × 87 MW',v=>sim.opump.man=v);
+  box.querySelectorAll('#mseg button').forEach(b=>{ b.classList.toggle('on',b.dataset.m===d.mode); b.onclick=()=>{ d.mode=b.dataset.m; if (d.mode==='manual') for (const x of d.units) x.man=+x.P.toFixed(1); if (d.mode==='plan'&&d.plan.every(v=>v===0)) fillPlan(d); buildCtrl(); }; });
+  const mp=$('#mpanel'), fm=v=>fmt(v,2)+' m', fq=v=>fmt(v,0)+' m³/s';
+  if (d.mode==='auto'){
+    let h='';
+    if (isSt){ const lo=d.d.hStale, hi=d.d.hRet;
+      h+=sl('Cílová hladina – léto','tS',lo,hi,0.05,d.par.tgtSummer,fm)+sl('Cílová hladina – zima','tW',lo,hi,0.05,d.par.tgtWinter,fm)
+       +sl(d.id==='lipno1'?'Neškodný odtok pod Lipnem II':'Neškodný odtok','qn',d.id==='lipno1'?20:200,d.id==='lipno1'?200:3000,10,d.par.Qn,fq)
+       +`<div class="field"><label><input type="checkbox" id="preOn" ${d.par.tgtOverride!=null?'checked':''}> Předpouštění – dočasná cílová hladina</label></div>`+(d.par.tgtOverride!=null?sl('Předpustit na','pre',lo,hi,0.1,d.par.tgtOverride,fm):'');
+    } else h+=sl('Udržovaná hladina','hs',d.d.hStale,d.d.hZas,0.05,d.par.hSet,fm)+(d.id==='hnevkovice'?sl('Odběr pro JE Temelín','wd',0,3,0.1,d.par.withdraw,v=>fmt(v,1)+' m³/s'):'');
+    h+=`<details class="adv" style="border:0;padding-top:0;margin-top:4px"><summary>Pokročilé</summary>${isSt?`<div class="field"><label>Regulační doba [dny]</label><input type="number" data-p="Treg" step="1" value="${d.par.Treg}"></div><div class="field"><label>Špičky (hodiny)</label><input type="text" id="peak" value="${d.par.peak.map(p=>p[0]+'-'+p[1]).join(', ')}" style="width:120px"></div>`:''}${d.d.role!=='level'&&!isSt?`<div class="field"><label>Časová konstanta [h]</label><input type="number" data-p="tau" step="0.5" value="${d.par.tau}"></div>`:''}<p class="note">${NOTE[d.id]||''}</p></details>`;
+    mp.innerHTML=h;
+    bindSl('tS',fm,v=>d.par.tgtSummer=v); bindSl('tW',fm,v=>d.par.tgtWinter=v); bindSl('qn',fq,v=>d.par.Qn=v); bindSl('pre',fm,v=>d.par.tgtOverride=v);
+    bindSl('hs',fm,v=>d.par.hSet=v); bindSl('wd',v=>fmt(v,1)+' m³/s',v=>d.par.withdraw=v);
+    const po=$('#preOn'); if (po) po.onchange=()=>{ d.par.tgtOverride=po.checked?+(Math.max(d.d.hStale+1,d.h-3)).toFixed(1):null; buildCtrl(); };
+    mp.querySelectorAll('input[data-p]').forEach(i=>i.onchange=()=>d.par[i.dataset.p]=+i.value);
+    const pk=$('#peak'); if (pk) pk.onchange=()=>{ const a=pk.value.split(',').map(s=>s.trim().split('-').map(Number)).filter(a=>a.length===2&&a.every(isFinite)&&a[1]>a[0]); if (a.length) d.par.peak=a; };
+  } else if (d.mode==='manual'){
+    mp.innerHTML=sl('Přeliv – otevření uzávěrů','gate',0,100,1,d.manGate,v=>v+' %')+(d.d.outK>0?sl('Spodní výpusti','outl',0,100,1,d.manOut,v=>v+' %'):'')+`<p class="note">Výkon jednotlivých soustrojí nastav posuvníky u soustrojí níže.</p>`;
+    bindSl('gate',v=>v+' %',v=>d.manGate=v); bindSl('outl',v=>v+' %',v=>d.manOut=v);
+  } else {
+    let g='<div class="grid24">'; for (let i=0;i<24;i++) g+=`<div><small>${i} h</small><input type="number" data-hr="${i}" value="${Math.round(d.plan[i])}" min="0"></div>`; g+='</div>';
+    mp.innerHTML=`<div class="field"><label>Hodinový diagram [MW]</label><button class="btn sm" id="pfill">Předvyplnit</button></div>${g}`;
+    mp.querySelectorAll('[data-hr]').forEach(i=>i.onchange=()=>d.plan[+i.dataset.hr]=Math.max(0,+i.value)); $('#pfill').onclick=()=>{ fillPlan(d); buildCtrl(); };
+  }
+  const ub=$('#units'); d.units.forEach((x,i)=>{ const t=document.createElement('div'); t.className='ut'+(x.avail?'':' off'); t.title=x.avail?'Kliknutím odstavíš (porucha/revize)':'Kliknutím vrátíš do provozu';
+    t.innerHTML=`<svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="21" fill="none" stroke="var(--surface-3)" stroke-width="6"/><circle class="arc" cx="27" cy="27" r="21" fill="none" stroke="var(--good)" stroke-width="6" stroke-linecap="round" stroke-dasharray="0 132" transform="rotate(-90 27 27)"/><text x="27" y="31" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)">${x.rev?'RTG':'TG'}${i+1}</text></svg><div class="p">—</div>`+(d.mode==='manual'?`<input type="range" min="0" max="${u.Pmax}" step="0.1" value="${x.man}">`:'');
+    t.onclick=e=>{ if (e.target.tagName==='INPUT') return; x.avail=!x.avail; t.classList.toggle('off',!x.avail); toast(`${d.name} TG${i+1}: ${x.avail?'v provozu':'odstaveno'}`,x.avail?'info':'warn'); };
+    const r=t.querySelector('input'); if (r) r.oninput=()=>x.man=+r.value; ub.appendChild(t); });
+  renderCtrl(); if ($('details.adv')) $('details.adv').ontoggle=()=>drawVcurve(d);
+}
+function fillPlan(d){ const H=Math.max(1,d.head||d.d.units.Hnom), u=d.d.units, Qb=Math.max(0,d.ema24||d.Qin), Pa=9.81*Qb*H*.9/1000;
+  if (!d.par.peak){ d.plan.fill(Math.round(Pa)); return; } let hr=0; for (const [a,b] of d.par.peak) hr+=b-a; const Pp=Math.min(u.Pmax*u.n,Pa*24/hr);
+  for (let i=0;i<24;i++){ let pk=false; for (const [a,b] of d.par.peak) if (i>=a&&i<b) pk=true; d.plan[i]=pk?Math.round(Pp):0; } }
+function drawTank(d){
+  const s=$('#tank'); if (!s) return; const lo=d.d.hStale-(d.d.hRet-d.d.hStale)*0.25, hi=d.d.hRet+(d.d.hRet-d.d.hStale)*0.07;
+  const y=h=>8+(hi-h)/(hi-lo)*192, x0=8, w=46;
+  const tgt = d.d.role==='storage'?d.target(sim.doy):d.par.hSet;
+  s.innerHTML=`<defs><linearGradient id="tw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${css('--water-1')}"/><stop offset="1" stop-color="${css('--water-2')}"/></linearGradient><clipPath id="tc"><rect x="${x0}" y="8" width="${w}" height="192" rx="10"/></clipPath></defs>
+   <g clip-path="url(#tc)"><rect x="${x0}" y="8" width="${w}" height="192" fill="${css('--zone-stale')}"/>
+   <rect x="${x0}" y="${y(d.d.hZas)}" width="${w}" height="${y(d.d.hStale)-y(d.d.hZas)}" fill="${css('--zone-zas')}"/>
+   ${d.d.hRet>d.d.hZas+.05?`<rect x="${x0}" y="${y(d.d.hRet)}" width="${w}" height="${y(d.d.hZas)-y(d.d.hRet)}" fill="${css('--zone-ret')}"/>`:''}
+   <rect x="${x0}" y="${Math.min(200,Math.max(8,y(d.h)))}" width="${w}" height="${200-Math.min(200,Math.max(8,y(d.h)))}" fill="url(#tw)" opacity=".92"/>
+   <line x1="${x0}" x2="${x0+w}" y1="${Math.min(200,y(d.h))}" y2="${Math.min(200,y(d.h))}" stroke="${css('--water-line')}" stroke-width="2.5"/></g>
+   <rect x="${x0}" y="8" width="${w}" height="192" rx="10" fill="none" stroke="${css('--border-2')}"/>
+   <line x1="${x0-4}" x2="${x0+w+4}" y1="${y(tgt)}" y2="${y(tgt)}" stroke="${css('--text')}" stroke-width="1.5" stroke-dasharray="3 3"/>
+   <text x="${x0+w+6}" y="${y(d.d.hRet)+4}" font-size="9.5" fill="${css('--critical')}" font-family="var(--mono)">${fmt(d.d.hRet,1)}</text>
+   ${d.d.hRet>d.d.hZas+.05?`<text x="${x0+w+6}" y="${y(d.d.hZas)+4}" font-size="9.5" fill="${css('--good')}" font-family="var(--mono)">${fmt(d.d.hZas,1)}</text>`:''}
+   <text x="${x0+w+6}" y="${y(d.d.hStale)+4}" font-size="9.5" fill="${css('--muted')}" font-family="var(--mono)">${fmt(d.d.hStale,1)}</text>
+   <text x="${x0+w/2}" y="208" font-size="9.5" text-anchor="middle" fill="${css('--muted')}">--- cíl</text>`;
+}
+const kv=rows=>rows.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join('');
+function renderCtrl(){
+  if (selected==='pve') return renderPveCtrl();
+  const d=sim.D[selected]; if (!$('#bH')) return;
+  $('#bH').innerHTML=`${fmt(d.h,2)} <small>m n.m.</small>`; $('#bI').innerHTML=`${fmtQ(d.Qin)} <small>m³/s</small>`; $('#bO').innerHTML=`${fmtQ(d.Qout)} <small>m³/s</small>`; $('#bP').innerHTML=`${fmt(d.P,1)} <small>MW</small>`; $('#bS').innerHTML=`${fmt(d.head,1)} <small>m</small>`;
+  $('#phase').innerHTML=`<b>Stav:</b> ${d.phase||'—'}`;
+  const mb=$('#mB'); mb.className='badge '+(d.mode==='auto'?'':'acc'); mb.textContent={auto:'AUTOMATIKA',manual:'RUČNĚ',plan:'PLÁN'}[d.mode];
+  drawTank(d);
+  const u=d.d.units; $$('#units .ut').forEach((t,i)=>{ const x=d.units[i]; if (!x) return; const pm=x.Pmax||u.Pmax; const arc=t.querySelector('.arc');
+    if (x.pump){ arc.setAttribute('stroke',css('--s7')); arc.setAttribute('stroke-dasharray','132 132'); t.querySelector('.p').textContent='čerpá'; }
+    else { arc.setAttribute('stroke',css('--good')); arc.setAttribute('stroke-dasharray',`${(x.P/pm*132).toFixed(1)} 132`); t.querySelector('.p').textContent=x.avail?(x.P>0.05?fmt(x.P,1)+' MW':'stojí'):'odstaveno'; } });
+  const oi=$('#opInfo'); if (oi){ const p=sim.opump, K=sim.D.kamyk; const Vk=Math.max(0,K.V-K.Vat(K.d.hStale+0.05)); const Ek=Vk*9.81*1000*Math.max(5,d.h-K.h)*0.88/3.6e9;
+    oi.innerHTML=kv([['čerpání',p.P>1?fmt(p.P,0)+' MW · '+fmt(p.Q,0)+' m³/s':'—'],['spád Orlík–Kamýk',fmt(p.head||d.h-K.h,1)+' m'],['voda k čerpání v Kamýku',fmt(Vk/1e6,2)+' mil. m³ ≈ '+fmt(Ek,0)+' MWh'],['načerpáno celkem',fmt(p.Ep,0)+' MWh']]); }
+  const di=$('#dinfo'); if (di && di.closest('details').open){ const a=d.Vat(d.d.hStale), z=d.Vat(d.d.hZas), r=d.Vat(d.d.hRet);
+    const rows=[['objem',fmt(d.V/1e6,2)+' mil. m³'],['zásobní prostor',fmt(Math.max(0,Math.min(d.V,z)-a)/1e6,1)+' / '+fmt((z-a)/1e6,1)+' mil. m³'],['volný retenční',r-z>1e5?fmt(Math.max(0,r-Math.max(d.V,z))/1e6,1)+' mil. m³':'—'],['turbíny',fmtQ(d.Qturb)+' m³/s'],['přeliv + výpusti',fmtQ(d.Qspill+d.Qoutl)+' m³/s'],['dostupný výkon',fmt(d.Pavail||0,0)+' MW'],['dolní voda',fmt(d.tw,2)+' m n.m.'],['kapacita přelivu',fmt(d.spillCap(d.h),0)+' m³/s'],['kapacita výpustí',d.d.outK?fmt(d.outCap(d.h),0)+' m³/s':'—'],...(d.QnEff&&d.d.role==='storage'&&d.id!=='lipno1'?[['neškodný odtok (efektivní)',fmt(d.QnEff,0)+' m³/s']]:[]),['vyrobeno',fmt(d.E,0)+' MWh']];
+    di.innerHTML=kv(rows); }
+}
+function buildPve(box){
+  const p=sim.pve;
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:start"><div><h3>PVE Štěchovice II</h3><div class="role">přečerpávací elektrárna · horní nádrž Homole, dolní Vrané · spád ~220 m</div></div><span class="badge acc">PVE</span></div>
+   <div class="seg" id="pseg"><button data-m="auto">Automaticky</button><button data-m="manual">Ručně</button><button data-m="stop">Stop</button></div>
+   <div class="vis"><svg id="tank" viewBox="0 0 96 210"></svg><div class="bigs"><div class="wide"><div class="l">voda v Homoli</div><div class="v" id="bH"></div></div><div><div class="l">průtok</div><div class="v" id="bI"></div></div><div><div class="l">výkon</div><div class="v" id="bP"></div></div><div><div class="l">vyrobeno</div><div class="v" id="bO"></div></div><div><div class="l">čerpáno</div><div class="v" id="bS"></div></div></div></div>
+   <div class="phase" id="phase"></div>
+   ${p.mode==='manual'?sl('Výkon (− čerpání / + výroba)','pm',-PVE_DEF.PpMax,PVE_DEF.PtMax,1,p.man,v=>fmt(v,0)+' MW'):''}
+   <button class="bigbtn" id="pveDet">🔍 Náhled elektrárny (řez, reverzní turbína)</button>
+   <p class="note">Automaticky čerpá v noci (0–5 h) a vyrábí ve špičkách (7–9 h, 18–20 h); při povodni nečerpá. Turbína ${PVE_DEF.PtMax} MW, čerpadlo ${PVE_DEF.PpMax} MW, horní nádrž ${fmt(PVE_DEF.Vmax/1e3,0)} tis. m³.</p>`;
+  box.querySelectorAll('#pseg button').forEach(b=>{ b.classList.toggle('on',b.dataset.m===p.mode); b.onclick=()=>{ p.mode=b.dataset.m; buildCtrl(); }; });
+  bindSl('pm',v=>fmt(v,0)+' MW',v=>p.man=v); $('#pveDet').onclick=()=>openDetail('pve'); renderPveCtrl();
+}
+function renderPveCtrl(){ const p=sim.pve; if (!$('#bH')) return; $('#bH').innerHTML=`${fmt(p.V/1e3,0)} <small>tis. m³</small>`; $('#bI').innerHTML=`${fmt(p.Q,1)} <small>m³/s</small>`; $('#bP').innerHTML=`${fmt(p.P,1)} <small>MW</small>`; $('#bO').innerHTML=`${fmt(p.E,0)} <small>MWh</small>`; $('#bS').innerHTML=`${fmt(p.Ep,0)} <small>MWh</small>`;
+  $('#phase').innerHTML=`<b>Stav:</b> ${p.P>0.5?'výroba':p.P<-0.5?'čerpání z Vraného':'stop'}`;
+  const s=$('#tank'), f=p.V/PVE_DEF.Vmax, y=8+(1-f)*192; s.innerHTML=`<defs><linearGradient id="tw2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${css('--s7')}"/><stop offset="1" stop-color="${css('--water-2')}"/></linearGradient></defs><rect x="8" y="8" width="46" height="192" rx="10" fill="${css('--zone-stale')}"/><rect x="8" y="${y}" width="46" height="${200-y}" rx="${y<12?10:0}" fill="url(#tw2)"/><rect x="8" y="8" width="46" height="192" rx="10" fill="none" stroke="${css('--border-2')}"/><text x="60" y="${y+4}" font-size="10" fill="${css('--text-2')}" font-family="var(--mono)">${fmt(f*100,0)} %</text>`; }
+function setupCanvas(cv){ const dpr=window.devicePixelRatio||1, w=cv.clientWidth, h=cv.clientHeight; if (cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){ cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); } const g=cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,w,h); return g; }
+function niceTicks(a,b,n){ if (!(b>a)) b=a+1; const s0=(b-a)/n, m=Math.pow(10,Math.floor(Math.log10(s0))), f=s0/m, st=(f<1.5?1:f<3?2:f<7?5:10)*m; const o=[]; for (let v=Math.ceil(a/st)*st; v<=b+1e-9; v+=st) o.push(+v.toFixed(10)); return o; }
+const FS=(sz,mono,wt)=>`${wt||(mono?500:500)} ${sz}px ${mono?css('--mono'):css('--font')}`;
+function drawVcurve(d){
+  const cv=$('#vcurve'); if (!cv||!cv.clientWidth) return; const g=setupCanvas(cv), W=cv.clientWidth, H=cv.clientHeight, pl=44, pr=10, pt=8, pb=22;
+  const h0=Math.max(d.curve.h0,d.d.hStale-(d.d.hRet-d.d.hStale)*.6), h1=d.d.hCrown, V1=d.Vat(h1)/1e6, V0=d.Vat(h0)/1e6;
+  const xv=v=>pl+(v-V0)/(V1-V0)*(W-pl-pr), yh=h=>pt+(h1-h)/(h1-h0)*(H-pt-pb);
+  g.font=FS(10.5,true); g.fillStyle=css('--muted'); g.strokeStyle=css('--grid');
+  for (const h of niceTicks(h0,h1,4)){ g.beginPath(); g.moveTo(pl,yh(h)); g.lineTo(W-pr,yh(h)); g.stroke(); g.fillText(fmt(h,0),4,yh(h)+4); }
+  for (const v of niceTicks(V0,V1,4)) g.fillText(fmt(v,v<10?1:0),xv(v)-10,H-6);
+  g.strokeStyle=css('--s1'); g.lineWidth=2.4; g.beginPath(); for (let i=0;i<=140;i++){ const h=h0+(h1-h0)*i/140, v=d.Vat(h)/1e6; i?g.lineTo(xv(v),yh(h)):g.moveTo(xv(v),yh(h)); } g.stroke();
+  for (const p of d.d.pts){ if (p[0]<h0) continue; g.fillStyle=css('--surface'); g.beginPath(); g.arc(xv(p[1]),yh(p[0]),4,0,7); g.fill(); g.strokeStyle=css('--s1'); g.lineWidth=2; g.stroke(); }
+  g.fillStyle=css('--s2'); g.beginPath(); g.arc(xv(d.V/1e6),yh(d.h),6,0,7); g.fill();
+  g.fillStyle=css('--muted'); g.font=FS(10.5); g.fillText('objem mil. m³ →',W-pr-84,H-6);
+}
+
+/* ===================== GRAFY ===================== */
+const CT=[['hl','Hladina'],['qd','Průtoky'],['zas','Naplnění'],['qk','Kaskáda'],['pr','Praha'],['pw','Výkon'],['pps','PpS'],['tr','Přítoky']];
+const COLS=['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
+const charts={};
+function buildChartTabs(){ const t=$('#ctabs'); t.innerHTML=CT.map(([k,l])=>`<button class="tab ${k===chartTab?'on':''}" data-t="${k}">${l}</button>`).join(''); t.querySelectorAll('.tab').forEach(e=>e.onclick=()=>{ chartTab=e.dataset.t; buildChartTabs(); buildCharts(); drawCharts(); }); }
+$$('#win .tab').forEach(b=>b.onclick=()=>{ $$('#win .tab').forEach(x=>x.classList.remove('on')); b.classList.add('on'); winH=+b.dataset.w; zoom=null; drawCharts(); });
+function buildCharts(){ const box=$('#charts'); box.innerHTML=''; for (const k in charts) delete charts[k];
+  chartDefs().forEach((cd,i)=>{ const w=document.createElement('div'); w.className='chartbox';
+    w.innerHTML=`<div class="ctitle"><b>${cd.title}</b><div class="legend"></div></div><canvas class="ch" style="height:${cd.h||280}px"></canvas><div class="tip"></div>`; box.appendChild(w);
+    const c=charts[i]={cd,cv:w.querySelector('canvas'),lg:w.querySelector('.legend'),tip:w.querySelector('.tip'),hover:null,drag:null};
+    if (cd.series.length>1){ c.lg.innerHTML=cd.series.map((s,si)=>`<button data-si="${si}" class="${hidden[s.k]?'off':''}"><i style="background:${css(COLS[s.c%8])}"></i>${s.l}</button>`).join('');
+      c.lg.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const s=cd.series[+b.dataset.si]; hidden[s.k]=!hidden[s.k]; b.classList.toggle('off',!!hidden[s.k]); drawChart(c); }); }
+    const px=e=>e.clientX-c.cv.getBoundingClientRect().left;
+    c.cv.onmousedown=e=>{ c.drag=[px(e),px(e)]; };
+    c.cv.onmousemove=e=>{ c.hover=px(e); if (c.drag) c.drag[1]=c.hover; drawChart(c); };
+    c.cv.onmouseup=e=>{ if (c.drag && Math.abs(c.drag[1]-c.drag[0])>8 && c.view){ const [a,b]=c.drag.sort((x,y)=>x-y); zoom=[c.view.tAt(a),c.view.tAt(b)]; } c.drag=null; drawCharts(); };
+    c.cv.ondblclick=()=>{ zoom=null; drawCharts(); };
+    c.cv.addEventListener('touchstart',e=>{ const t=e.touches[0]; c.hover=t.clientX-c.cv.getBoundingClientRect().left; drawChart(c); },{passive:true});
+    c.cv.addEventListener('touchmove',e=>{ const t=e.touches[0]; c.hover=t.clientX-c.cv.getBoundingClientRect().left; drawChart(c); },{passive:true});
+    c.cv.addEventListener('touchend',()=>{ setTimeout(()=>{ c.hover=null; c.tip.style.display='none'; drawChart(c); },1800); });
+    c.cv.onmouseleave=()=>{ c.hover=null; c.drag=null; c.tip.style.display='none'; drawChart(c); }; });
+  $('#chartNote').textContent=chartNote(); }
+function chartDefs(){
+  const D=sim.D, sel=selected==='pve'?'stechovice':selected, d=D[sel];
+  switch(chartTab){
+    case 'hl': return [{title:`Hladina – ${d.name} [m n.m.]`,unit:'m',dec:2,area:true,series:[{k:sel+'.h',l:'hladina',c:0}],refs:[[d.d.hStale,'stálé nadržení','--muted'],[d.d.hZas,'max. zásobní','--good'],...(d.d.hRet>d.d.hZas+.05?[[d.d.hRet,'max. retenční','--critical']]:[]),...(d.d.hDrought?[[d.d.hDrought,'334,60 – nadlepšování přebírají Slapy','--serious']]:[])],padRefs:true}];
+    case 'qd': return [{title:`Průtoky – ${d.name} [m³/s]`,unit:'m³/s',dec:1,series:[{k:sel+'.qin',l:'přítok',c:0},{k:sel+'.qout',l:'odtok',c:1},{k:sel+'.qt',l:'turbíny',c:2},{k:sel+'.qs',l:'přeliv + výpusti',c:3}],refs:d.par.Qn?[[d.QnEff||d.par.Qn,'neškodný odtok','--serious']]:[],zero:true,padRefs:'auto'},
+                      {title:`Výkon – ${d.name} [MW]`,unit:'MW',dec:1,h:160,area:true,series:[{k:sel+'.p',l:'výkon',c:3}],zero:true}];
+    case 'zas': return [{title:'Naplnění zásobního prostoru [%]',unit:'%',dec:1,series:['lipno1','orlik','slapy','kamyk','stechovice','vrane','hnevkovice'].map((id,i)=>({k:id+'.v',l:D[id].name,c:i,tf:v=>{ const x=D[id],a=x.Vat(x.d.hStale)/1e6,z=x.Vat(x.d.hZas)/1e6; return (v-a)/(z-a)*100; }})),refs:[[100,'plný','--good'],[0,'stálé nadržení','--muted']]},
+                       {title:'Objem vody v kaskádě [mil. m³]',unit:'mil. m³',dec:1,h:160,area:true,series:[{k:'vtot',l:'objem',c:2}]}];
+    case 'qk': return [{title:'Odtoky ze stupňů kaskády [m³/s]',unit:'m³/s',dec:1,series:[{k:'lipno2.qout',l:'Lipno II',c:0},{k:'hnevkovice.qout',l:'Hněvkovice',c:1},{k:'orlik.qout',l:'Orlík',c:2},{k:'kamyk.qout',l:'Kamýk',c:3},{k:'slapy.qout',l:'Slapy',c:4},{k:'vrane.qout',l:'Vrané',c:6}],zero:true,refs:[[sim.glob.QminVrane,'minimum Vrané','--muted']]}];
+    case 'pr': return [{title:'Vltava v Praze – Malá Chuchle [m³/s]',unit:'m³/s',dec:0,area:true,h:320,series:[{k:'praha',l:'Praha-Chuchle',c:0},{k:'vrane.qout',l:'z kaskády (Vrané)',c:1},{k:'q.berounka',l:'Berounka',c:2},{k:'q.sazava',l:'Sázava',c:3}],refs:[[450,'1. SPA','--warning'],[1000,'2. SPA','--serious'],[1500,'3. SPA','--critical']],zero:true,padRefs:'auto'}];
+    case 'pw': return [{title:'Výkon elektráren [MW]',unit:'MW',dec:1,series:[{k:'ptot',l:'celkem',c:3},{k:'orlik.p',l:'Orlík',c:0},{k:'slapy.p',l:'Slapy',c:6},{k:'lipno1.p',l:'Lipno I',c:2},{k:'pve.p',l:'PVE Štěchovice',c:4},{k:'kamyk.p',l:'Kamýk',c:1},{k:'stechovice.p',l:'Štěchovice',c:5},...(sim.orlik2033?[{k:'opump.p',l:'Orlík čerpání (−)',c:7}]:[])],zero:true},
+                      {title:'Cena elektřiny [Kč/MWh]',unit:'Kč/MWh',dec:0,h:130,area:true,series:[{k:'spot',l:'cena',c:3}]}];
+    case 'pps': return [{title:'Podpůrné služby – změna výkonu [MW]',unit:'MW',dec:1,series:[{k:'pps.req',l:'požadavek ČEPS',c:1},{k:'pps.act',l:'dodáno',c:0}],zero:true},
+                       {title:'Frekvence [Hz]',unit:'Hz',dec:3,h:140,series:[{k:'f',l:'f',c:0}],refs:[[50,'50 Hz','--muted']]},
+                       {title:'Aktivační signály',unit:'',dec:2,h:140,series:[{k:'afrr',l:'aFRR',c:0},{k:'m5',l:'mFRR5',c:1},{k:'m15',l:'mFRR15',c:2}]}];
+    case 'tr': return [{title:'Přítoky [m³/s]',unit:'m³/s',dec:1,series:['vltava','malse','luznice','otava','sazava','berounka'].map((id,i)=>({k:'q.'+id,l:{vltava:'Vltava (Lipno)',malse:'Malše',luznice:'Lužnice',otava:'Otava',sazava:'Sázava',berounka:'Berounka'}[id],c:i})),zero:true}];
+  }
+}
+function chartNote(){ return {hl:'Tažením myší v grafu přiblížíš úsek, dvojklikem vrátíš.',zas:'Nad 100 % = plnění retenčního prostoru, pod 0 % = čerpání ze stálého nadržení.',qd:'Špičkové elektrárny pouštějí vodu turbínami jen ve špičkách, vyrovnávací nádrže pod nimi odtok vyhlazují.',pr:'Stupně povodňové aktivity v Chuchli: 450 / 1 000 / 1 500 m³/s.',pps:'Kladná změna = zvýšení výkonu.',tr:'Přítoky v profilech vodoměrných stanic.',qk:'Kliknutím na legendu skryješ nebo zobrazíš řadu.'}[chartTab]||''; }
+function drawCharts(){ for (const k in charts) drawChart(charts[k]); $('#zoomN').innerHTML=zoom?`přiblíženo <button class="btn sm" id="zr">zrušit</button>`:''; const zr=$('#zr'); if (zr) zr.onclick=()=>{ zoom=null; drawCharts(); }; }
+function drawChart(c){
+  const cd=c.cd, H=sim.hist, cv=c.cv, g=setupCanvas(cv), W=cv.clientWidth, Hh=cv.clientHeight, pl=58, pr=12, pt=10, pb=26;
+  if (H.n<2){ g.fillStyle=css('--muted'); g.font=FS(14); g.fillText('Spusť simulaci ▶',pl,60); return; }
+  const tEnd0=H.get('t',H.n-1), tS0=H.get('t',0);
+  let tStart, tEnd; if (zoom){ tStart=Math.max(tS0,zoom[0]); tEnd=Math.min(tEnd0,zoom[1]); if (tEnd-tStart<0.05){ tEnd=tStart+0.05; } } else { tEnd=tEnd0; tStart=winH?Math.max(tS0,tEnd-winH):tS0; }
+  const find=t=>{ let lo=0,hi=H.n-1; while (hi-lo>1){ const m=(lo+hi)>>1; if (H.get('t',m)<t) lo=m; else hi=m; } return lo; };
+  const i0=find(tStart), i1=Math.min(H.n-1,find(tEnd)+1), n=i1-i0+1, span=Math.max(1e-6,tEnd-tStart), xs=t=>pl+(t-tStart)/span*(W-pl-pr);
+  c.view={tAt:x=>tStart+(x-pl)/(W-pl-pr)*span};
+  let ymin=Infinity,ymax=-Infinity;
+  const data=cd.series.map(s=>{ const a=new Float32Array(n); for (let j=0;j<n;j++){ let v=H.get(s.k,i0+j); if (s.tf) v=s.tf(v); a[j]=v; if (!hidden[s.k]&&isFinite(v)){ if (v<ymin) ymin=v; if (v>ymax) ymax=v; } } return a; });
+  if (!isFinite(ymin)){ ymin=0; ymax=1; } if (cd.zero) ymin=Math.min(0,ymin);
+  if (cd.refs&&cd.padRefs) for (const r of cd.refs){ if (cd.padRefs==='auto'&&r[0]>ymax*1.6) continue; ymin=Math.min(ymin,r[0]); ymax=Math.max(ymax,r[0]); }
+  if (ymax-ymin<1e-6){ ymax+=Math.abs(ymax)*.01+.5; ymin-=Math.abs(ymin)*.01+.5; }
+  const pad=(ymax-ymin)*.08; if (!(cd.zero&&ymin===0)) ymin-=pad; ymax+=pad; const ys=v=>pt+(ymax-v)/(ymax-ymin)*(Hh-pt-pb);
+  g.font=FS(11.5,true); const rng=ymax-ymin, dd=rng<5?(cd.dec>2?3:2):rng<50?1:0;
+  for (const v of niceTicks(ymin,ymax,5)){ const y=ys(v); g.strokeStyle=css('--grid'); g.lineWidth=1; g.beginPath(); g.moveTo(pl,y); g.lineTo(W-pr,y); g.stroke(); const s=fmt(v,dd); g.fillStyle=css('--muted'); g.fillText(s,pl-10-g.measureText(s).width,y+4); }
+  const tk=[1,3,6,12,24,48,120,240,720].find(k=>span/k<=9)||1440; g.font=FS(11.5);
+  for (let t=Math.ceil(tStart/tk)*tk; t<=tEnd; t+=tk){ const x=xs(t); const lbl=tStr(t*3600); const p=lbl.split(' '); const s=tk>=24?p[0]+' '+p[1]:(Math.abs((t%24))<1e-6?p[0]+' '+p[1]+' ':'')+p[2]; g.fillStyle=css('--muted'); const tw2=g.measureText(s).width; g.fillText(s,Math.min(W-pr-tw2,Math.max(pl,x-tw2/2)),Hh-8); g.strokeStyle=css('--grid'); g.beginPath(); g.moveTo(x,Hh-pb); g.lineTo(x,Hh-pb+4); g.stroke(); }
+  if (cd.refs) for (const [v,l,col] of cd.refs){ if (v<ymin||v>ymax) continue; const y=ys(v); g.strokeStyle=css(col); g.setLineDash([6,5]); g.lineWidth=1.3; g.beginPath(); g.moveTo(pl,y); g.lineTo(W-pr,y); g.stroke(); g.setLineDash([]);
+    g.font=FS(11.5,false,600); const tw=g.measureText(l).width; g.fillStyle=css('--surface'); g.globalAlpha=.9; g.fillRect(W-pr-tw-10,y-17,tw+8,15); g.globalAlpha=1; g.fillStyle=css(col); g.fillText(l,W-pr-tw-6,y-5); }
+  const st=Math.max(1,Math.floor(n/(W-pl-pr)));
+  cd.series.forEach((s,si)=>{ if (hidden[s.k]) return; const a=data[si], col=css(COLS[s.c%8]), path=[];
+    if (st<=1){ for (let j=0;j<n;j++){ const v=a[j]; if (isFinite(v)) path.push([xs(H.get('t',i0+j)),ys(v)]); } }
+    else for (let j=0;j<n;j+=st){ let mn=Infinity,mx=-Infinity; for (let k=j;k<Math.min(n,j+st);k++){ const v=a[k]; if (v<mn) mn=v; if (v>mx) mx=v; } if (!isFinite(mn)) continue; const x=xs(H.get('t',i0+j)); path.push([x,ys(mn)],[x,ys(mx)]); }
+    if (!path.length) return;
+    g.save(); g.beginPath(); g.rect(pl,pt-2,W-pl-pr,Hh-pt-pb+4); g.clip();
+    if (cd.area&&si===0){ const gr=g.createLinearGradient(0,pt,0,Hh-pb); gr.addColorStop(0,col+'48'); gr.addColorStop(1,col+'00'); g.fillStyle=gr; g.beginPath(); g.moveTo(path[0][0],Hh-pb); for (const p of path) g.lineTo(p[0],p[1]); g.lineTo(path[path.length-1][0],Hh-pb); g.closePath(); g.fill(); }
+    g.strokeStyle=col; g.lineWidth=si===0?2.4:1.8; g.lineJoin='round'; g.lineCap='round'; g.beginPath(); path.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.stroke(); g.restore(); });
+  if (c.drag){ const [a,b]=c.drag; g.fillStyle=css('--accent'); g.globalAlpha=.14; g.fillRect(Math.min(a,b),pt,Math.abs(b-a),Hh-pt-pb); g.globalAlpha=1; }
+  if (c.hover!=null&&c.hover>=pl&&c.hover<=W-pr&&!c.drag){ const t=c.view.tAt(c.hover); const lo=find(t), j=lo-i0; if (j<0||j>=n) return; const x=xs(H.get('t',lo));
+    g.strokeStyle=css('--text-2'); g.globalAlpha=.45; g.lineWidth=1; g.beginPath(); g.moveTo(x,pt); g.lineTo(x,Hh-pb); g.stroke(); g.globalAlpha=1;
+    cd.series.forEach((s,si)=>{ if (hidden[s.k]) return; const v=data[si][j]; if (!isFinite(v)) return; g.fillStyle=css('--surface'); g.beginPath(); g.arc(x,ys(v),5,0,7); g.fill(); g.strokeStyle=css(COLS[s.c%8]); g.lineWidth=2.4; g.stroke(); });
+    c.tip.innerHTML=`<div class="t">${tStr(H.get('t',lo)*3600,true)}</div>`+cd.series.filter(s=>!hidden[s.k]).map(s=>{ const si=cd.series.indexOf(s); return `<div class="r"><span><i style="background:${css(COLS[s.c%8])}"></i>${s.l}</span><b>${fmt(data[si][j],cd.dec)} ${cd.unit}</b></div>`; }).join('');
+    c.tip.style.display='block'; const tw=c.tip.offsetWidth; c.tip.style.left=(x+18+tw>W?x-tw-18:x+18)+'px'; c.tip.style.top='40px'; } else if (!c.drag) c.tip.style.display='none';
+}
+
+/* ===================== SPODNÍ PANEL ===================== */
+const BT=[['dams','Vodní díla'],['places','Obce a záplavy'],['nodes','Přítoky'],['pps','Podpůrné služby'],['log','Události'],['set','Nastavení'],['par','Parametry a zdroje']];
+function buildBottom(){ const t=$('#btabs'); t.innerHTML=BT.map(([k,l])=>`<button class="tab ${k===botTab?'on':''}" data-t="${k}">${l}${k==='log'?' <span class="badge" id="logN" style="margin-left:4px">0</span>':''}${k==='places'?' <span class="badge crit" id="plN" style="margin-left:4px">0</span>':''}</button>`).join(''); t.querySelectorAll('.tab').forEach(e=>e.onclick=()=>{ botTab=e.dataset.t; buildBottom(); renderAll(); });
+  const p=$('#bpanel'); ({places:buildPlaces,dams:buildCards,nodes:buildNodes,pps:buildPps,log:p=>{ p.innerHTML='<div class="log" id="log"></div>'; logN=-1; renderLog(); },set:buildSet,par:buildParams})[botTab](p); }
+function buildCards(p){
+  p.innerHTML='<div class="dams" id="dams"></div>'; const box=$('#dams');
+  sim.dams.forEach((d,i)=>{ const c=document.createElement('div'); c.className='dam'; c.id='card-'+d.id; c.onclick=()=>select(d.id); c.title=`klávesa ${i+1}`;
+    c.innerHTML=`<div class="nm"><span>${d.name}</span><span class="badge" data-k="m"></span></div><div class="lv" data-k="h"></div><div class="fill"><i></i><u></u></div>
+      <div class="ln"><span>in → out</span><b data-k="q"></b></div><div class="ln"><span><span class="dot" data-k="dot"></span> výkon</span><b data-k="p"></b></div><canvas></canvas>`; box.appendChild(c); });
+  const c=document.createElement('div'); c.className='dam'; c.id='card-pve'; c.onclick=()=>select('pve'); c.innerHTML=`<div class="nm"><span>PVE Štěchovice II</span><span class="badge" data-k="m"></span></div><div class="lv" data-k="h"></div><div class="fill"><i></i></div><div class="ln"><span>průtok</span><b data-k="q"></b></div><div class="ln"><span><span class="dot" data-k="dot"></span> výkon</span><b data-k="p"></b></div><canvas></canvas>`; box.appendChild(c);
+  renderCards(); drawSparks();
+}
+const qk=(c,k)=>c.querySelector(`[data-k="${k}"]`);
+function renderCards(){
+  if (botTab!=='dams') return;
+  for (const d of sim.dams){ const c=$('#card-'+d.id); if (!c) continue; c.classList.toggle('sel',d.id===selected);
+    const a=d.Vat(d.d.hStale), z=d.Vat(d.d.hZas), r=d.Vat(d.d.hRet), pct=(d.V-a)/(z-a)*100;
+    qk(c,'h').innerHTML=`${fmt(d.h,2)} <small>m · ${fmt(pct,0)} %</small>`; const f=c.querySelector('.fill i'); f.style.width=clamp01((d.V-a)/(r-a))*100+'%';
+    f.style.background=d.h>d.d.hZas+.02?`linear-gradient(90deg,${css('--water-2')},${css('--serious')})`:d.h<d.d.hStale?css('--critical'):''; c.querySelector('.fill u').style.left=((z-a)/(r-a)*100)+'%';
+    qk(c,'q').textContent=`${fmtQ(d.Qin)} → ${fmtQ(d.Qout)}`; const on=d.units.filter(u=>u.P>.05).length; qk(c,'p').textContent=`${fmt(d.P,1)} MW · ${on}/${d.units.length}`; qk(c,'dot').className='dot'+(on?' on':'');
+    const m=qk(c,'m'); let cls=d.mode==='auto'?'':'acc'; if (d.h>d.d.hRet+.01||d.h<d.d.hStale-.01) cls='crit'; else if (d.h>d.d.hZas+.02) cls='warn'; m.className='badge '+cls; m.textContent={auto:'MŘ',manual:'RUČNĚ',plan:'PLÁN'}[d.mode]; }
+  const p=sim.pve, c=$('#card-pve'); if (!c) return; c.classList.toggle('sel',selected==='pve'); qk(c,'h').innerHTML=`${fmt(p.V/1e3,0)} <small>tis. m³ Homole</small>`; c.querySelector('.fill i').style.width=p.V/PVE_DEF.Vmax*100+'%';
+  qk(c,'q').textContent=fmt(p.Q,1)+' m³/s'; qk(c,'p').textContent=fmt(p.P,1)+' MW'; qk(c,'dot').className='dot'+(p.P>.5?' on':p.P<-.5?' pump':''); const m=qk(c,'m'); m.className='badge'; m.textContent=p.mode==='auto'?'AUTO':p.mode==='manual'?'RUČNĚ':'STOP';
+}
+const WHICH={all:null,upper:['vltava','malse','mezih'],sw:['otava','luznice','mezio'],lower:['sazava','berounka','mezis']};
+function buildNodes(p){
+  p.innerHTML=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px">
+    <b>Povodňová vlna</b><select class="f" id="evN" style="width:auto">${[1,2,5,10,20,50,100,500,1000].map(v=>`<option value="${v}" ${v===20?'selected':''}>Q${v}</option>`).join('')}</select>
+    <span class="muted">za</span><input type="number" id="evD" value="12" min="0" style="width:60px"><span class="muted">h</span>
+    <select class="f" id="evW" style="width:auto"><option value="all">všechny přítoky</option><option value="upper">horní Vltava + Malše</option><option value="sw">Otava + Lužnice</option><option value="lower">Sázava + Berounka</option></select>
+    <button class="btn acc sm" id="evAdd">Přidat vlnu</button><span class="sp"></span><span class="muted">N pro scénář „N-letá povodeň“</span><select class="f" id="qnN" style="width:auto">${[5,10,20,50,100,500].map(v=>`<option value="${v}" ${v===100?'selected':''}>Q${v}</option>`).join('')}</select></div>
+   <div class="nodes" id="nodes"></div>`;
+  $('#evAdd').onclick=()=>addEvent(sim,+$('#evN').value,+$('#evD').value,WHICH[$('#evW').value]);
+  const box=$('#nodes');
+  for (const n of sim.nodes){ const div=document.createElement('div'); div.className='nd';
+    const qset=[['Q355',n.def.Q355],['Qa',n.def.Qa],['Q1',n.def.N[0]],['Q5',n.def.N[2]],['Q20',n.def.N[4]],['Q100',n.def.N[6]]];
+    div.innerHTML=`<div class="top"><span>${n.def.name.replace(' – přítok do Lipna',' → Lipno')}${n.def.est?' <span class="muted" title="odhad z bilance">*</span>':''}</span><b data-q></b></div><canvas></canvas>
+      <input type="range" min="0" max="1000" data-sl><div class="chips">${qset.map(([l,v],i)=>`<button class="chip" data-i="${i}" title="${fmtQ(v)} m³/s">${l}</button>`).join('')}<span class="sp"></span><button class="chip" data-scen>scénář</button></div>`;
+    const sl=div.querySelector('[data-sl]'), qmax=QN(n.def,1000)*1.2, qlo=n.def.Q355*.2, toQ=s=>qlo*Math.pow(qmax/qlo,s/1000), toS=v=>1000*Math.log(Math.max(v,qlo)/qlo)/Math.log(qmax/qlo);
+    const sync=()=>{ div.querySelector('[data-scen]').classList.toggle('on',n.mode!=='manual'); sl.value=toS(n.mode==='manual'?n.manual:(sim.q?sim.q[n.id]:n.def.now)); sl.style.opacity=n.mode==='manual'?1:.45; };
+    sl.oninput=()=>{ n.mode='manual'; n.mult=1; n.manual=toQ(+sl.value); sync(); };
+    div.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{ n.mode='manual'; n.mult=1; n.manual=qset[+b.dataset.i][1]; sync(); });
+    div.querySelector('[data-scen]').onclick=()=>{ n.mode='scen'; n.mult=1; sync(); };
+    n._ui=div.querySelector('[data-q]'); n._cv=div.querySelector('canvas'); n._sync=sync; sync(); box.appendChild(div); }
+}
+function renderNodes(){ if (botTab!=='nodes') return; for (const n of sim.nodes) if (n._ui&&n._ui.isConnected){ const v=sim.q?sim.q[n.id]:NaN; let tg=''; for (let i=6;i>=0;i--) if (v>=n.def.N[i]){ tg=` <span class="tag" style="color:var(--serious)">≥Q${[1,2,5,10,20,50,100][i]}</span>`; break; } n._ui.innerHTML=fmtQ(v)+' <span class="muted" style="font-size:12px">m³/s</span>'+tg; if (n.mode!=='manual') n._sync(); } }
+function buildPps(p){
+  let h='<div class="two"><div><table><tr><th>MW</th>'+PPS_DEF.map(s=>`<th title="${s.desc}">${s.name.replace(/ \(.*\)/,'')}</th>`).join('')+'</tr>';
+  for (const pl of PPS_PLANTS) h+=`<tr><td><b>${PLANT_NAME[pl]}</b></td>`+PPS_DEF.map(s=>`<td><input type="number" min="0" step="5" data-o="${pl}|${s.id}" value="${sim.pps.offers[pl][s.id]}"></td>`).join('')+'</tr>';
+  h+='<tr><td class="muted">Kč/MW/h</td>'+PPS_DEF.map(s=>`<td><input type="number" min="0" step="10" data-pr="${s.id}" value="${sim.pps.prices[s.id]}"></td>`).join('')+'</tr></table>';
+  h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center"><label style="display:flex;gap:7px;align-items:center;font-weight:650"><input type="checkbox" id="ppsOn" ${sim.pps.on?'checked':''}> Poskytovat PpS</label><span class="sp"></span>
+     <button class="btn sm danger" id="trip">⚡ Výpadek bloku</button><button class="btn sm" id="c5">Výzva mFRR5</button><button class="btn sm" id="c15p">mFRR15+</button><button class="btn sm" id="c15m">mFRR15−</button></div>
+   <div class="field" style="margin-top:10px"><label>Náhodné výzvy za den – mFRR5 / mFRR15</label><span><input type="number" id="lam5" step="0.1" min="0" style="width:60px" value="${sim.pps.lam5}"> <input type="number" id="lam15" step="0.5" min="0" style="width:60px" value="${sim.pps.lam15}"></span></div>
+   <p class="note">MZ5 = mFRR5, MZ15 = mFRR15. FCR a aFRR drží soustrojí v provozu v regulačním pásmu (spotřebuje vodu i mimo špičku); mFRR jde i ze stavu stop – Orlík najede za ~128 s. Ceny jsou orientační.</p></div>
+   <div><div class="g3"><div><div class="l">frekvence</div><div class="v" id="fq"></div></div><div><div class="l">aFRR signál</div><div class="v" id="afs"></div></div><div><div class="l">mFRR5 / 15</div><div class="v" id="mfs"></div></div></div><table id="ppsStats"></table></div></div>`;
+  p.innerHTML=h;
+  p.querySelectorAll('[data-o]').forEach(i=>i.onchange=()=>{ const [pl,s]=i.dataset.o.split('|'); sim.pps.offers[pl][s]=Math.max(0,+i.value); });
+  p.querySelectorAll('[data-pr]').forEach(i=>i.onchange=()=>sim.pps.prices[i.dataset.pr]=+i.value);
+  $('#ppsOn').onchange=e=>sim.pps.on=e.target.checked; $('#lam5').onchange=e=>sim.pps.lam5=+e.target.value; $('#lam15').onchange=e=>sim.pps.lam15=+e.target.value;
+  $('#trip').onclick=doTrip; $('#c5').onclick=()=>sim.callMfrr('m5',1,30,1); $('#c15p').onclick=()=>sim.callMfrr('m15',1,45,1); $('#c15m').onclick=()=>sim.callMfrr('m15',-1,45,1);
+  renderPps();
+}
+function doTrip(){ if (!sim.pps.on){ sim.pps.on=true; let any=false; for (const p of PPS_PLANTS) for (const s of PPS_DEF) if (sim.pps.offers[p][s.id]>0) any=true;
+  if (!any){ const o=sim.pps.offers; o.orlik.afrrp=40; o.orlik.afrrm=30; o.orlik.mfrr5=120; o.orlik.mfrr15p=60; o.slapy.mfrr5=60; o.slapy.afrrp=20; o.pve.fcr=5; o.pve.mfrr5=40; toast('Zapnuty výchozí nabídky PpS (Orlík, Slapy, PVE)','info'); } if (botTab==='pps') buildBottom(); } sim.unitTrip(1); }
+function renderPps(){ if (botTab!=='pps'||!$('#fq')) return; const s=sim.pps.sig; $('#fq').textContent=fmt(s.f,3); $('#fq').style.color=Math.abs(s.f-50)>.05?'var(--serious)':''; $('#afs').textContent=fmt(s.afrr*100,0)+' %'; $('#mfs').textContent=`${fmt(s.m5*100,0)}/${fmt(s.m15*100,0)} %`;
+  const st=sim.pps.stats, r=sim.pps.rev; let h='<tr><th>služba</th><th>požadováno</th><th>dodáno</th><th>plnění</th></tr>';
+  for (const sd of PPS_DEF){ const x=st[sd.id], pc=x.req>.01?x.del/x.req*100:NaN; h+=`<tr><td>${sd.name.replace(/ \(.*\)/,'')}</td><td class="mono">${fmt(x.req,1)} MWh</td><td class="mono">${fmt(x.del,1)} MWh</td><td class="mono" style="color:${pc<90?'var(--critical)':pc>=98?'var(--good)':''}">${isNaN(pc)?'—':fmt(pc,0)+' %'}</td></tr>`; }
+  const tot=r.cap+r.act+r.spot-r.pump-r.pen;
+  h+=`<tr><td colspan="3">kapacitní platby PpS</td><td class="mono">${fmt(r.cap/1e3,0)} tis. Kč</td></tr><tr><td colspan="3">aktivovaná energie</td><td class="mono">${fmt(r.act/1e3,0)} tis. Kč</td></tr><tr><td colspan="3">prodej elektřiny</td><td class="mono">${fmt(r.spot/1e3,0)} tis. Kč</td></tr><tr><td colspan="3">čerpání PVE</td><td class="mono">−${fmt(r.pump/1e3,0)} tis. Kč</td></tr><tr><td colspan="3">penále</td><td class="mono">−${fmt(r.pen/1e3,0)} tis. Kč</td></tr><tr><td colspan="3"><b>celkem</b></td><td class="mono"><b>${fmt(tot/1e3,0)} tis. Kč</b></td></tr>`;
+  $('#ppsStats').innerHTML=h; }
+let logN=-1;
+function renderLog(){ const L=sim.log; const b=$('#logN'); if (b) b.textContent=L.filter(e=>e.sev!=='info').length; const box=$('#log'); if (!box||L.length===logN) return; logN=L.length; const ic={crit:'▲',warn:'●',info:'○'};
+  box.innerHTML=L.slice().reverse().slice(0,250).map(e=>`<div class="${e.sev}"><span class="ic">${ic[e.sev]||'○'}</span><span class="tm">${tStr(e.t)}</span><span>${e.msg}</span></div>`).join('')||'<div class="muted">Zatím žádné události.</div>'; }
+function buildSet(p){
+  p.innerHTML=`<div class="two"><div>
+   ${sl('Minimální odtok z VD Vrané','gQ',0,120,1,sim.glob.QminVrane,v=>v+' m³/s')}
+   <div class="field"><label><input type="checkbox" id="gProt" ${sim.glob.prahaProt?'checked':''}> Ochrana Prahy (řízení Orlíku a Slap podle Berounky a Sázavy)</label></div>
+   ${sl('Limit průtoku v Chuchli','gL',300,3000,50,sim.glob.QprahaLim,v=>fmt(v,0)+' m³/s')}
+   <div class="field"><label><input type="checkbox" id="gSafe" ${sim.glob.safety?'checked':''}> Bezpečnostní automatika přelivů</label></div>
+   <div class="field"><label><input type="checkbox" id="gDemo" ${demoMode?'checked':''}> Ukázkový režim – zastavit a vysvětlit důležité události</label></div>
+   <div class="field"><label>Plynulost zobrazení</label><select class="f" id="gSm" style="width:auto"><option value="hi">plynulá (60 fps)</option><option value="lo">úsporná – slabší PC</option></select></div>
+   <div class="field"><label>Orlík</label><select class="f" id="gO" style="width:auto"><option value="0">dnes – 4× Kaplan</option><option value="1">2033 – Francis + přečerpávání</option></select></div>
+   <div class="field"><label>Časový krok výpočtu</label><select class="f" id="gDt" style="width:auto"><option value="10">10 s – přesné PpS</option><option value="60">60 s</option><option value="300">5 min – rychlé</option></select></div>
+   ${sl('Průměrná cena elektřiny','gS',500,6000,100,sim.glob.spot,v=>fmt(v,0)+' Kč/MWh')}
+  </div><div>
+   <b>Export dat</b><p class="note" style="margin-top:4px">Historie simulace (minutové hodnoty) jako CSV se středníky – vlož do Excelu.</p>
+   <button class="btn sm" id="csv">Kopírovat CSV</button><textarea id="csvOut" readonly></textarea>
+   <p class="note"><b>Offline:</b> stránka je jeden soubor HTML – ulož a otevři v prohlížeči i bez internetu.</p></div></div>`;
+  $('#gDt').value=sim.dt; $('#gSm').value=smoothMode; $('#gO').value=sim.orlik2033?'1':'0';
+  $('#gDemo').onchange=e=>{ demoMode=e.target.checked; try{ localStorage.setItem('vk-demo',demoMode?'1':'0'); }catch(_){} };
+  $('#gSm').onchange=e=>{ smoothMode=e.target.value; try{ localStorage.setItem('vk-smooth',smoothMode); }catch(_){} };
+  $('#gO').onchange=e=>{ sim.setOrlikVariant(e.target.value==='1'); buildCtrl(); buildCharts(); };
+  bindSl('gQ',v=>v+' m³/s',v=>sim.glob.QminVrane=v); bindSl('gL',v=>fmt(v,0)+' m³/s',v=>sim.glob.QprahaLim=v); bindSl('gS',v=>fmt(v,0)+' Kč/MWh',v=>sim.glob.spot=v);
+  $('#gProt').onchange=e=>sim.glob.prahaProt=e.target.checked; $('#gSafe').onchange=e=>sim.glob.safety=e.target.checked; $('#gDt').onchange=e=>{ sim.dt=+e.target.value; sim.primeRoutes(); };
+  $('#csv').onclick=async()=>{ const H=sim.hist, keys=['praha','ptot','vtot',...sim.dams.flatMap(d=>[d.id+'.h',d.id+'.qin',d.id+'.qout',d.id+'.p']),...sim.nodes.map(n=>'q.'+n.id)];
+    let o='cas;'+keys.join(';')+'\n'; for (let i=0;i<H.n;i++) o+=tStr(H.get('t',i)*3600,true)+';'+keys.map(k=>{ const v=H.get(k,i); return isFinite(v)?v.toFixed(3).replace('.',','):''; }).join(';')+'\n';
+    const ta=$('#csvOut'); ta.style.display='block'; ta.value=o; ta.select(); try{ await navigator.clipboard.writeText(o); toast('CSV zkopírováno','info'); }catch(e){ toast('Text je označený – zkopíruj Ctrl+C','info'); } };
+}
+function buildParams(p){
+  let h='<div style="overflow-x:auto"><table><tr><th>Vodní dílo</th><th>ř. km</th><th>stálé nadr.</th><th>max. zásobní</th><th>max. retenční</th><th>koruna</th><th>V celk.</th><th>V zásobní</th><th>V retenční</th><th>turbíny</th><th>P [MW]</th><th>Qt [m³/s]</th><th>přeliv</th><th>min. turbíny</th><th>výpusti</th></tr>';
+  for (const d of sim.dams){ const D=d.d0,u=D.units,a=d.Vat(D.hStale)/1e6,z=d.Vat(D.hZas)/1e6,r=d.Vat(D.hRet)/1e6;
+    h+=`<tr><td><b>${d.name}</b></td><td class="mono">${fmt(D.km,1)}</td><td class="mono">${fmt(D.hStale,2)}</td><td class="mono">${fmt(D.hZas,2)}</td><td class="mono">${fmt(D.hRet,2)}</td><td class="mono">${fmt(D.hCrown,2)}</td><td class="mono">${fmt(r,2)}</td><td class="mono">${fmt(z-a,2)}</td><td class="mono">${fmt(r-z,2)}</td><td>${u.n}× ${u.type==='F'?'Francis':'Kaplan'}</td><td class="mono">${u.n}× ${fmt(u.Pmax,2)}</td><td class="mono">${u.n}× ${u.Qmax}</td><td class="mono">${fmt(d.spillCap(D.hRet),0)}</td><td class="mono">${fmt(D.hIntake,1)}</td><td class="mono">${fmt(d.outCap(D.hRet),0)}${D.outEst?' *':''}</td></tr>`; }
+  h+=`</table></div><p class="note" style="font-size:12.5px"><b>Model:</b> bilance nádrží (soustředěná hladina, krok 10–300 s); čáry objemů monotónní interpolací přes kóty prostorů a body z Povodí Vltavy – mezi body aproximace. Výkon P = ρ·g·Q·H·η, spád = horní hladina − dolní voda − ztráty. Kapacity přelivů z rovnice přepadu (kalibrováno: Lipno – MŘ 2019, Štěchovice 2 400 m³/s – ČEZ, výpusti Orlíku 294/364 m³/s), ostatní orientačně. Lipno II → Hněvkovice: zpoždění 14 h + lineární nádrž 6 h; Vrané → Chuchle 1,5 h. Řízení je zjednodušená interpretace manipulačních řádů, ne jejich úplné znění. Neškodný odtok Orlíku/Slap a mezipovodí (*) jsou odhady. Povodně 2002/2013 jsou rekonstrukce z kulminací ve zprávách.</p>`;
+  const S=[['Povodí Vltavy – Stavy nádrží (17. 11. 2026)','https://www.pvl.cz/portal/nadrze/cz/pc/Prehled.aspx'],['Povodí Vltavy – Stavy a průtoky','https://www.pvl.cz/portal/sap/'],['Manipulační řád VD Lipno I a II (2019)','https://zakazky.eagri.cz/document_150410/d4f96243ef7ce22d4a5fa1fcedd25a8c-priloha-c-5-manipulacni-rad-pdf'],['ČEZ – Vltavská kaskáda ve schématu','https://www.cez.cz/webpublic/file/edee/2020/06/vltavska_kaskada_ve_schema.pdf'],['VD Orlík – základní parametry','https://www.orlikppo.cz/o-vodnim-dile-orlik/'],['ČEZ – VE Orlík','https://www.cez.cz/cs/o-cez/vyrobni-zdroje/obnovitelne-zdroje/voda/vodni-elektrarny/ceska-republika/orlik-58164'],['Státní plavební správa – kóta 334,60 a MZP 40 m³/s','https://sps.gov.cz/predpisy/predpis.php?typ=i&id=473'],['Povodí Vltavy – zpráva o povodni 2002','https://www.pvl.cz/files/download/hydrologicke-informace/zpravy-o-povodni/2002-08-zprava-o-povodni.pdf'],['MZe – povodeň červen 2013','https://mzp.gov.cz/sites/default/files/tiskove-zpravy/OTM_MZE_20130627.pdf'],['Zpráva o povodni 01/2003 – Vrané 720 m³/s','https://dibavod.cz:443/data/povodnove_zpravy/vltava/vltava_01_2003.pdf'],['oEnergetice – trh podpůrných služeb ČEPS','https://oenergetice.cz/energetika-v-cr/trh-podpurnych-sluzeb-se-meni-vysledky-aukci-ceps-ukazuji-nastup-agregatoru-i-tlak-na-cenu-flexibility']];
+  h+='<b style="display:block;margin:12px 0 6px">Zdroje</b><ul class="srcs">'+S.map(([t,u])=>`<li><a href="${u}" target="_blank" rel="noopener">${t}</a></li>`).join('')+'</ul>'; p.innerHTML=h;
+}
+
+/* ===================== rychlé akce ===================== */
+$$('[data-qa]').forEach(b=>b.onclick=()=>{ const a=b.dataset.qa;
+  if (a==='q20') addEvent(sim,20,12,null); else if (a==='q100') addEvent(sim,100,12,null); else if (a==='rain') addEvent(sim,2,6,null);
+  else if (a==='dry'){ for (const n of sim.nodes){ n.mode='scen'; n.mult=.5; } toast('Přítoky sníženy na polovinu','warn'); }
+  else if (a==='norm'){ for (const n of sim.nodes){ n.mode='scen'; n.mult=1; } toast('Přítoky podle scénáře','info'); }
+  else if (a==='pre'){ const O=sim.D.orlik; O.mode='auto'; O.par.tgtOverride=+(Math.max(O.d.hStale+1,O.h-3)).toFixed(1); toast(`Orlík: předpouštění na ${fmt(O.par.tgtOverride,1)} m n.m.`,'warn'); select('orlik'); }
+  else if (a==='trip') doTrip();
+  else if (a==='auto'){ for (const d of sim.dams){ d.mode='auto'; d.par.tgtOverride=null; } sim.pve.mode='auto'; toast('Všechna díla v automatice MŘ','info'); }
+  if (botTab==='nodes') for (const n of sim.nodes) n._sync&&n._sync(); buildCtrl(); renderAll(); });
+
+/* ===================== DETAIL ELEKTRÁRNY (řez) ===================== */
+let detId=null; const dref={}; const spin={}; const spd={}; const SYNC=260;
+function openDetail(id){ detId=id; if (!String(id).startsWith('obec:')) select(id); buildDetail(); $('#det').classList.add('on'); }
+function closeDetail(){ detId=null; $('#det').classList.remove('on'); }
+const DORD=()=>String(detId).startsWith('obec:')?sim.places.map(p=>'obec:'+p.def.id):[...ORDER.slice(0,8),'pve','vrane'];
+function stepDetail(k){ const o=DORD(); const i=o.indexOf(detId); detId=o[(i+k+o.length)%o.length]; if (!String(detId).startsWith('obec:')) select(detId); buildDetail(); }
+$('#dClose').onclick=closeDetail; $('#dPrev').onclick=()=>stepDetail(-1); $('#dNext').onclick=()=>stepDetail(1);
+$('#det').onclick=e=>{ if (e.target.id==='det') closeDetail(); };
+const DNOTE={lipno1:'Voda vtéká do vtokového objektu v nádrži, padá dvěma svislými tlakovými šachtami (Ø 4,5 m, 160 m) do podzemní strojovny se dvěma Francisovými turbínami a odtéká 3,6 km dlouhým odpadním tunelem do vyrovnávací nádrže Lipno II u Vyššího Brodu. Hráz je sypaná s těsnicím jádrem; bezpečnostní přeliv má 2 pole po 10 m se sklopnými klapkami. Do starého koryta teče stále 1,5 m³/s přes malou vodní elektrárnu.',
+  korensko:'Při vysoké hladině Orlíku je jez Kořensko zatopen vzdutím a elektrárna nevyrábí.', orlik:'Strojovna s přivaděči o průměru 6 m u paty hráze; 4 soustrojí, najetí na plný výkon za 128 s.',
+  slapy:'Přelévaná elektrárna – strojovna je přímo v tělese hráze pod přelivy.', vrane:'Nejstarší dílo kaskády (1936). Jako jediné na kaskádě má uzávěry přelivu, které se při otevírání spouštějí dolů – voda přepadá přes ně.'};
+function buildDetail(){
+  if (detId==='pve') return buildPveDetail(); if (String(detId).startsWith('obec:')) return buildPlaceDetail(detId.slice(5));
+  const d=sim.D[detId]; if (detId==='lipno1'){ $('#dName').textContent=d.name; $('#dRole').textContent=`${ROLE[d.d.role]} · ř. km ${fmt(d.d.km,1)} · podzemní elektrárna 2× Francis 60 MW`; return buildLipnoDetail(d); }
+  const svg=$('#dsvg'); svg.innerHTML=''; const W=1000, H=560;
+  $('#dName').textContent=d.name; $('#dRole').textContent=`${ROLE[d.d.role]} · ř. km ${fmt(d.d.km,1)}`;
+  const tw0=d.d.tw.z0, bedU=d.curve.h0, bedD=Math.min(tw0-4, bedU+ (d.d.hCrown-bedU)*0.05);
+  const zmin=Math.min(bedU,bedD)-2, zmax=d.d.hCrown+(d.d.hCrown-zmin)*0.16;
+  const Yz=z=>510-(z-zmin)/(zmax-zmin)*450; dref.Yz=Yz;
+  const defs=el('defs',{},svg);
+  const g1=el('linearGradient',{id:'dW',x1:0,y1:0,x2:0,y2:1},defs); el('stop',{offset:0,'stop-color':css('--water-1'),'stop-opacity':.9},g1); el('stop',{offset:1,'stop-color':css('--water-2')},g1);
+  const g2=el('linearGradient',{id:'dC',x1:0,y1:0,x2:1,y2:0},defs); el('stop',{offset:0,'stop-color':css('--conc-1')},g2); el('stop',{offset:1,'stop-color':css('--conc-2')},g2);
+  const g3=el('linearGradient',{id:'dS',x1:0,y1:0,x2:0,y2:1},defs); el('stop',{offset:0,'stop-color':skyStops(sim.hourOfDay,root.dataset.theme==='dark')[0]},g3); el('stop',{offset:1,'stop-color':skyStops(sim.hourOfDay,root.dataset.theme==='dark')[1]},g3);
+  const gl=el('filter',{id:'dGl',x:'-50%',y:'-50%',width:'200%',height:'200%'},defs); el('feGaussianBlur',{stdDeviation:4},gl);
+  const pat=el('pattern',{id:'dStr',width:16,height:16,patternUnits:'userSpaceOnUse',patternTransform:'rotate(-14)'},defs); el('line',{x1:0,y1:8,x2:16,y2:8,stroke:css('--strata'),'stroke-width':3},pat);
+  el('rect',{x:0,y:0,width:W,height:H,fill:'url(#dS)'},svg);
+  // geometrie hráze
+  const U=360, cw=34, yC=Yz(d.d.hCrown), yUB=Yz(bedU), yDB=Yz(bedD); const base=Math.min(300,Math.max(90,(yUB-yC)*0.78)); const T=U+cw+base;
+  dref.U=U; dref.T=T; dref.yUB=yUB; dref.yDB=yDB;
+  // horní voda
+  dref.wU=el('rect',{x:0,width:U,fill:'url(#dW)'},svg); dref.sU=el('line',{x1:0,x2:U,stroke:css('--water-line'),'stroke-width':2.2,'stroke-dasharray':'16 6',class:'shim'},svg);
+  // dolní voda
+  dref.wD=el('rect',{x:T-10,width:W-T+10,fill:'url(#dW)'},svg); dref.sD=el('line',{x1:T-10,x2:W,stroke:css('--water-line'),'stroke-width':2,'stroke-dasharray':'16 6',class:'shim'},svg);
+  // terén
+  el('path',{d:`M0,${H} L0,${yUB} L${U},${yUB} L${T},${yDB} L${W},${yDB+6} L${W},${H} Z`,fill:css('--earth-1')},svg);
+  el('path',{d:`M0,${H} L0,${yUB} L${U},${yUB} L${T},${yDB} L${W},${yDB+6} L${W},${H} Z`,fill:'url(#dStr)'},svg);
+  // kóty prostorů
+  const zl=el('g',{'font-size':12,class:'m'},svg);
+  for (const [k,l,c] of [['hStale','stálé nadržení','--muted'],['hZas','max. zásobní','--good'],['hRet','max. retenční','--critical']]){
+    if (k==='hRet'&&Math.abs(d.d.hRet-d.d.hZas)<0.05) continue; const y=Yz(d.d[k]);
+    el('line',{x1:0,x2:U,y1:y,y2:y,stroke:css(c),'stroke-dasharray':'7 5','stroke-width':1.4},zl);
+    el('text',{x:8,y:y-5,fill:css(c),'font-weight':600,style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':4},zl).textContent=`${l} ${fmt(d.d[k],2)}`; }
+  // těleso hráze
+  el('path',{d:`M${U},${yC} L${U+cw},${yC} L${T},${yDB} L${U},${yUB} Z`,fill:'url(#dC)',stroke:css('--conc-2'),'stroke-width':1.2},svg);
+  el('text',{x:U+cw+6,y:yC+4,'font-size':11.5,fill:css('--text-2'),class:'m'},svg).textContent=`koruna ${fmt(d.d.hCrown,2)}`;
+  // přeliv: přelivná hrana + uzávěr + paprsek
+  const yCr=Yz(d.d.hCrest), gateTop=Yz(Math.max(d.d.hRet+0.3,d.d.hCrest+0.5));
+  el('rect',{x:U-2,y:gateTop-6,width:cw+4,height:Math.max(4,yCr-gateTop+6),fill:css('--surface-3'),opacity:.55},svg);
+  dref.nappe=el('path',{d:`M${U+cw*0.6},${yCr} C ${U+cw+30},${yCr+10} ${U+cw+base*0.55},${(yCr+yDB)/2} ${T-6},${yDB-4}`,fill:'none',stroke:'#fff','stroke-linecap':'round','stroke-dasharray':'10 8',class:'flowing',opacity:0},svg);
+  dref.nappeB=el('path',{d:`M${U+cw*0.6},${yCr} C ${U+cw+30},${yCr+10} ${U+cw+base*0.55},${(yCr+yDB)/2} ${T-6},${yDB-4}`,fill:'none',stroke:css('--water-1'),'stroke-linecap':'round',opacity:0},svg);
+  dref.gate=el('rect',{x:U+3,width:cw-6,fill:css('--dam-2')||css('--conc-2'),stroke:css('--text'),'stroke-opacity':.4,rx:2},svg);
+  dref.gH=Math.max(10,yCr-gateTop); dref.yCr=yCr; dref.down=detId==='vrane';
+  if (dref.down){ // klapkový/poklopový uzávěr – při otevírání zajíždí dolů do přelivné plochy
+    el('rect',{x:U+2,y:yCr,width:cw-4,height:dref.gH+6,fill:css('--surface-3'),stroke:css('--border-2')},svg);
+    dref.nappe.setAttribute('d',''); dref.nappeB.setAttribute('d',''); }
+  el('text',{x:U-6,y:yCr+4,'font-size':11.5,'text-anchor':'end',fill:css('--text-2'),class:'m'},svg).textContent=`přeliv ${fmt(d.d.hCrest,2)} ▸`;
+  if (detId==='vrane') el('text',{x:U+cw/2,y:gateTop-12,'font-size':11,'text-anchor':'middle',fill:css('--text-2')},svg).textContent='klapka ↓';
+  // spodní výpusti
+  dref.outl=null;
+  if (d.d.outK>0){ const yo=Math.min(Yz(d.d.outZ0)-5,Yz(bedU)-6); el('rect',{x:U-6,y:yo-5,width:T-U+6,height:10,fill:css('--surface-3'),stroke:css('--border-2')},svg);
+    dref.valve=el('circle',{cx:U+(T-U)*0.45,cy:yo,r:8,fill:css('--surface'),stroke:css('--text-2'),'stroke-width':2},svg);
+    dref.outl=el('path',{d:`M${U-6},${yo} L${T+4},${yo} Q ${T+60},${yo+4} ${T+90},${yDB+4}`,fill:'none',stroke:css('--water-line'),'stroke-width':4,'stroke-dasharray':'8 7',class:'flowing',opacity:0},svg);
+    el('text',{x:U+(T-U)*0.45,y:yo+24,'font-size':11.5,'text-anchor':'middle',fill:css('--text-2')},svg).textContent='spodní výpusti'; }
+  // přivaděč a strojovna
+  const n=d.units.length, zi=Math.max(d.d.hIntake-2,bedU+2), yi=Yz(zi), uy=yDB-24, ux0=T+30, gap=Math.min(78,(W-ux0-40)/Math.max(1,n));
+  dref.pen=el('path',{d:`M${U},${yi} L${U+cw+8},${yi+6} L${ux0-12},${uy}`,fill:'none',stroke:css('--surface-3'),'stroke-width':16,'stroke-linejoin':'round'},svg);
+  dref.penF=el('path',{d:`M${U},${yi} L${U+cw+8},${yi+6} L${ux0-12},${uy}`,fill:'none',stroke:css('--water-line'),'stroke-width':4,'stroke-dasharray':'8 9',class:'flowing',opacity:0},svg);
+  el('text',{x:U-6,y:yi+4,'font-size':11.5,'text-anchor':'end',fill:css('--text-2')},svg).textContent='vtok ▸';
+  { const yI=Yz(d.d.hIntake); el('line',{x1:U-120,x2:U,y1:yI,y2:yI,stroke:css('--serious'),'stroke-dasharray':'3 4','stroke-width':1.2},svg); el('text',{x:U-122,y:yI+4,'font-size':10.5,'text-anchor':'end',fill:css('--serious'),class:'m',style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':3},svg).textContent=`min. pro turbíny ${fmt(d.d.hIntake,1)}`; }
+  // budova
+  const bx=ux0-26, bw=gap*n+24, by=uy-118; el('rect',{x:bx,y:by,width:bw,height:132,rx:6,fill:css('--conc-2'),opacity:.55,stroke:css('--border-2')},svg);
+  el('path',{d:`M${bx-6},${by} L${bx+bw/2},${by-22} L${bx+bw+6},${by} Z`,fill:css('--conc-2'),opacity:.8},svg);
+  el('text',{x:bx+bw/2,y:by-28,'font-size':12,'text-anchor':'middle','font-weight':700,fill:css('--text')},svg).textContent='strojovna';
+  dref.inset=drawTurbineInset(svg,W-310,Math.max(4,Math.min(34,by-62-284)),d.units.some(x=>x.rev)&&false?'RF':(d.d.units.type||'K'),d.units[0]);
+  const sc=Math.min(1,gap/80); dref.units=d.units.map((x,i)=>drawTurbine(svg,x,ux0+gap*i+gap/2-14,uy-14*sc,x.rev?'RF':(d.d.units.type||'K'),sc,i));
+  // popisky hladin
+  dref.tU=el('text',{x:U-10,'font-size':14,'text-anchor':'end','font-weight':700,fill:css('--text'),class:'m'},svg);
+  dref.tD=el('text',{x:W-12,'font-size':13,'text-anchor':'end','font-weight':700,fill:css('--text'),class:'m',style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':4},svg);
+  dref.tSp=el('text',{x:U+cw+base*0.55+10,y:(yCr+yDB)/2,'font-size':12.5,'font-weight':700,fill:css('--text'),class:'m'},svg);
+  dref.tOut=el('text',{x:T+92,y:yDB-10,'font-size':12.5,'font-weight':700,fill:css('--water-line'),class:'m'},svg);
+  dref.pumpTxt=el('text',{x:bx+bw/2,y:by+16,'font-size':12,'text-anchor':'middle','font-weight':700,fill:css('--s7')},svg);
+  // šipka toku
+  el('text',{x:W-322,y:24,'font-size':12,'text-anchor':'end',fill:css('--text-2')},svg).textContent='směr toku →';
+  buildDside(d); animDetail(0);
+}
+function buildDside(d){
+  const box=$('#dside'), Q=v=>fmtQ(v)+' m³/s';
+  box.innerHTML=`<div class="bigs" style="grid-template-columns:1fr 1fr"><div><div class="l">horní voda</div><div class="v" id="dsH"></div></div><div><div class="l">dolní voda</div><div class="v" id="dsT"></div></div><div><div class="l">spád</div><div class="v" id="dsS"></div></div><div><div class="l">výkon</div><div class="v" id="dsP"></div></div></div>
+   <div class="sect"><div class="h">Bilance průtoků</div><div id="dsF"></div></div>
+   <div class="sect"><div class="h"><span>Ruční řízení</span><span class="badge" id="dsMb"></span></div>
+    <div class="seg" id="dM"><button data-m="auto">Automatika MŘ</button><button data-m="manual">Ručně</button></div>
+    <div id="dsU" style="margin-top:8px">${d.units.map((x,i)=>`<div class="sl"><div class="top"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-ua="${i}" ${x.avail?'checked':''}> ${x.rev?'RTG':'TG'}${i+1}</label><b id="dU${i}V">${fmt(x.P,1)} MW</b></div><input type="range" id="dU${i}" min="0" max="${x.Pmax||d.d.units.Pmax}" step="0.1" value="${x.P.toFixed(1)}"></div>`).join('')}</div>
+    ${detId==='orlik'&&sim.orlik2033?`<div class="field"><label>Čerpání z Kamýku</label><div class="seg" id="dPm" style="width:auto"><button data-m="auto">auto</button><button data-m="manual">ručně</button><button data-m="off">vyp.</button></div></div>${sl('Čerpající soustrojí','dPn',0,2,1,sim.opump.man,v=>v+' × 87 MW')}`:''}
+    ${sl('Přeliv – otevření uzávěrů','dG',0,100,1,d.mode==='manual'?d.manGate:Math.round(clamp01(d.Qspill/Math.max(1,d.spillCap(d.h)))*100),v=>v+' %')}
+    ${d.d.outK>0?sl('Spodní výpusti','dO',0,100,1,d.mode==='manual'?d.manOut:Math.round(clamp01(d.Qoutl/Math.max(1,d.outCap(d.h)))*100),v=>v+' %'):''}
+    <button class="bigbtn" id="dEmpty" style="border-color:var(--critical)">⬇ Vypustit nádrž (výpusti + přeliv naplno, turbíny stop)</button>
+    <p class="note">Turbíny se samy odstaví, jakmile hladina klesne pod vtok (${fmt(d.d.hIntake,1)} m n.m.); dál vodu odvádějí jen spodní výpusti – nejníž na úroveň jejich prahu (${fmt(d.d.outZ0,1)} m n.m.), a to jen dokud je hladina dolní vody níž (gravitačně nejde vypustit pod dolní vodu)${d.d.outEst?', parametry výpustí tohoto díla jsou orientační':''}.</p>
+    <p class="note">Posunem kteréhokoli ovladače se dílo přepne do ručního režimu; ostatní soustrojí drží aktuální výkon. Zpět na automatiku tlačítkem nahoře.</p></div>
+   <div class="sect"><div class="h">Typ soustrojí</div>${[...new Set(d.units.map(x=>x.rev?'RF':(d.d.units.type||'K')))].map(k=>`<div style="display:flex;gap:10px;align-items:flex-start;margin:6px 0"><span class="chip" style="flex:none;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border-2)">${k==='K'?'K':k==='F'?'F':'F↺'}</span><div><b>${KINDNAME[k]}</b> · ${d.units.filter(x=>(x.rev?'RF':(d.d.units.type||'K'))===k).length}×<div class="note" style="margin:2px 0 0">${KINDTXT[k]}</div></div></div>`).join('')}</div>
+   <div class="sect"><div class="h">Kapacity při aktuální hladině</div><div class="kv" id="dsK"></div></div>
+   <p class="note">${DNOTE[d.id]||''}</p>`;
+  const toMan=()=>{ if (d.mode!=='manual'){ d.mode='manual'; for (const x of d.units) x.man=+x.P.toFixed(1); d.manGate=+($('#dG')?.value||0); d.manOut=+($('#dO')?.value||0); buildCtrl(); dsMode(); } };
+  d.units.forEach((x,i)=>{ const r=$('#dU'+i); r.oninput=()=>{ toMan(); x.man=+r.value; $('#dU'+i+'V').textContent=fmt(x.man,1)+' MW'; if (!running) sim.applyManual(d); }; r.onpointerdown=()=>r._drag=true; r.onpointerup=()=>r._drag=false;
+    $(`[data-ua="${i}"]`).onchange=e=>{ x.avail=e.target.checked; }; });
+  $('#dEmpty').onclick=()=>{ d.mode='manual'; for (const x of d.units) x.man=0; d.manGate=100; d.manOut=100; buildCtrl(); buildDside(d); toast(`${d.name}: vypouštění nádrže`,'warn'); };
+  $$('#dPm button').forEach(b=>{ b.classList.toggle('on',b.dataset.m===sim.opump.mode); b.onclick=()=>{ sim.opump.mode=b.dataset.m; $$('#dPm button').forEach(z=>z.classList.toggle('on',z.dataset.m===sim.opump.mode)); buildCtrl(); }; });
+  bindSl('dPn',v=>v+' × 87 MW',v=>{ sim.opump.mode='manual'; sim.opump.man=v; $$('#dPm button').forEach(z=>z.classList.toggle('on',z.dataset.m==='manual')); });
+  bindSl('dG',v=>v+' %',v=>{ toMan(); d.manGate=v; }); bindSl('dO',v=>v+' %',v=>{ toMan(); d.manOut=v; });
+  const dsMode=()=>{ $$('#dM button').forEach(b=>b.classList.toggle('on',b.dataset.m===d.mode)); const mb=$('#dsMb'); if (mb){ mb.className='badge '+(d.mode==='auto'?'':'acc'); mb.textContent=d.mode==='auto'?'AUTOMATIKA':d.mode==='manual'?'RUČNĚ':'PLÁN'; } };
+  $$('#dM button').forEach(b=>b.onclick=()=>{ d.mode=b.dataset.m; if (d.mode==='manual') for (const x of d.units) x.man=+x.P.toFixed(1); dsMode(); buildCtrl(); }); dsMode();
+}
+const dd={};
+function animDetail(dt){
+  if (detId==='pve') return animPve(dt); if (String(detId).startsWith('obec:')) return animPlace(dt);
+  if (!detId||!dref.Yz) return; const d=sim.D[detId], Yz=dref.Yz; const k=1-Math.exp(-dt*7);
+  const o=dd[detId]||(dd[detId]={h:d.h,tw:d.tw||d.d.tw.z0,sp:0,ou:0}); o.h+=(d.h-o.h)*(dt?k:1); o.tw+=((d.tw||d.d.tw.z0)-o.tw)*(dt?k:1);
+  o.sp+=((d.Qspill)-o.sp)*(dt?k:1); o.ou+=((d.Qoutl)-o.ou)*(dt?k:1);
+  const yh=Yz(o.h), yt=Yz(o.tw);
+  dref.wU.setAttribute('y',yh); dref.wU.setAttribute('height',Math.max(0,dref.yUB-yh+4)); dref.sU.setAttribute('y1',yh); dref.sU.setAttribute('y2',yh);
+  dref.wD.setAttribute('y',yt); dref.wD.setAttribute('height',Math.max(0,560-yt)); dref.sD.setAttribute('y1',yt); dref.sD.setAttribute('y2',yt);
+  dref.tU.setAttribute('y',yh-8); dref.tD.setAttribute('y',Math.min(548,yt+60));
+  // uzávěr přelivu: otevření = podíl kapacity
+  const cap=d.spillCap(d.h), g=d.mode==='manual'?d.manGate/100:clamp01(o.sp/Math.max(1,cap)); const lift=g*dref.gH*0.9;
+  if (dref.flap){ const ang=g*72, top=dref.yCr-dref.gH*Math.cos(ang*Math.PI/180); dref.gate.setAttribute('y',dref.yCr-dref.gH); dref.gate.setAttribute('height',dref.gH); dref.gate.setAttribute('transform',`rotate(${ang.toFixed(1)} ${dref.flap.x} ${dref.yCr})`);
+    const U=dref.U, T=dref.T, y2=dref.yDB-4, xt=dref.flap.x+dref.gH*Math.sin(ang*Math.PI/180), p=`M${U+2},${Math.min(top,yh)} L${xt},${top} Q ${xt+30},${top+6} ${xt+50},${(top+y2)/2} T ${T-6},${y2}`; dref.nappe.setAttribute('d',p); dref.nappeB.setAttribute('d',p); }
+  else if (dref.down){ const top=dref.yCr-dref.gH+lift; dref.gate.setAttribute('y',top); dref.gate.setAttribute('height',dref.gH);
+    const U=dref.U, T=dref.T, y2=dref.yDB-4, p=`M${U+2},${Math.min(top,yh)} Q ${U+40},${top+8} ${U+60},${(top+y2)/2} T ${T-6},${y2}`;
+    dref.nappe.setAttribute('d',p); dref.nappeB.setAttribute('d',p); }
+  else { dref.gate.setAttribute('y',dref.yCr-dref.gH-lift); dref.gate.setAttribute('height',dref.gH); }
+  const sw=o.sp>0.5?2+Math.log10(1+o.sp)*3.2:0; dref.nappe.setAttribute('stroke-width',sw.toFixed(1)); dref.nappeB.setAttribute('stroke-width',(sw*2.2).toFixed(1));
+  dref.nappe.setAttribute('opacity',o.sp>0.5?.95:0); dref.nappeB.setAttribute('opacity',o.sp>0.5?.55:0);
+  if (dref.outl){ dref.outl.setAttribute('opacity',o.ou>0.5?1:0); dref.outl.setAttribute('stroke-width',o.ou>0.5?(2+Math.log10(1+o.ou)*2).toFixed(1):0); dref.valve.setAttribute('fill',o.ou>0.5?css('--water-1'):css('--surface')); }
+  dref.penF.setAttribute('opacity',d.Qturb>0.5||(detId==='orlik'&&sim.opump.Q>1)?1:0); { const qt=Math.max(d.Qturb,detId==='orlik'?sim.opump.Q:0)/Math.max(1,d.d.units.Qmax*d.units.length); dref.penF.setAttribute('stroke-width',(1.5+7*clamp01(qt)).toFixed(1)); if (dref.tail) dref.tail.setAttribute('stroke-width',(1.5+7*clamp01(qt)).toFixed(1)); } if (dref.tail) dref.tail.setAttribute('opacity',d.Qturb>0.5?1:0);
+  dref.penF.setAttribute('style',detId==='orlik'&&sim.opump.Q>1?'animation-direction:reverse;stroke:'+css('--s7'):'');
+  dref.units.forEach((u,i)=>{ const x=d.units[i]; if (!x) return; const pm=x.Pmax||d.d.units.Pmax; const f=x.P/pm;
+    // synchronní stroj: na síti stálé otáčky (50 Hz); jen při najíždění / doběhu se otáčky mění
+    const tgt=x.pump?-SYNC:(x.P>0.05?SYNC:0); spd[i]=spd[i]==null?tgt:spd[i]+(tgt-spd[i])*Math.min(1,dt*(tgt?1.6:0.7)); spin[i]=(spin[i]+spd[i]*dt)%360; const pf=x.pump?1:clamp01(f); const qf=x.pump?1:Math.min(1,Math.max(0,x.Q/(d.d.units.Qmax||1))); u.upd(spin[i],qf,x.Q>0.5||!!x.pump,pf,x.pump);
+    if (dref.inset && i===(d.units.findIndex(z=>z.Q>0.5||z.pump)+1||1)-1) dref.inset.upd(spin[i],qf,x.Q>0.5||!!x.pump,pf,x.pump);
+    u.glow.setAttribute('opacity',x.P>0.05?Math.min(.9,.3+f*.6):x.pump?.5:0); u.glow.setAttribute('fill',x.pump?css('--s7'):css('--light'));
+    u.gen.setAttribute('stroke',x.pump?css('--s7'):x.P>0.05?css('--light'):css('--border-2'));
+    u.out.setAttribute('opacity',x.Q>0.5?1:0); });
+  if (!dt || (performance.now()%300)<40 || true){
+    dref.tU.textContent=`${fmt(d.h,2)} m n.m.`; dref.tD.textContent=`dolní voda ${fmt(d.tw||d.d.tw.z0,2)}`;
+    dref.tSp.textContent=o.sp>0.5?`přeliv ${fmtQ(d.Qspill)} m³/s`:''; dref.tOut.textContent=o.ou>0.5?`výpusti ${fmtQ(d.Qoutl)} m³/s`:'';
+    dref.units.forEach((u,i)=>{ const x=d.units[i]; if (!x) return; u.lab.textContent=x.pump?'čerpá':!x.avail?'odstaveno':d.trip?'pod vtokem':(x.P>0.05?fmt(x.P,1)+' MW':'stojí'); u.lab2.textContent=x.pump?'':x.Q>0.5?fmt(x.Q,0)+' m³/s':''; });
+    dref.pumpTxt.textContent=detId==='orlik'&&sim.opump.P>1?`⟲ čerpání z Kamýku ${fmt(sim.opump.P,0)} MW · ${fmt(sim.opump.Q,0)} m³/s`:'';
+  }
+}
+function renderDside(){
+  if (detId==='pve') return renderPveSide(); if (String(detId).startsWith('obec:')) return renderPlaceSide();
+  if (!detId||!$('#dsH')) return; const d=sim.D[detId];
+  $('#dsH').innerHTML=`${fmt(d.h,2)}<small> m</small>`; $('#dsT').innerHTML=`${fmt(d.tw||d.d.tw.z0,2)}<small> m</small>`; $('#dsS').innerHTML=`${fmt(d.head,1)}<small> m</small>`; $('#dsP').innerHTML=`${fmt(d.P,1)}<small> MW</small>`;
+  const mx=Math.max(1,d.Qin,d.Qout); const row=(l,v,c)=>`<div class="flowrow"><span>${l}</span><div class="b"><i style="width:${clamp01(v/mx)*100}%;background:${css(c)}"></i></div><b>${fmtQ(v)}</b></div>`;
+  $('#dsF').innerHTML=row('přítok',d.Qin,'--s1')+row('turbíny',d.Qturb,'--good')+row('přeliv',d.Qspill,'--s2')+(d.d.outK>0?row('spodní výpusti',d.Qoutl,'--s4'):'')+row('odtok celkem',d.Qout,'--s5')+(detId==='orlik'&&sim.orlik2033?row('čerpání z Kamýku',sim.opump.Q,'--s7'):'');
+  d.units.forEach((x,i)=>{ const r=$('#dU'+i); if (!r) return; if (d.mode!=='manual' && !r._drag){ r.value=x.P.toFixed(1); } $('#dU'+i+'V').textContent=x.pump?'čerpá':x.avail?fmt(d.mode==='manual'?x.man:x.P,1)+' MW':'odstaveno'; const cb=$(`[data-ua="${i}"]`); if (cb&&document.activeElement!==cb) cb.checked=x.avail; });
+  $('#dsK').innerHTML=kv([['turbíny max.',fmt(d.units.filter(x=>x.avail).length*d.d.units.Qmax,0)+' m³/s'],['přeliv',fmt(d.spillCap(d.h),0)+' m³/s'],['spodní výpusti',d.d.outK?fmt(d.outCap(d.h),0)+' m³/s':'—'],['volný retenční prostor',d.d.hRet-d.d.hZas>.05?fmt(Math.max(0,d.Vat(d.d.hRet)-Math.max(d.V,d.Vat(d.d.hZas)))/1e6,1)+' mil. m³':'—']]);
+}
+
+
+/* --- Lipno I: sypaná hráz, vtokový objekt, svislé tlakové šachty, podzemní strojovna, odpadní tunel do Lipna II --- */
+function buildLipnoDetail(d){
+  const svg=$('#dsvg'); svg.innerHTML=''; const W=1000, H=560, zmin=540, zmax=742;
+  const Yz=z=> z>=700 ? 40+(732-z)/32*200 : 240+(700-z)/150*280; dref.Yz=Yz; // horní část zvětšena, podzemí zkráceno
+  const defs=el('defs',{},svg); const sky=skyStops(sim.hourOfDay,root.dataset.theme==='dark');
+  const lg=(id,a,b,op,h)=>{ const g=el('linearGradient',{id,x1:0,y1:0,x2:h?1:0,y2:h?0:1},defs); el('stop',{offset:0,'stop-color':a,'stop-opacity':op??1},g); el('stop',{offset:1,'stop-color':b},g); };
+  lg('dW',css('--water-1'),css('--water-2'),.9); lg('dS',sky[0],sky[1]); lg('dE',css('--earth-1'),css('--earth-2')); lg('dC',css('--conc-1'),css('--conc-2'),1,true);
+  const gl=el('filter',{id:'dGl',x:'-50%',y:'-50%',width:'200%',height:'200%'},defs); el('feGaussianBlur',{stdDeviation:4},gl);
+  const pat=el('pattern',{id:'dStr',width:16,height:16,patternUnits:'userSpaceOnUse',patternTransform:'rotate(-14)'},defs); el('line',{x1:0,y1:8,x2:16,y2:8,stroke:css('--strata'),'stroke-width':3},pat);
+  const rock=el('pattern',{id:'dRock',width:40,height:30,patternUnits:'userSpaceOnUse'},defs); el('path',{d:'M0 15 L12 9 L22 18 L40 11 M5 30 L15 24 L30 28',stroke:css('--strata'),'stroke-width':2,fill:'none'},rock);
+  el('rect',{x:0,y:0,width:W,height:H,fill:'url(#dS)'},svg);
+  const yBed=Yz(705.6), yCrown=Yz(728.62), yVal=Yz(702.5);
+  // nádrž
+  dref.wU=el('rect',{x:0,width:322,fill:'url(#dW)'},svg); dref.sU=el('line',{x1:0,x2:322,stroke:css('--water-line'),'stroke-width':2.2,'stroke-dasharray':'16 6',class:'shim'},svg);
+  // horninový masiv (žula/ruly Šumavy) – podzemí
+  const ground=`M0,${H} L0,${yBed} L300,${yBed} L470,${yVal} L600,${yVal+4} L680,${Yz(660)} L780,${Yz(590)} L880,${Yz(560)} L1000,${Yz(560)} L1000,${H} Z`;
+  el('path',{d:ground,fill:'url(#dE)'},svg); el('path',{d:ground,fill:'url(#dRock)'},svg);
+  // Lipno II (dolní nádrž) vpravo
+  dref.wD=el('rect',{x:880,width:120,fill:'url(#dW)'},svg); dref.sD=el('line',{x1:880,x2:1000,stroke:css('--water-line'),'stroke-width':2,'stroke-dasharray':'16 6',class:'shim'},svg);
+  el('path',{d:`M992,${Yz(564.11)} L998,${Yz(564.11)} L1000,${Yz(552)} L986,${Yz(552)} Z`,fill:'url(#dC)'},svg);
+  el('text',{x:990,y:Yz(570),'font-size':11.5,'text-anchor':'end','font-weight':700,fill:css('--text')},svg).textContent='Lipno II';
+  // sypaná hráz s těsnicím jádrem
+  const xa=300, xb=352, xc=392, xd=470; // návodní pata, koruna, koruna, vzdušní pata
+  el('path',{d:`M${xa},${yBed} L${xb},${yCrown} L${xc},${yCrown} L${xd},${yVal} Z`,fill:css('--bed'),stroke:css('--border-2')},svg);
+  el('path',{d:`M${xb+8},${yCrown} L${xc-8},${yCrown} L${xc+2},${yVal} L${xb-2},${yVal} Z`,fill:css('--earth-2'),opacity:.85},svg);
+  el('path',{d:`M${xa},${yBed} L${xb},${yCrown}`,stroke:css('--conc-2'),'stroke-width':4},svg);
+  el('text',{x:(xb+xc)/2+30,y:yCrown-10,'font-size':11.5,'text-anchor':'start',fill:css('--text-2')},svg).textContent='sypaná hráz s jádrem · koruna 728,62';
+  el('text',{x:(xb+xc)/2,y:(yCrown+yVal)/2+4,'font-size':9.5,'text-anchor':'middle',fill:css('--text-2')},svg).textContent='jádro';
+  // bezpečnostní přeliv s klapkami (vykreslen jako vložený objekt na hrázi)
+  const xs=xb-2, cw=30, yCr=Yz(723.27), gTop=Yz(725.62);
+  el('rect',{x:xs,y:gTop-4,width:cw,height:yCr-gTop+8,fill:css('--surface-3'),opacity:.6},svg);
+  dref.gate=el('rect',{x:xs+3,width:cw-6,fill:css('--conc-2'),stroke:css('--text'),'stroke-opacity':.4,rx:2},svg);
+  el('rect',{x:xs+2,y:yCr,width:cw-4,height:(yCr-gTop)+6,fill:css('--surface-3'),stroke:css('--border-2')},svg);
+  dref.gH=yCr-gTop; dref.yCr=yCr; dref.down=true; dref.flap={x:xs+cw-4}; dref.U=xs; dref.T=xd+30; dref.yDB=yVal+2;
+  dref.gate.setAttribute('x',xs+cw-7); dref.gate.setAttribute('width',6);
+  dref.nappe=el('path',{d:'',fill:'none',stroke:'#fff','stroke-linecap':'round','stroke-dasharray':'10 8',class:'flowing',opacity:0},svg);
+  dref.nappeB=el('path',{d:'',fill:'none',stroke:css('--water-1'),'stroke-linecap':'round',opacity:0},svg);
+  el('text',{x:xs+cw/2,y:gTop-12,'font-size':10.5,'text-anchor':'middle',fill:css('--text-2'),style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':3},svg).textContent='přeliv 2×10 m · sklopné klapky ↷';
+  // spodní výpusti 2× Ø 2,5 m
+  const yo=Yz(706.2); el('rect',{x:xa+6,y:yo-3,width:xd-xa+20,height:6,fill:css('--surface-3'),stroke:css('--border-2')},svg);
+  dref.valve=el('circle',{cx:xd-12,cy:yo,r:5,fill:css('--surface'),stroke:css('--text-2'),'stroke-width':1.5},svg);
+  dref.outl=el('path',{d:`M${xa+6},${yo} L${xd+26},${yo} q 30,2 50,${yVal-yo+3}`,fill:'none',stroke:css('--water-line'),'stroke-width':3,'stroke-dasharray':'7 6',class:'flowing',opacity:0},svg);
+  el('text',{x:xd+80,y:yo-6,'font-size':10.5,fill:css('--text-2')},svg).textContent='spodní výpusti 2× Ø 2,5 m';
+  // staré koryto + MVE (MZP 1,5 m³/s)
+  el('path',{d:`M${xd},${yVal} L600,${yVal+4}`,stroke:css('--water-1'),'stroke-width':3,fill:'none','stroke-dasharray':'5 7',class:'flowing'},svg);
+  el('rect',{x:xd+4,y:yVal-12,width:16,height:11,rx:2,fill:css('--conc-2')},svg);
+  el('text',{x:xd+26,y:yVal+20,'font-size':10.5,fill:css('--text-2'),style:'paint-order:stroke',stroke:css('--earth-1'),'stroke-width':3},svg).textContent='MVE 0,3 MW · 1,5 m³/s do starého koryta';
+  // vtokový objekt (věž) a svislé tlakové šachty
+  const xt=210, yIn=Yz(709.82); el('rect',{x:xt-16,y:Yz(729),width:32,height:yBed-Yz(729),fill:'url(#dC)',stroke:css('--conc-2')},svg);
+  el('rect',{x:xt-20,y:Yz(729)-6,width:40,height:8,rx:2,fill:css('--conc-2')},svg);
+  el('text',{x:xt,y:Yz(729)-12,'font-size':11,'text-anchor':'middle','font-weight':700,fill:css('--text')},svg).textContent='vtokový objekt';
+  const yCav=Yz(556), shaftX=[xt-7,xt+7];
+  for (const x of shaftX){ el('line',{x1:x,x2:x,y1:yIn,y2:yCav-30,stroke:css('--surface-3'),'stroke-width':9},svg); }
+  dref.penF=el('path',{d:shaftX.map(x=>`M${x},${yIn} L${x},${yCav-30}`).join(' '),fill:'none',stroke:css('--water-line'),'stroke-width':3,'stroke-dasharray':'8 9',class:'flowing',opacity:0},svg);
+  el('text',{x:xt+16,y:(yIn+yCav)/2,'font-size':11,fill:css('--text-2')},svg).textContent='2 tlakové šachty Ø 4,5 m · 160 m';
+  // spád
+  el('line',{x1:110,x2:110,y1:Yz(725),y2:Yz(562.7),stroke:css('--text-2'),'stroke-width':1,'marker-start':'url(#mA)','marker-end':'url(#mA)'},svg);
+  const mA=el('marker',{id:'mA',markerWidth:8,markerHeight:8,refX:4,refY:4,orient:'auto-start-reverse'},defs); el('path',{d:'M0,0 L8,4 L0,8 z',fill:css('--text-2')},mA);
+  el('text',{x:116,y:Yz(645),'font-size':12,'font-weight':700,fill:css('--text'),class:'m'},svg).textContent='spád až 161,65 m';
+  el('path',{d:`M0,${Yz(700)} L1000,${Yz(700)}`,stroke:css('--text'),'stroke-opacity':.12,'stroke-dasharray':'2 6'},svg); el('text',{x:690,y:Yz(700)-4,'font-size':10,'text-anchor':'end',fill:css('--muted')},svg).textContent='pod 700 m n.m. výškově zkráceno';
+  // podzemní strojovna (kaverna)
+  const cx0=250, cw2=230, cTop=yCav-86, cBot=yCav+46;
+  el('path',{d:shaftX.map(x=>`M${x},${yCav-30} L${x},${yCav-16}`).join(' ')+` M${shaftX[0]-4},${yCav-16} L${cx0+64-24},${yCav-16}`,stroke:css('--surface-3'),'stroke-width':9,fill:'none'},svg);
+  el('path',{d:`M${cx0},${cBot} L${cx0},${cTop+14} Q ${cx0+cw2/2},${cTop-14} ${cx0+cw2},${cTop+14} L${cx0+cw2},${cBot} Z`,fill:css('--surface-2'),stroke:css('--border-2'),'stroke-width':1.5},svg);
+  el('text',{x:cx0+cw2/2,y:cTop+16,'font-size':12,'text-anchor':'middle','font-weight':700,fill:css('--text')},svg).textContent='podzemní strojovna (kaverna)';
+  // přístupová štola
+  el('path',{d:`M${xd+70},${yVal+4} L${cx0+cw2},${cTop+20}`,stroke:css('--surface-3'),'stroke-width':6,'stroke-dasharray':'2 4',fill:'none'},svg);
+  el('text',{x:(xd+70+cx0+cw2)/2+20,y:(yVal+cTop)/2+4,'font-size':10.5,fill:css('--text-2'),transform:`rotate(${Math.atan2(cTop+20-yVal,cx0+cw2-xd-70)*57.3} ${(xd+70+cx0+cw2)/2+20} ${(yVal+cTop)/2+4})`},svg).textContent='přístupová štola';
+  // soustrojí (Francis, svislá osa)
+  dref.units=d.units.map((x,i)=>drawTurbine(svg,x,cx0+64+i*100,yCav-8,'F',0.72,i));
+  dref.inset=drawTurbineInset(svg,696,40,'F',d.units[0]);
+  // odpadní tunel 3,6 km (zkráceno)
+  const yT=Yz(557.5); el('path',{d:`M${cx0+cw2},${yT} L600,${yT} M640,${yT} L${880},${Yz(559.6)}`,stroke:css('--surface-3'),'stroke-width':14,fill:'none'},svg);
+  dref.tail=el('path',{d:`M${cx0+cw2},${yT} L600,${yT} M640,${yT} L${880},${Yz(559.6)}`,stroke:css('--water-line'),'stroke-width':4,fill:'none','stroke-dasharray':'8 9',class:'flowing',opacity:0},svg);
+  el('path',{d:`M600,${yT-14} l10,28 M630,${yT-14} l10,28`,stroke:css('--text-2'),'stroke-width':1.5},svg);
+  el('text',{x:620,y:yT-20,'font-size':11,'text-anchor':'middle',fill:css('--text-2')},svg).textContent='odpadní tunel 3,6 km · 8,4 × 7,5 m';
+  // popisky
+  dref.tU=el('text',{x:310,'font-size':14,'text-anchor':'end','font-weight':700,fill:css('--text'),class:'m'},svg);
+  dref.tD=el('text',{x:996,'font-size':12,'text-anchor':'end','font-weight':700,fill:css('--text'),class:'m',style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':4},svg);
+  dref.tSp=el('text',{x:xd+40,y:yCr+6,'font-size':12,'font-weight':700,fill:css('--text'),class:'m'},svg);
+  dref.tOut=el('text',{x:xd+80,y:yVal-30,'font-size':12,'font-weight':700,fill:css('--water-line'),class:'m'},svg);
+  dref.pumpTxt=el('text',{x:0,y:0},svg);
+  for (const [k,l,c] of [['hStale','min. provozní 716,10','--muted'],['hZas','max. zásobní 724,90','--good'],['hRet','max. retenční 725,60','--critical']]){ const y=Yz(d.d[k]); el('line',{x1:0,x2:300,y1:y,y2:y,stroke:css(c),'stroke-dasharray':'7 5','stroke-width':1.3},svg); el('text',{x:6,y:k==='hZas'?y+13:y-4,'font-size':11,fill:css(c),'font-weight':600,style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':3},svg).textContent=l; }
+  dref.yUB=yBed;
+  el('text',{x:W-14,y:22,'font-size':12,'text-anchor':'end',fill:css('--text-2')},svg).textContent='směr toku →';
+  buildDside(d); animDetail(0);
+}
+
+
+/* ---------- MODELY TURBÍN (řez soustrojím se svislou osou) ----------
+   Kaplan: betonová polospirála, rozváděcí lopatky, náboj s 4–6 natáčivými lopatkami (vrtule), savka s kolenem
+   Francis: ocelová spirála (kruhový průřez), oběžné kolo s věncem a disky, voda vstupuje radiálně a vystupuje osově
+   Francis reverzní: totéž, otáčí se oběma směry (turbína / čerpadlo)                                     */
+function drawTurbine(par,x,cx,cy,kind,s,i,bare){ const g=el('g',{transform:`translate(${cx},${cy}) scale(${s})`},par);
+  const W=css('--water-line'), T2=css('--text-2'), STR=css('--border-2');
+  const glow=el('circle',{cx:0,cy:-60,r:22,fill:css('--light'),opacity:0,filter:'url(#dGl)'},g);
+  // generátor: stator + rotor + budič
+  const gen=el('rect',{x:-27,y:-74,width:54,height:26,rx:4,fill:css('--surface-2'),stroke:STR},g);
+  el('rect',{x:-19,y:-70,width:38,height:18,rx:2,fill:'none',stroke:T2,'stroke-opacity':.5,'stroke-dasharray':'2 2'},g);
+  el('rect',{x:-8,y:-82,width:16,height:8,rx:2,fill:css('--surface-2'),stroke:STR},g);
+  el('text',{x:0,y:-57,'font-size':8,'text-anchor':'middle',fill:T2},g).textContent='G';
+  el('rect',{x:-2,y:-48,width:4,height:kind==='K'?34:36,fill:T2},g); // hřídel
+  const wet=[]; let blades=[], nb, R;
+  if (kind==='K'){
+    // betonová polospirála (lichoběžník vlevo velký, vpravo menší)
+    wet.push(el('path',{d:'M-46,-30 L-22,-24 L-22,4 L-46,10 Z',fill:css('--surface-3'),stroke:STR},g));
+    wet.push(el('path',{d:'M22,-22 L34,-24 L34,4 L22,2 Z',fill:css('--surface-3'),stroke:STR},g));
+    el('path',{d:'M-50,-34 L-50,14 M38,-28 L38,8',stroke:css('--conc-1'),'stroke-width':4},g);
+    // savka: kužel + koleno doprava
+    wet.push(el('path',{d:'M-18,8 L-22,30 Q-22,44 -6,46 L46,46 L46,22 L18,22 L18,8 Z',fill:css('--surface-3'),stroke:STR},g));
+    // náboj s kuželem
+    el('path',{d:'M-7,-12 L7,-12 L7,4 Q7,14 0,17 Q-7,14 -7,4 Z',fill:css('--surface-2'),stroke:T2,'stroke-width':1.2},g);
+    nb=x.nb||5; R=19;
+  } else {
+    // ocelová spirála – kruhové průřezy, vlevo větší (vstup), vpravo menší
+    wet.push(el('circle',{cx:-33,cy:-12,r:12,fill:css('--surface-3'),stroke:T2,'stroke-width':1.6},g));
+    wet.push(el('circle',{cx:30,cy:-12,r:8,fill:css('--surface-3'),stroke:T2,'stroke-width':1.6},g));
+    // savka: užší kužel + koleno
+    wet.push(el('path',{d:'M-11,6 L-16,30 Q-16,44 -2,46 L46,46 L46,24 L12,24 L11,6 Z',fill:css('--surface-3'),stroke:STR},g));
+    // oběžné kolo: horní disk + věnec (meridiánový řez)
+    el('path',{d:'M-19,-17 L19,-17 L19,-13 L-19,-13 Z',fill:css('--surface-2'),stroke:T2,'stroke-width':1.2},g);
+    el('path',{d:'M-19,-13 Q-17,0 -11,7 M19,-13 Q17,0 11,7',fill:'none',stroke:T2,'stroke-width':2.4},g);
+    nb=7; R=17;
+  }
+  // rozváděcí lopatky (natáčejí se podle otevření)
+  const gv=[-1,1].map(sg=>el('path',{d:'',stroke:css('--s2'),'stroke-width':2.2,'stroke-linecap':'round'},g));
+  for (let b=0;b<nb;b++) blades.push(el('path',{d:'',fill:css('--accent'),stroke:css('--accent'),'stroke-width':1,'stroke-linejoin':'round'},g));
+  const lab=el('text',{x:0,y:62,'font-size':11.5,'text-anchor':'middle',fill:css('--text'),class:'m','font-weight':600},g);
+  const lab2=el('text',{x:0,y:75,'font-size':10.5,'text-anchor':'middle',fill:css('--muted'),class:'m'},g);
+  if (!bare) el('text',{x:0,y:-88,'font-size':10,'text-anchor':'middle',fill:T2,'font-weight':700},g).textContent=(x.rev?'RTG':'TG')+(i+1);
+  const out=el('path',{d:'M20,34 L44,34',stroke:W,'stroke-width':3,fill:'none','stroke-dasharray':'5 6',class:'flowing',opacity:0},g);
+  // elektrický vývod z generátoru k transformátoru – tloušťka a jas podle výkonu
+  const ele=el('path',{d:'M27,-62 L46,-62 L46,-96',stroke:css('--light'),'stroke-width':0,fill:'none','stroke-dasharray':'3 5',class:'flowing',opacity:0},g);
+  const bolt=el('text',{x:49,y:-84,'font-size':12,fill:css('--light'),opacity:0},g); bolt.textContent='⚡';
+  // aktualizace: fáze otáčení (stupně) a otevření 0..1
+  const upd=(ph,op,wetOn,pf,pump)=>{ const a0=ph*Math.PI/180; pf=pf||0;
+    ele.setAttribute('stroke-width',pf>0.01?(1+5*pf).toFixed(1):0); ele.setAttribute('opacity',pf>0.01?0.35+0.65*pf:0); ele.setAttribute('stroke',pump?css('--s7'):css('--light')); ele.setAttribute('style',pump?'animation-direction:reverse':''); bolt.setAttribute('opacity',pf>0.01?0.4+0.6*pf:0);
+    blades.forEach((b,k)=>{ const a=a0+k*2*Math.PI/nb, sx=Math.sin(a), cz=Math.cos(a), front=cz>0;
+      if (kind==='K'){ const tilt=(3+9*op)*cz, w=1.2+3.5*Math.abs(cz), r0=7*sx, r1=R*sx;
+        b.setAttribute('d',`M${r0},${-3-w} L${r1},${-3-w+tilt} L${r1},${-3+w+tilt} L${r0},${-3+w} Z`); }
+      else { const xt=R*sx, xb=11*sx; b.setAttribute('d',`M${xt},-13 Q${xt*0.95+3*cz},-2 ${xb},6`); b.setAttribute('fill','none'); b.setAttribute('stroke-width',1.4+1.6*Math.abs(cz)); }
+      b.setAttribute('opacity',front?1:.28); });
+    const ga=(0.15+0.75*op); gv.forEach((p,j)=>{ const sg=j?1:-1, xx=sg*(kind==='K'?21:20), dx=Math.cos(ga)*4, dy=Math.sin(ga)*4; p.setAttribute('d',`M${xx-dx},${-6-dy} L${xx+dx},${-6+dy}`); });
+    wet.forEach(p=>p.setAttribute('fill',wetOn?W:css('--surface-3'))); wet.forEach(p=>p.setAttribute('fill-opacity',wetOn?.3+.6*op:1)); };
+  if (!bare){ spin[i]=spin[i]||i*23; upd(spin[i],0,false); } else upd(0,0,false);
+  return {g,glow,gen,lab,lab2,out,cx,cy,upd,kind,rot:{setAttribute(){}}}; }
+
+// zvětšený řez jedním soustrojím s popisy částí
+function drawTurbineInset(svg,x0,y0,kind,x){ const w=296,h=284, g=el('g',{},svg);
+  el('rect',{x:x0,y:y0,width:w,height:h,rx:12,fill:css('--surface'),'fill-opacity':.94,stroke:css('--accent'),'stroke-width':1.5},g);
+  el('text',{x:x0+14,y:y0+22,'font-size':13,'font-weight':700,fill:css('--text')},g).textContent=KINDNAME[kind];
+  el('text',{x:x0+14,y:y0+38,'font-size':10.5,fill:css('--muted')},g).textContent=kind==='K'?'nízký spád · velký průtok · lopatky se natáčejí':kind==='RF'?'turbína i čerpadlo · otáčí se oběma směry':'vyšší spád · pevné zakřivené lopatky';
+  el('text',{x:x0+14,y:y0+h-10,'font-size':10,fill:css('--muted')},g).textContent='otáčky stálé (synchronní stroj 50 Hz) · výkon = průtok × spád';
+  const cx=x0+80, cy=y0+160, sc=1.25, T=drawTurbine(g,x||{},cx,cy,kind,sc,0,true);
+  const P=(px,py)=>[cx+px*sc,cy+py*sc];
+  const parts=kind==='K'
+    ? [['generátor',0,-62],['hřídel',2,-32],['rozváděcí lopatky',21,-6],['oběžné kolo – vrtule s natáčivými lopatkami',14,-2],['betonová spirála',30,-14],['savka (difuzor)',36,36]]
+    : [['generátor',0,-62],['hřídel',2,-32],['ocelová spirála',36,-14],['rozváděcí lopatky',20,-6],['oběžné kolo – disk, věnec, pevné lopatky',12,0],['savka (difuzor)',36,36]];
+  const lx=x0+158; parts.forEach((p,k)=>{ const [px,py]=P(p[1],p[2]), ly=y0+66+k*32;
+    el('path',{d:`M${px},${py} L${lx-14},${ly} L${lx-4},${ly}`,fill:'none',stroke:css('--text-2'),'stroke-opacity':.55,'stroke-width':1},g);
+    el('circle',{cx:px,cy:py,r:2,fill:css('--text-2')},g);
+    const t=el('text',{x:lx,y:ly+4,'font-size':10.5,fill:css('--text-2')},g); const words=p[0].split(' – ');
+    t.textContent=words[0]; if (words[1]){ el('text',{x:lx,y:ly+16,'font-size':9.5,fill:css('--muted')},g).textContent=words[1]; } });
+  return T; }
+const KINDNAME={K:'Kaplanova turbína',F:'Francisova turbína',RF:'Francisova reverzní (turbína/čerpadlo)'};
+const KINDTXT={K:'Natáčivé lopatky oběžného kola (jako lodní šroub) + natáčivé rozváděcí lopatky = dvojitá regulace. Vhodná pro nízké a střední spády (do ~70 m) a velké průtoky. Betonová polospirála, savka s kolenem.',
+F:'Pevné zakřivené lopatky mezi diskem a věncem; voda vstupuje z ocelové spirály radiálně dovnitř a vystupuje osově dolů. Reguluje se jen rozváděcími lopatkami. Vhodná pro střední a vysoké spády (cca 40–600 m).',
+RF:'Francisova turbína navržená i pro chod pozpátku – motorgenerátor ji roztočí opačně a stroj čerpá vodu nahoru. Základ přečerpávacích elektráren.'};
+
+/* ---------- DETAIL PVE ŠTĚCHOVICE II ---------- */
+function buildPveDetail(){ const svg=$('#dsvg'); svg.innerHTML=''; const W=1000,H=560, p=sim.pve, Vr=sim.D.vrane;
+  $('#dName').textContent='PVE Štěchovice II'; $('#dRole').textContent='přečerpávací elektrárna · horní nádrž Homole · dolní nádrž Vrané · 1× reverzní Francis 45 MW';
+  const Yz=z=>500-(z-180)/(430-180)*450; dref.Yz=null; dref.pv={Yz};
+  const defs=el('defs',{},svg); el('filter',{id:'dGl'},defs).innerHTML='<feGaussianBlur stdDeviation="6"/>';
+  // terén – kopec s Homolí
+  el('path',{d:`M0,${H} L0,${Yz(405)} L250,${Yz(410)} L330,${Yz(405)} L560,${Yz(250)} L700,${Yz(205)} L1000,${Yz(198)} L1000,${H} Z`,fill:css('--earth-1'),stroke:css('--border-2')},svg);
+  // Homole (umělá nádrž s obvodovou hrází)
+  const hx0=60,hx1=300, hb=Yz(410.5), ht=Yz(421.5);
+  el('path',{d:`M${hx0-20},${ht} L${hx0},${hb} L${hx1},${hb} L${hx1+20},${ht}`,fill:css('--surface-3'),stroke:css('--border-2'),'stroke-width':2},svg);
+  dref.pv.wU=el('rect',{x:hx0,width:hx1-hx0,fill:css('--water-1'),opacity:.85},svg);
+  el('text',{x:(hx0+hx1)/2,y:ht-12,'font-size':13,'font-weight':700,'text-anchor':'middle',fill:css('--text')},svg).textContent='horní nádrž Homole';
+  dref.pv.tU=el('text',{x:(hx0+hx1)/2,'font-size':12,'text-anchor':'middle',fill:css('--text'),class:'m','font-weight':700,style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':3},svg);
+  // přivaděč po svahu
+  const pen=`M${hx1-10},${hb-4} L340,${Yz(404)} L560,${Yz(252)} L640,${Yz(206)}`;
+  el('path',{d:pen,stroke:css('--surface-3'),'stroke-width':12,fill:'none','stroke-linejoin':'round'},svg);
+  dref.pv.pen=el('path',{d:pen,stroke:css('--water-line'),'stroke-width':3,fill:'none','stroke-dasharray':'8 9',class:'flowing',opacity:0},svg);
+  el('text',{x:470,y:Yz(330),'font-size':11,fill:css('--text-2'),transform:`rotate(${Math.atan2(Yz(252)-Yz(404),220)*57.3} 470 ${Yz(330)})`},svg).textContent='ocelový přivaděč · spád ~ 220 m';
+  // Vrané dole (dolní nádrž)
+  dref.pv.wD=el('rect',{x:700,width:300,fill:css('--water-1'),opacity:.85},svg);
+  dref.pv.tD=el('text',{x:990,'font-size':12,'text-anchor':'end',fill:css('--text'),class:'m','font-weight':700,style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':3},svg);
+  el('text',{x:850,y:Yz(212),'font-size':12,'text-anchor':'middle',fill:css('--text-2')},svg).textContent='dolní nádrž = zdrž Vrané (pod hrází Štěchovic)';
+  // strojovna + reverzní soustrojí
+  const bx=600,by=Yz(232); el('rect',{x:bx,y:by,width:110,height:Yz(185)-by,rx:6,fill:css('--conc-2'),opacity:.55,stroke:css('--border-2')},svg);
+  el('text',{x:bx-8,y:by+14,'font-size':12,'text-anchor':'end','font-weight':700,fill:css('--text')},svg).textContent='strojovna';
+  dref.units=[drawTurbine(svg,{rev:true},bx+55,Yz(205),'RF',0.75,0)];
+  dref.pv.out=el('path',{d:`M${bx+90},${Yz(199)} L760,${Yz(199)}`,stroke:css('--water-line'),'stroke-width':4,fill:'none','stroke-dasharray':'8 9',class:'flowing',opacity:0},svg);
+  dref.inset=drawTurbineInset(svg,W-310,30,'RF',{rev:true});
+  dref.pv.dir=el('text',{x:430,y:Yz(420),'font-size':14,'font-weight':700,fill:css('--text'),'text-anchor':'middle'},svg);
+  buildPveSide(); animPve(0); }
+function buildPveSide(){ const p=sim.pve, box=$('#dside');
+  box.innerHTML=`<div class="bigs" style="grid-template-columns:1fr 1fr"><div><div class="l">Homole</div><div class="v" id="pvV"></div></div><div><div class="l">spád</div><div class="v" id="pvH"></div></div><div><div class="l">výkon</div><div class="v" id="pvP"></div></div><div><div class="l">průtok</div><div class="v" id="pvQ"></div></div></div>
+  <div class="sect"><div class="h">Řízení</div><div class="seg" id="pvM"><button data-m="auto">Automaticky</button><button data-m="manual">Ručně</button><button data-m="stop">Stop</button></div>
+  <div class="sl" style="margin-top:10px"><div class="top"><label>Výkon (− čerpání / + výroba)</label><b id="pvSV">${fmt(p.man||0,0)} MW</b></div><input type="range" id="pvS" min="${-PVE_DEF.PpMax}" max="${PVE_DEF.PtMax}" step="1" value="${p.man||0}"></div>
+  <p class="note">Přečerpávací elektrárna je „baterie“: v noci levnou elektřinou čerpá vodu z Vraného nahoru do Homole (stroj se točí opačně, motor-generátor jako motor), ve špičce vodu pustí zpět přes turbínu. Účinnost cyklu ~ 75 %. Otáčky jsou v obou režimech stálé (synchronní stroj) – mění se jen směr.</p></div>
+  <div class="sect"><div class="h">Energie od začátku</div><div class="kv" id="pvE"></div></div>`;
+  $$('#pvM button').forEach(b=>{ b.classList.toggle('on',b.dataset.m===p.mode); b.onclick=()=>{ p.mode=b.dataset.m; $$('#pvM button').forEach(z=>z.classList.toggle('on',z.dataset.m===p.mode)); buildCtrl(); }; });
+  $('#pvS').oninput=e=>{ p.mode='manual'; p.man=+e.target.value; $('#pvSV').textContent=fmt(p.man,0)+' MW'; $$('#pvM button').forEach(z=>z.classList.toggle('on',z.dataset.m==='manual')); }; }
+function renderPveSide(){ const p=sim.pve; if (!$('#pvV')) return; $('#pvV').innerHTML=`${fmt(p.V/1e3,0)}<small> tis. m³</small>`; $('#pvH').innerHTML=`${fmt(p.head||0,0)}<small> m</small>`; $('#pvP').innerHTML=`${fmt(p.P,1)}<small> MW</small>`; $('#pvQ').innerHTML=`${fmt(p.Q,1)}<small> m³/s</small>`;
+  $('#pvE').innerHTML=kv([['vyrobeno',fmt(p.E,0)+' MWh'],['spotřeba na čerpání',fmt(p.Ep,0)+' MWh'],['režim',p.P>0.5?'výroba':p.P<-0.5?'čerpání':'stojí']]); }
+function animPve(dt){ const p=sim.pve, P=dref.pv; if (!P) return; const Yz=P.Yz, Vr=sim.D.vrane;
+  const hHom=412+8*(p.V/PVE_DEF.Vmax), yh=Yz(hHom), yb=Yz(410.5); P.wU.setAttribute('y',yh); P.wU.setAttribute('height',Math.max(0,yb-yh)); P.tU.setAttribute('y',yh-6); P.tU.textContent=`${fmt(hHom,2)} m n.m. · ${fmt(p.V/PVE_DEF.Vmax*100,0)} %`;
+  const yd=Yz(Vr.h); P.wD.setAttribute('y',yd); P.wD.setAttribute('height',Math.max(0,560-yd)); P.tD.setAttribute('y',yd-6); P.tD.textContent=`Vrané ${fmt(Vr.h,2)}`;
+  const on=Math.abs(p.Q)>0.3, pump=p.P<-0.5; [P.pen,P.out].forEach(e=>{ e.setAttribute('opacity',on?1:0); e.setAttribute('style',pump?'animation-direction:reverse':''); e.setAttribute('stroke-width',(1.5+6*clamp01(Math.abs(p.Q)/PVE_DEF.QtMax)).toFixed(1)); });
+  P.dir.textContent=pump?'⟲ ČERPÁNÍ: voda nahoru do Homole':p.P>0.5?'▼ VÝROBA: voda dolů přes turbínu':'stojí';
+  const u=dref.units[0], tgt=pump?-SYNC:(p.P>0.5?SYNC:0); spd.pv=spd.pv==null?tgt:spd.pv+(tgt-spd.pv)*Math.min(1,dt*(tgt?1.6:0.7)); spin.pv=((spin.pv||0)+spd.pv*dt)%360;
+  const pf=clamp01(Math.abs(p.P)/PVE_DEF.PtMax), qf=clamp01(Math.abs(p.Q)/PVE_DEF.QtMax); u.upd(spin.pv,qf,on,pf,pump); if (dref.inset) dref.inset.upd(spin.pv,qf,on,pf,pump);
+  u.glow.setAttribute('opacity',on?.3+.6*pf:0); u.glow.setAttribute('fill',pump?css('--s7'):css('--light'));
+  u.lab.textContent=pump?`čerpá ${fmt(-p.P,0)} MW`:p.P>0.5?`${fmt(p.P,1)} MW`:'stojí'; u.lab2.textContent=on?fmt(Math.abs(p.Q),0)+' m³/s':''; }
+
+/* ---------- NÁHLED OBCE (příčný řez údolím) ---------- */
+const PLACEINFO={frymburk:{t:'břeh nádrže',src:'hladina Lipna'},vbrod:{t:'pod Lipnem II',src:'odtok z Lipna II'},krumlov:{t:'meandr pod Lipnem',src:'odtok z Lipna II + mezipovodí'},cb:{t:'soutok s Malší',src:'Vltava + Malše nad Hněvkovicemi'},tyn:{t:'pod Kořenskem, vzdutí Orlíku',src:'odtok z Kořenska a hladina Orlíku'},zvikov:{t:'břeh Orlíku',src:'hladina Orlíku'},stech:{t:'pod hrází Štěchovic',src:'odtok ze Štěchovic'},davle:{t:'soutok se Sázavou',src:'přítok do Vraného'},zbraslav:{t:'pod Vraným',src:'průtok v Chuchli'},praha:{t:'centrum Prahy',src:'průtok v Chuchli (+ Berounka)'}};
+const PLACEHELP={frymburk:'Pomáhá: včas zvýšit odtok z Lipna (90 m³/s), než se zaplní ochranný prostor.',vbrod:'Pomáhá: držet odtok z Lipna II do neškodných 90 m³/s – Lipno zadrží zbytek.',krumlov:'Pomáhá: Lipno zadrží povodeň z Šumavy; mezipovodí ale ovlivnit nejde.',cb:'Malše a mezipovodí nad Č. Budějovicemi kaskáda neovlivní – jen Lipno ubere svůj díl.',tyn:'Pomáhá: předpouštění Orlíku – nižší hladina = menší vzdutí u Týna.',zvikov:'Pomáhá: předpouštění Orlíku, aby retenční prostor nebyl plný.',stech:'Pomáhá: Orlík a Slapy zadrží špičku vlny, odtok drž pod neškodným.',davle:'Sázavu kaskáda neovlivní; pomáhá snížit odtok ze Štěchovic.',zbraslav:'Pomáhá ochrana Prahy: odtok z Orlíku a Slap snížit o Berounku a Sázavu.',praha:'Pomáhá ochrana Prahy: snížit odtok z kaskády, dokud kulminuje Berounka.'};
+function placeStage(p){ const d=p.def, v=p.val; if (d.kind==='h'){ return v>=d.warn?1+(v-d.warn)/Math.max(.05,d.crit-d.warn):Math.max(0.15,1-(d.warn-v)/3); }
+  let s=v>=d.warn?1+(v-d.warn)/Math.max(1,d.crit-d.warn):Math.max(0.12,Math.pow(v/d.warn,0.6));
+  if (d.kind==='qh'){ const h=sim.D[d.dam].h; s=Math.max(s,h>=d.hWarn?1+(h-d.hWarn)/Math.max(.05,d.hCrit-d.hWarn):0); } return Math.min(2.8,s); }
+function buildPlaceDetail(id){ const svg=$('#dsvg'); svg.innerHTML=''; const W=1000,H=560, p=sim.places.find(x=>x.def.id===id); if (!p) return; const d=p.def;
+  $('#dName').textContent=d.name; $('#dRole').textContent=`ř. km ${fmt(d.km,1)} · ${PLACEINFO[id]?.t||''} · rozhoduje: ${PLACEINFO[id]?.src||''}`;
+  const defs=el('defs',{},svg); el('filter',{id:'dGl'},defs).innerHTML='<feGaussianBlur stdDeviation="6"/>';
+  // stupnice: s=0 dno koryta, 1 = břehová hrana (rozliv), 2 = práh domů (škody)
+  const Ys=s=>470-s*120; dref.pl={id,Ys,hs:[]};
+  el('rect',{x:0,y:0,width:W,height:H,fill:css('--surface'),opacity:0},svg);
+  // údolí: svahy, niva, koryto
+  const ground=`M0,${Ys(3.2)} L120,${Ys(2.5)} L250,${Ys(1.9)} L400,${Ys(1.15)} L430,${Ys(1)} L455,${Ys(0)} L545,${Ys(0)} L570,${Ys(1)} L600,${Ys(1.1)} L760,${Ys(1.85)} L880,${Ys(2.6)} L1000,${Ys(3.3)} L1000,${H} L0,${H} Z`;
+  dref.pl.w=el('rect',{x:0,width:W,fill:css('--water-1'),opacity:.8},svg);
+  el('path',{d:ground,fill:css('--earth-1'),stroke:css('--border-2'),'stroke-width':1.5},svg);
+  // domy na nivě a svazích (spodní hrana = práh)
+  const houses=[[300,1.6],[350,1.35],[640,1.3],[700,1.6],[220,2.05],[800,2.1],[150,2.4],[860,2.45]];
+  for (const [x,sb] of houses){ const yb=Ys(sb); const g=el('g',{},svg); el('rect',{x:x-16,y:yb-24,width:32,height:24,fill:css('--surface-2'),stroke:css('--text-2'),'stroke-width':1.2},g);
+    el('path',{d:`M${x-20},${yb-24} L${x},${yb-40} L${x+20},${yb-24} Z`,fill:css('--critical'),opacity:.55},g); el('rect',{x:x-5,y:yb-12,width:8,height:12,fill:css('--text-2'),opacity:.5},g); dref.pl.hs.push({g,sb}); }
+  // kostel/věž pro charakter
+  el('rect',{x:668,y:Ys(1.45)-70,width:16,height:70,fill:css('--surface-2'),stroke:css('--text-2')},svg); el('path',{d:`M664,${Ys(1.45)-70} L676,${Ys(1.45)-96} L688,${Ys(1.45)-70} Z`,fill:css('--text-2'),opacity:.6},svg);
+  // čáry stupňů
+  for (const [s,l,c] of [[1,'rozliv z koryta',d.kind==='h'?`${fmt(d.warn,2)} m n.m.`:fmtQ(d.warn)+' m³/s'],[2,'škody v zástavbě',d.kind==='h'?`${fmt(d.crit,2)} m n.m.`:fmtQ(d.crit)+' m³/s']]){
+    el('line',{x1:0,x2:W,y1:Ys(s),y2:Ys(s),stroke:css(s===1?'--warning':'--critical'),'stroke-dasharray':'6 6','stroke-width':1.3},svg);
+    el('text',{x:8,y:Ys(s)-5,'font-size':11.5,'font-weight':600,fill:css(s===1?'--warning':'--critical'),style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':3},svg).textContent=`${l} · ${c}`; }
+  dref.pl.wl=el('line',{x1:0,x2:W,stroke:css('--water-line'),'stroke-width':2},svg);
+  dref.pl.t=el('text',{x:500,'font-size':15,'font-weight':700,'text-anchor':'middle',fill:css('--text'),class:'m',style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':4},svg);
+  dref.pl.st=el('text',{x:500,y:40,'font-size':20,'font-weight':800,'text-anchor':'middle'},svg);
+  el('text',{x:W-10,y:H-10,'font-size':10.5,'text-anchor':'end',fill:css('--muted')},svg).textContent='schematický příčný řez údolím – výšky odvozené z prahů rozlivu a škod (orientační)';
+  dref.pl.s=placeStage(p);
+  const box=$('#dside'); box.innerHTML=`<div class="bigs" style="grid-template-columns:1fr 1fr"><div><div class="l">teď</div><div class="v" id="plV"></div></div><div><div class="l">stav</div><div class="v" id="plS"></div></div><div><div class="l">maximum</div><div class="v" id="plM"></div></div><div><div class="l">hodin s rozlivem</div><div class="v" id="plHr"></div></div></div>
+   <div class="sect"><div class="h">Co o místě rozhoduje</div><p class="note">${d.note}. Rozhoduje: ${PLACEINFO[id]?.src||''}.</p><p class="note"><b>${PLACEHELP[id]||''}</b></p></div>
+   <div class="sect"><div class="h">Prahy</div><div class="kv">${kv([['rozliv od',d.kind==='h'?fmt(d.warn,2)+' m n.m.':fmtQ(d.warn)+' m³/s'],['škody od',d.kind==='h'?fmt(d.crit,2)+' m n.m.':fmtQ(d.crit)+' m³/s']].concat(d.kind==='qh'?[['vzdutí Orlíku – rozliv/škody',fmt(d.hWarn,2)+' / '+fmt(d.hCrit,2)+' m n.m.']]:[]))}</div><p class="note">Prahy jsou orientační (odvozené z SPA a historických povodní), ne oficiální záplavová čára.</p></div>
+   ${d.dam||['vbrod','krumlov'].includes(id)?`<button class="bigbtn" id="plDam">🔍 Otevřít ${d.dam?sim.D[d.dam].name:'Lipno II'}</button>`:''}`;
+  const b=$('#plDam'); if (b) b.onclick=()=>openDetail(d.dam||'lipno2');
+  renderPlaceSide(); animPlace(0); }
+function renderPlaceSide(){ const P=dref.pl; if (!P||!$('#plV')) return; const p=sim.places.find(x=>x.def.id===P.id), d=p.def, f=v=>d.kind==='h'?fmt(v,2)+'<small> m</small>':fmtQ(v)+'<small> m³/s</small>';
+  $('#plV').innerHTML=f(p.val); $('#plS').innerHTML=`<span style="color:var(${p.st===2?'--critical':p.st===1?'--warning':'--good'})">${p.st===2?'záplava':p.st===1?'rozliv':'v pořádku'}</span>`; $('#plM').innerHTML=f(p.max); $('#plHr').innerHTML=fmt(p.hours,0); }
+function animPlace(dt){ const P=dref.pl; if (!P) return; const p=sim.places.find(x=>x.def.id===P.id); const s=placeStage(p); P.s+=(s-P.s)*(dt?1-Math.exp(-dt*4):1);
+  const y=P.Ys(P.s); P.w.setAttribute('y',y); P.w.setAttribute('height',Math.max(0,560-y)); P.wl.setAttribute('y1',y); P.wl.setAttribute('y2',y);
+  P.t.setAttribute('y',y-10); P.t.textContent=p.def.kind==='h'?`${fmt(p.val,2)} m n.m.`:`${fmtQ(p.val)} m³/s`;
+  P.st.textContent=p.st===2?'ZÁPLAVA – voda v domech':p.st===1?'Voda se vylévá z koryta':'V korytě – v pořádku'; P.st.setAttribute('fill',css(p.st===2?'--critical':p.st===1?'--warning':'--good'));
+  for (const h of P.hs){ const wet=P.s>h.sb; h.g.setAttribute('opacity',wet?.95:1); h.g.querySelector('rect').setAttribute('fill',wet?css('--water-2'):css('--surface-2')); } }
+/* ===================== PRŮVODCE ===================== */
+const TOUR=[
+  {sel:null,t:'Vítej v simulátoru Vltavské kaskády 👋',p:'Za pár kroků ti ukážu, jak to celé funguje. Kdykoli můžeš průvodce zavřít a spustit znovu tlačítkem „Průvodce“ nahoře.'},
+  {sel:'#scen',up:2,t:'1. Vyber scénář',p:'Tady zvolíš situaci – dnešní stav (sucho), povodně 2002 a 2013, N-letou povodeň, průměrný rok, sucho, podpůrné služby nebo Orlík 2033. Pak klikni „Načíst“.'},
+  {sel:'#play',up:1,t:'2. Spusť čas',p:'Tlačítko ▶ (nebo mezerník) rozběhne simulaci. Posuvníkem vedle nastavíš rychlost, tlačítky +1 h / +1 den / +7 dní skočíš dopředu.'},
+  {sel:'.kpis',t:'3. Klíčová čísla',p:'Průtok v Praze se stupněm povodňové aktivity, výkon celé kaskády, zásoba vody, hladiny Orlíku a Slap a odtok z kaskády oproti povinnému minimu.'},
+  {sel:'#hero',t:'4. Podélný profil',p:'Živý obraz celé kaskády od Lipna po Prahu. Svítící okénka = elektrárna vyrábí, bílá pěna = voda teče přes přeliv, tloušťka řek = průtok. Klikni na přehradu pro řízení, dvojklik otevře detail.'},
+  {sel:'#ctrl',t:'5. Řízení vybraného díla',p:'Přepínáš automatiku podle manipulačního řádu, ruční řízení a plán výkonu. Posuvníky nastavíš cílové hladiny, neškodný odtok nebo předpouštění. Kliknutím na soustrojí ho odstavíš.'},
+  {sel:'#openDet',t:'6. Detail elektrárny',p:'Tohle tlačítko (nebo Enter) otevře řez vodním dílem: přeliv s uzávěry, spodní výpusti, přivaděč a točící se turbíny. Přeliv a výpusti tam můžeš otevírat ručně.'},
+  {sel:'#charts',up:1,t:'7. Grafy',p:'Záložky nahoře přepínají hladiny, průtoky, výkon, Prahu, podpůrné služby… Tažením myší úsek přiblížíš, dvojklikem vrátíš. Klikem na legendu řadu skryješ.'},
+  {sel:'#btabs',up:1,t:'8. Přítoky, služby a události',p:'Nastav přítoky (tlačítka Q355 … Q100), přidej povodňovou vlnu, nabídni podpůrné služby ČEPS nebo si přečti, co se v simulaci stalo.'},
+  {sel:'.qa',t:'9. Rychlé akce',p:'Jedním klikem spustíš povodeň, sucho, předpouštění Orlíku nebo výpadek bloku v soustavě. Zkus teď třeba „Povodeň Q100“ a pak ▶.'},
+  {sel:null,t:'Hotovo! 🎉',p:'Podrobnosti najdeš v Manuálu. Tip na začátek: načti „Povodeň srpen 2002“, nastav rychlost 6 h/s a sleduj, jak kaskáda chrání Prahu.'}];
+let tourOn=false, tourI=0;
+function startTour(){ tourOn=true; tourI=0; $('#tour').classList.add('on'); showTour(); }
+function endTour(){ if (!tourOn) return; tourOn=false; $('#tour').classList.remove('on'); try{ localStorage.setItem('vk-toured','1'); }catch(e){} }
+function tourGo(k){ tourI+=k; if (tourI<0) tourI=0; if (tourI>=TOUR.length) return endTour(); showTour(); }
+function showTour(){
+  const s=TOUR[tourI], sp=$('#tSpot'), c=$('#tCard'); $('#tT').textContent=s.t; $('#tP').textContent=s.p; $('#tN').textContent=`${tourI+1} / ${TOUR.length}`;
+  $('#tNext').textContent=tourI===TOUR.length-1?'Začít':'Další'; $('#tBack').style.visibility=tourI?'visible':'hidden';
+  let e=s.sel?$(s.sel):null; for (let i=0;e&&i<(s.up||0);i++) e=e.parentElement;
+  if (e){ e.scrollIntoView({block:'nearest',behavior:'smooth'}); setTimeout(()=>{ const r=e.getBoundingClientRect(), pad=8; Object.assign(sp.style,{display:'block',left:r.left-pad+'px',top:r.top-pad+'px',width:r.width+pad*2+'px',height:r.height+pad*2+'px'});
+      let top=r.bottom+16, left=Math.min(window.innerWidth-380,Math.max(12,r.left)); if (top+190>window.innerHeight) top=Math.max(12,r.top-200); if (r.height>window.innerHeight*0.55){ top=Math.min(window.innerHeight-210,r.top+30); left=r.left>window.innerWidth/2?r.left-380:Math.min(window.innerWidth-380,r.right-380); }
+      c.style.top=top+'px'; c.style.left=left+'px'; },e.getBoundingClientRect().top<0||e.getBoundingClientRect().bottom>window.innerHeight?350:0); }
+  else { sp.style.display='none'; c.style.top=(window.innerHeight/2-100)+'px'; c.style.left=(window.innerWidth/2-180)+'px'; }
+}
+$('#tNext').onclick=()=>tourGo(1); $('#tBack').onclick=()=>tourGo(-1); $('#tSkip').onclick=endTour;
+window.addEventListener('resize',()=>{ if (tourOn) showTour(); });
+
+/* ===================== UKÁZKOVÝ REŽIM – zastavení a vysvětlení událostí ===================== */
+let demoMode=true; try{ demoMode=localStorage.getItem('vk-demo')!=='0'; }catch(e){}
+const muted={}; const evQueue=[]; let evCur=null;
+const EXPL={
+  spill:{t:'Voda teče přes přeliv',p:d=>`Turbíny ${d.name} už nestačí převést celý průtok (zvládnou nejvýš ~${fmt(d.units.filter(x=>x.avail).length*d.d.units.Qmax,0)} m³/s), nebo hladina dosáhla povolené meze. Zbytek vody proto odtéká přes přeliv nebo výpusti – bez výroby elektřiny. V profilu to poznáš podle bílé pěny na hrázi.`},
+  zas:{t:'Plní se retenční (ochranný) prostor',p:d=>`Přítok je vyšší než neškodný odtok, a tak ${d.name} zadržuje část povodňové vlny v prostoru nad max. zásobní hladinou (${fmt(d.d.hZas,2)} m). Tím snižuje kulminaci pod přehradou – to je hlavní protipovodňová funkce kaskády. Volný prostor ale není nekonečný.`},
+  ret:{t:'Překročena maximální retenční hladina',p:d=>`Nádrž ${d.name} je plná až nad ${fmt(d.d.hRet,2)} m. Už nemá kam vodu ukládat, a proto musí pustit dál všechno, co přitéká. Odtok pod přehradou se teď rovná přítoku – kaskáda povodeň dál nesnižuje.`},
+  crown:{t:'Voda přetéká přes korunu hráze!',p:d=>`Hladina ${d.name} je nad korunou hráze (${fmt(d.d.hCrown,2)} m). Ve skutečnosti by to byl havarijní stav ohrožující stabilitu hráze. Zkus otevřít výpusti a přelivy naplno nebo předpustit nádrž dřív.`},
+  stale:{t:'Hladina klesla pod stálé nadržení',p:d=>`${d.name} se vypouští pod kótu ${fmt(d.d.hStale,2)} m, kterou manipulační řád běžně nedovoluje překročit. Stálé nadržení chrání ryby, kvalitu vody a provozuschopnost díla.`},
+  trip:{t:'Turbíny se odstavily – hladina pod vtokem',p:d=>`Hladina ${d.name} klesla pod vtok turbín (${fmt(d.d.hIntake,1)} m). Soustrojí nemohou nasávat vodu a automaticky se zastavila. Dál může vodu odvádět jen spodní výpust.`},
+  drought1:{t:'Orlík na kótě 334,60 – nadlepšování přebírají Slapy',p:()=>`Podle manipulačního řádu se při suchu nejdřív upouští Orlík. Na kótě 334,60 m se jeho odtok sváže s přítokem a minimální průtok pod Vraným (${sim.glob.QminVrane} m³/s) začnou zajišťovat Slapy. Přesně to se stalo na podzim 2026 poprvé v historii.`},
+  mzp:{t:'Odtok z kaskády pod minimem',p:()=>`Z Vraného teče méně než povinných ${sim.glob.QminVrane} m³/s. Minimální odtok chrání život v řece, odběry vody a plavbu v Praze a na Labi. Nádrže už nemají z čeho nadlepšovat, nebo je dílo v ručním režimu.`},
+  lip60:{t:'Lipno II pouští přes 60 m³/s',p:()=>`Při odtoku nad 60 m³/s se podle manipulačního řádu hlásí povodňové komisi – níže po proudu (Vyšší Brod, Český Krumlov) už stoupá hladina.`},
+  korDrown:{t:'Kořensko zatopeno vzdutím Orlíku',p:()=>`Hladina Orlíku vystoupala tak vysoko, že jez Kořensko je pod vodou. Elektrárna nemá spád a nevyrábí – Vltava tu splývá s Orlickou nádrží.`},
+  spa1:{t:'Praha: 1. stupeň povodňové aktivity – bdělost',p:()=>`Průtok v Chuchli překročil 450 m³/s. Povodňové orgány sledují vývoj, zatím bez škod. Kaskáda se snaží odtok z Vraného omezit tak, aby se nesčítal s Berounkou.`},
+  spa2:{t:'Praha: 2. stupeň – pohotovost',p:()=>`Průtok v Chuchli je přes 1 000 m³/s. Připravují se protipovodňová opatření, staví se mobilní hrazení. Řízení Orlíku a Slap teď rozhoduje o tom, jak vysoko kulminace vystoupá.`},
+  spa3:{t:'Praha: 3. stupeň – ohrožení',p:()=>`Průtok v Chuchli přesáhl 1 500 m³/s. V roce 2002 tu kulminovalo 5 160 m³/s, v roce 2013 3 040 m³/s. Zkus v detailu Orlíku a Slap, jak velký volný prostor by bylo potřeba vytvořit předpuštěním.`},
+  trip1000:{t:'Výpadek bloku 1 000 MW v soustavě',p:()=>`Frekvence klesla pod 50 Hz. Během sekund reaguje FCR, do 5 minut aFRR a mFRR5 (MZ5) – vodní elektrárny najedou z nuly na plný výkon za 2 minuty, proto jsou pro ČEPS tak cenné. Sleduj záložku PpS v grafech.`}};
+function evInfo(e){ const k=e.key||'';
+  if (k.startsWith('obec:')){ const [,id,st]=k.split(':'); const p=sim.places.find(x=>x.def.id===id); if (!p) return null; const d=p.def, crit=st==='2';
+    const dam={frymburk:'lipno1',vbrod:'lipno2',krumlov:'lipno2',cb:'hnevkovice',tyn:'korensko',zvikov:'orlik',stech:'stechovice',davle:'vrane',zbraslav:'praha',praha:'praha'}[id];
+    const why={frymburk:'Hladina Lipna vystoupala nad max. retenční kótu – voda zaplavuje břehy. Lipno mělo odpouštět dřív (až 90 m³/s).',vbrod:'Lipno II pouští víc než neškodných 90 m³/s. Pomůže dřívější předpouštění Lipna, aby mělo volný prostor.',krumlov:'K odtoku z Lipna se přidávají přítoky z mezipovodí. Snížením odtoku z Lipna lze Krumlov ulehčit, dokud má Lipno volný retenční prostor.',cb:'Pod Českými Budějovicemi se slévá Vltava s Malší – na Malši ani mezipovodí kaskáda vliv nemá, jen na odtok z Lipna.',tyn:'Týn ohrožuje průtok Vltavy s Lužnicí a zároveň vzdutí Orlíku. Nižší hladina Orlíku (předpouštění) pomáhá.',zvikov:'Orlík je nad max. retenční hladinou – zaplavuje chaty a silnice na březích. Je třeba zvýšit odtok, i když to zhorší situaci pod přehradou.',stech:'Ze Slap a Štěchovic odtéká velké množství vody. Rozhoduje, kolik zadrží Orlík a Slapy.',davle:'K odtoku ze Štěchovic se přidává Sázava, kterou kaskáda neovlivní.',zbraslav:'Průtok v Chuchli přesáhl 3. SPA – zaplavují se nízko položená místa. Pomůže snížit odtok z Vraného, dokud Orlík a Slapy mají volný prostor.',praha:'Průtok překročil kapacitu pražské protipovodňové ochrany – vážné škody v centru. Tak to dopadlo v srpnu 2002 (5 160 m³/s).'}[id]||'';
+    return {id:dam,type:'obec'+st,x:{t:(crit?'⚠ Záplava: ':'Rozliv: ')+d.name,p:()=>`${crit?'Voda způsobuje vážné škody':'Voda se začíná vylévat z koryta'} (${d.kind==='h'?fmt(p.val,2)+' m n.m.':fmtQ(p.val)+' m³/s'}; rozliv od ${fmt(d.warn,d.kind==='h'?2:0)}, škody od ${fmt(d.crit,d.kind==='h'?2:0)}). ${why}`},d:sim.D[dam]}; } for (const d of sim.dams){ if (k.startsWith(d.id)){ const suf=k.slice(d.id.length); if (EXPL[suf]) return {id:d.id,type:suf,x:EXPL[suf],d}; } } if (EXPL[k]) return {id:k.startsWith('spa')?'praha':k==='drought1'?'orlik':k==='mzp'?'vrane':k==='lip60'?'lipno2':k==='korDrown'?'korensko':null,type:k,x:EXPL[k]}; return null; }
+sim.listeners.push(e=>{ if (!demoMode || !e.key) return; if (e.key==='trip1000' && !muted.trip1000){ startTripStory(e); return; } const inf=evInfo(e); if (!inf || muted[inf.type]) return; inf.e=e; evQueue.push(inf); if (!evCur) showEv(); });
+/* --- komentovaný příběh: výpadek bloku --- */
+const story=[];
+const storyDue=()=>story.length>0 && sim.t>=story[0].at;
+function ppsSum(keys){ let s=0; for (const p of PPS_PLANTS) for (const k of keys) s+=sim.pps.offers[p][k]; return s; }
+function startTripStory(e){
+  const t0=sim.t, O=sim.D.orlik, S=sim.D.slapy, snap={Po:O.P, Ps:S.P, Pt:sim.Ptot||0, ho:O.h, pve:sim.pve.P};
+  const fcrT=ppsSum(['fcr']), afT=ppsSum(['afrrp']), m5T=ppsSum(['mfrr5']), m15T=ppsSum(['mfrr15p']);
+  const S1=(n,t,p)=>({at:t0+n*60, inf:{id:'orlik',type:'trip1000',x:{t,p},e:{t:t0+n*60,sev:'crit'}}});
+  story.length=0;
+  story.push(
+   S1(0,'1/6 · Vypadl blok 1 000 MW',()=>`V soustavě náhle chybí ~1 000 MW výroby (třeba blok Temelína). Spotřeba je teď větší než výroba, a tak rotující stroje v celé Evropě zpomalují – frekvence padá z 50 Hz na ${fmt(sim.pps.sig.f,3)} Hz. Než ČEPS cokoli udělá, reaguje fyzika: setrvačnost turbín a generátorů.`),
+   S1(1,'2/6 · Během sekund: FCR (primární regulace)',()=>`Elektrárny s FCR reagují samy podle odchylky frekvence – do 30 s naplno, bez pokynu dispečinku. Frekvence je ${fmt(sim.pps.sig.f,3)} Hz, z kaskády přidává FCR až ${fmt(fcrT,0)} MW. FCR jen zastaví pád frekvence, výkon nevyrovná – to je úkol dalších záloh.`),
+   S1(3,'3/6 · ČEPS posílá signál aFRR (sekundární regulace)',()=>`Regulátor ČEPS automaticky počítá chybějící výkon a každé 4 s posílá elektrárnám s aFRR žádanou hodnotu. Signál je teď ${fmt(sim.pps.sig.afrr*100,0)} % → kaskáda přidává až ${fmt(afT,0)} MW, plná aktivace do 5 minut. Orlík jede na ${fmt(O.P,0)} MW (před výpadkem ${fmt(snap.Po,0)} MW).`),
+   S1(5,'4/6 · Dispečer ČEPS vyzývá mFRR5 (MZ5)',()=>`Aby se uvolnily automatické zálohy, dispečer ČEPS ručně aktivuje minutovou zálohu mFRR5 (dříve MZ5) – plný výkon do 5 minut. Vodní elektrárny to zvládnou i ze stavu stop: Orlík najede na plný výkon za 128 s. Teď: Orlík ${fmt(O.P,0)} MW, Slapy ${fmt(S.P,0)} MW, PVE Štěchovice ${fmt(sim.pve.P,0)} MW (nabídka mFRR5 celkem ${fmt(m5T,0)} MW).`),
+   S1(12,'5/6 · Nastupuje mFRR15 (MZ15)',()=>`Po 10–15 minutách přebírá výpadek pomalejší záloha mFRR15 (MZ15) a obchod na vnitrodenním trhu. aFRR se vrací k nule a je zase připravena na další poruchu. Signál aFRR ${fmt(sim.pps.sig.afrr*100,0)} %, mFRR15 ${fmt(sim.pps.sig.m15*100,0)} % (nabídka ${fmt(m15T,0)} MW). Celkový výkon kaskády ${fmt(sim.Ptot,0)} MW (před výpadkem ${fmt(snap.Pt,0)} MW).`),
+   S1(50,'6/6 · Soustava je znovu v rovnováze',()=>`Frekvence je ${fmt(sim.pps.sig.f,3)} Hz. Výpadek pokryly zálohy a provozovatel bloku si mezitím zajistil náhradní elektřinu. Cena za to: Orlík spotřeboval vodu navíc – hladina klesla z ${fmt(snap.ho,2)} na ${fmt(O.h,2)} m. Plnění služeb a výnosy najdeš v záložce Podpůrné služby, průběh v grafu PpS.`));
+  // první krok ihned
+  const s0=story.shift(); evQueue.push(s0.inf); if (!evCur) showEv();
+  chartTab='pps'; buildChartTabs(); buildCharts(); winH=24; $$('#win .tab').forEach(x=>x.classList.toggle('on',x.dataset.w==='24'));
+}
+const evSeen=[];
+function showEv(){
+  evCur=evQueue.shift(); if (evCur) evSeen.push(evCur); if (!evCur){ $('#evc').classList.remove('on'); clearRing(); return; }
+  if (running) setRun(false); const c=$('#evc'), inf=evCur;
+  $('#evT').textContent=inf.x.t; $('#evM').textContent=tStr(inf.e.t,true)+(evQueue.length?` · další události: ${evQueue.length}`:''); $('#evP').textContent=inf.x.p(inf.d||sim.D[inf.id]||{});
+  if ($('#evS').style.display!=='none') setTimeout(evSummary,0); c.classList.toggle('crit',inf.e.sev==='crit'); $('#evMute').checked=false; $('#evDet').style.display=inf.id&&inf.id!=='praha'?'':'none';
+  clearRing(); let tb=null;
+  if (inf.id==='praha'){ tb=prof.prBox; } else if (inf.id&&prof.res[inf.id]){ const r=prof.res[inf.id]; tb=r.box; r.ring.classList.add('on'); r.ring.setAttribute('opacity',1); }
+  if (inf.id&&inf.id!=='praha') select(inf.id);
+  c.classList.add('on'); const hero=$('#hero').getBoundingClientRect();
+  if (tb){ const b=tb.getBoundingClientRect(); let left=b.left-hero.left, top=b.bottom-hero.top+10; if (left+350>hero.width) left=hero.width-352; if (left<8) left=8; if (top+190>hero.height-40) top=Math.max(8,b.top-hero.top-200); c.style.left=left+'px'; c.style.top=top+'px'; }
+  else { c.style.left='20px'; c.style.top='20px'; }
+  $('#hero').scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+function clearRing(){ if (!prof.res) return; for (const k in prof.res){ prof.res[k].ring.classList.remove('on'); prof.res[k].ring.setAttribute('opacity',0); } }
+function evContinue(){ if (!evCur) return; if ($('#evMute').checked) muted[evCur.type]=true; showEv(); if (!evCur) setRun(true); }
+$('#evGo').onclick=evContinue;
+function evSummary(){ const box=$('#evS'); const it=(inf,cls,k)=>{ let p=''; try{ p=inf.x.p(inf.d||sim.D[inf.id]||{}); }catch(e){} p=p.split(/(?<=\.)\s/)[0];
+    return `<div ${k!=null?`data-ek="${k}"`:''} style="padding:6px 4px;border-radius:8px;cursor:${k!=null?'pointer':'default'};${cls}"><div class="m1" style="margin:0">${tStr(inf.e.t,true)}${k==null?'':' · čeká'}</div><b style="font-size:13px">${inf.x.t}</b><div style="font-size:12px;color:var(--text-2)">${p}</div></div>`; };
+  const past=evSeen.slice(-8,-1).map(x=>it(x,'opacity:.55',null)).join('');
+  box.innerHTML=(past?`<div class="m1">dříve</div>${past}`:'')+`<div class="m1" style="margin-top:6px">teď</div>${evCur?it(evCur,'background:var(--surface-2)',null):''}`+(evQueue.length?`<div class="m1" style="margin-top:6px">ve frontě (${evQueue.length}) – klikni pro přeskočení na událost</div>`+evQueue.map((x,k)=>it(x,'',k)).join(''):'<div class="m1" style="margin-top:6px">žádné další události ve frontě</div>');
+  box.querySelectorAll('[data-ek]').forEach(e=>e.onclick=()=>{ const k=+e.dataset.ek; evQueue.splice(0,k); showEv(); evSummary(); }); }
+$('#evSum').onclick=()=>{ const b=$('#evS'); const on=b.style.display==='none'; b.style.display=on?'block':'none'; if (on) evSummary(); };
+$('#evSkip').onclick=()=>{ const n=evQueue.length+1; evQueue.length=0; if (typeof story!=='undefined') story.length=0; evCur=null; $('#evS').style.display='none'; $('#evc').classList.remove('on'); clearRing(); toast(`Přeskočeno ${n} ${n===1?'událost':n<5?'události':'událostí'} – vše je v záložce Události`,'info'); setRun(true); }; $('#evDet').onclick=()=>{ const id=evCur&&evCur.id; if (id) openDetail(id); };
+/* ===================== ŽIVÁ DATA PVL (artifact db, plní je naplánovaná úloha) ===================== */
+let liveData=null;
+function applyLive(L){
+  if (!L||!L.dams||!L.tMs) return false;
+  for (const d of DAMS_DEF){ const x=L.dams[d.id]; if (x&&isFinite(x.h)) d.h0=x.h; }
+  for (const n of NODES_DEF){ const v=L.now&&L.now[n.id]; if (v!=null&&isFinite(v)) n.now=Math.max(0.05,v); }
+  const sc=SCENARIOS.aktualni; sc.start=L.tMs-3600e3*0; sc.name=`Aktuální stav ${L.measured} (živá data PVL)`;
+  sc.desc=`Hladiny a průtoky z portálu Povodí Vltavy, měřeno ${L.measured}. Orlík ${fmt(L.dams.orlik?.h,2)} m, Slapy ${fmt(L.dams.slapy?.h,2)} m, Praha-Chuchle ${fmtQ(L.praha)} m³/s. Data se obnovují automaticky; přítoky v simulaci dál pozvolna klesají – srážky přidáš tlačítkem.`;
+  const o=$('#scen option[value="aktualni"]'); if (o) o.textContent=sc.name; return true;
+}
+function liveBadge(){ const b=$('#liveB'); if (!liveData){ b.style.display='none'; return; } const age=(Date.now()-liveData.tMs)/60000; b.style.display='';
+  b.innerHTML=`<span style="color:${age<180?css('--good'):css('--warning')}">●</span> živá data ${liveData.measured.split(' ')[1]||''}`; b.title=`Data Povodí Vltavy, měřeno ${liveData.measured}. Klikni pro načtení aktuálního stavu.`; }
+$('#liveB').onclick=()=>{ if (!liveData) return; $('#scen').value='aktualni'; doLoad(); toast('Načten aktuální stav z dat Povodí Vltavy ('+liveData.measured+')','info'); };
+function onLive(L){ if (!L||!L.tMs||(liveData&&liveData.tMs>=L.tMs)) return; const first=!liveData; liveData=L; applyLive(L); liveBadge();
+  if (sim.scenarioKey==='aktualni' && (first ? sim.t<3600*6 && !running : false)){ doLoad(); }
+  else if (!first) toast(`Nová data Povodí Vltavy (${L.measured}) – klikni na „živá data“ nahoře`,'info'); }
+// 1) claude.ai artefakt: databáze artefaktu (plní ji naplánovaná úloha)
+(async()=>{ try{
+  if (!window.claude||typeof window.claude.use!=='function') return;
+  const db=await window.claude.use('db'); if (!db) return;
+  db.doc('live/pvl').onSnapshot(s=>{ if (s.exists) onLive(s.data()); }, ()=>{});
+}catch(e){} })();
+// 2) GitHub Pages / web: soubor live/pvl.json vedle stránky (plní ho GitHub Actions každou hodinu)
+if (/^https?:$/.test(location.protocol) && !/(^|\.)claude(usercontent)?\.(ai|com)$/.test(location.hostname)){
+  const pull=()=>fetch('live/pvl.json?t='+Math.floor(Date.now()/300e3),{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(onLive).catch(()=>{});
+  pull(); setInterval(pull,10*60e3);
+}
+setInterval(()=>liveBadge(),60000);
+/* ===================== OBCE ===================== */
+function buildPlaces(p){
+  p.innerHTML=`<p class="note" style="margin:0 0 10px">Cílem řízení kaskády je, aby se obce pod nádržemi i na jejich březích nezatopily. Prahy jsou orientační – odvozené z N-letých průtoků, stupňů povodňové aktivity a neškodných odtoků podle manipulačních řádů.</p>
+   <div style="overflow-x:auto"><table id="plTab"></table></div>`; renderPlaces(true); }
+function renderPlaces(force){
+  const t=$('#plTab'); if (!t||(botTab!=='places'&&!force)) return; const cnt=sim.places.filter(p=>p.st===2).length, cw=sim.places.filter(p=>p.st===1).length;
+  let h=`<tr><th>Obec / místo</th><th>teď</th><th>rozliv od</th><th>škody od</th><th>stav</th><th>maximum</th><th>hodin pod vodou</th></tr>`;
+  for (const p of sim.places){ const d=p.def, isH=d.kind==='h', f=v=>isH?fmt(v,2)+' m':fmtQ(v)+' m³/s'; const c=p.st===2?'--critical':p.st===1?'--warning':'--good';
+    h+=`<tr title="Klikni pro náhled" style="cursor:pointer" onclick="openDetail('obec:${d.id}')"><td><b>🔍 ${d.name}</b><div class="muted" style="font-size:11px;white-space:normal">${d.note}</div></td><td class="mono">${f(p.val)}</td><td class="mono">${f(d.warn)}</td><td class="mono">${f(d.crit)}</td><td><span class="tag" style="color:var(${c})">${p.st===2?'záplava':p.st===1?'rozliv':'v pořádku'}</span></td><td class="mono" style="color:var(${p.maxSt===2?'--critical':p.maxSt===1?'--warning':'--text'})">${f(p.max)}</td><td class="mono">${fmt(p.hours,0)}</td></tr>`; }
+  const worst=sim.places.reduce((m,p)=>Math.max(m,p.maxSt),0);
+  const head=`<tr><td colspan="7" style="padding:8px 6px;background:var(--surface-2);border-radius:8px;font-size:12.5px">${cnt+cw?`<b style="color:var(--critical)">Právě teď: ${cnt} obcí pod vodou, ${cw} s rozlivem.</b>`:`<b style="color:var(--good)">Právě teď nikde nevylévá.</b>`} ${worst?`Nejhorší stav od začátku scénáře: <b>${worst===2?'záplava':'rozliv'}</b> (sloupec maximum).`:'Od začátku scénáře zatím bez rozlivu – u povodňových scénářů vlna teprve přichází (2002: 1. vlna ~3. den, kulminace v Praze ~8. den; 2013: kulminace ~3. den).'}</td></tr>`;
+  t.innerHTML=head+h; const b=$('#plN'); if (b) b.textContent=cnt+cw; }
+/* ===================== render ===================== */
+function renderLive(){ renderPlaces(); renderKpi(); renderProfile(); renderCtrl(); renderCards(); renderNodes(); renderPps(); renderLog(); renderDside(); }
+function renderAll(){ renderLive(); drawCharts(); drawSparks(); }
+let rT; window.addEventListener('resize',()=>{ clearTimeout(rT); rT=setTimeout(()=>{ drawCharts(); drawSparks(); },120); });
+$('#scen').value='aktualni'; loadScenario(sim,'aktualni'); setCap('aktualni');
+buildProfile(); buildCtrl(); buildChartTabs(); buildCharts(); buildBottom(); setRun(false); setSpeed(2);
+sim.step(); renderAll(); requestAnimationFrame(loop);
+if (document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ buildProfile(); renderAll(); });
+window.__sim=sim; window.__vk={openDetail,endTour,select}; window.openDetail=openDetail;
+let showW=true; try{ showW=localStorage.getItem('vk-welcome')!=='0'; }catch(e){}
+const wClose=()=>{ $('#welcome').classList.remove('on'); try{ if ($('#wNo').checked) localStorage.setItem('vk-welcome','0'); }catch(e){} };
+$('#wTour').onclick=()=>{ wClose(); startTour(); }; $('#wMan').onclick=()=>{ wClose(); $('#modal').classList.add('on'); }; $('#wGo').onclick=wClose;
+if (showW) $('#welcome').classList.add('on');
+})();
+</script>
+</body>
+</html>
