@@ -590,7 +590,7 @@ function buildProfile(){
     const mp=el('marker',{id:'arrP',markerWidth:8,markerHeight:8,refX:4,refY:4,orient:'auto'},defs); el('path',{d:'M0,0 L8,4 L0,8 z',fill:css('--s7')},mp);
     el('text',{x:(xo+xk)/2+8,y:yo-34,'font-size':11.5,'font-weight':700,fill:css('--s7')},prof.opArr).textContent='čerpání'; }
   // PVE
-  const xs=X(84.4), pg=el('g',{class:'hit'},svg); pg.onclick=()=>select('pve');
+  const xs=X(84.4), pg=el('g',{class:'hit'},svg); pg.onclick=()=>select('pve'); pg.ondblclick=()=>openDetail('pve');
   const hx=xs-58, hy=Y(330);
   el('path',{d:`M${xs+4},${Y(219)} C ${xs-6},${Y(250)} ${hx+30},${Y(300)} ${hx+12},${hy+4}`,stroke:css('--s7'),'stroke-width':2.4,fill:'none'},pg);
   prof.pveW=el('rect',{x:hx-14,y:hy-8,width:30,height:10,rx:3,fill:css('--s7')},pg);
@@ -917,10 +917,10 @@ function buildBottom(){ const t=$('#btabs'); t.innerHTML=BT.map(([k,l])=>`<butto
   const p=$('#bpanel'); ({places:buildPlaces,dams:buildCards,nodes:buildNodes,pps:buildPps,log:p=>{ p.innerHTML='<div class="log" id="log"></div>'; logN=-1; renderLog(); },set:buildSet,par:buildParams})[botTab](p); }
 function buildCards(p){
   p.innerHTML='<div class="dams" id="dams"></div>'; const box=$('#dams');
-  sim.dams.forEach((d,i)=>{ const c=document.createElement('div'); c.className='dam'; c.id='card-'+d.id; c.onclick=()=>select(d.id); c.title=`klávesa ${i+1}`;
+  sim.dams.forEach((d,i)=>{ const c=document.createElement('div'); c.className='dam'; c.id='card-'+d.id; c.onclick=()=>select(d.id); c.ondblclick=()=>openDetail(d.id); c.title=`klávesa ${i+1} · dvojklik = detail`;
     c.innerHTML=`<div class="nm"><span>${d.name}</span><span class="badge" data-k="m"></span></div><div class="lv" data-k="h"></div><div class="fill"><i></i><u></u></div>
       <div class="ln"><span>in → out</span><b data-k="q"></b></div><div class="ln"><span><span class="dot" data-k="dot"></span> výkon</span><b data-k="p"></b></div><canvas></canvas>`; box.appendChild(c); });
-  const c=document.createElement('div'); c.className='dam'; c.id='card-pve'; c.onclick=()=>select('pve'); c.innerHTML=`<div class="nm"><span>PVE Štěchovice II</span><span class="badge" data-k="m"></span></div><div class="lv" data-k="h"></div><div class="fill"><i></i></div><div class="ln"><span>průtok</span><b data-k="q"></b></div><div class="ln"><span><span class="dot" data-k="dot"></span> výkon</span><b data-k="p"></b></div><canvas></canvas>`; box.appendChild(c);
+  const c=document.createElement('div'); c.className='dam'; c.id='card-pve'; c.onclick=()=>select('pve'); c.ondblclick=()=>openDetail('pve'); c.title='dvojklik = náhled PVE'; c.innerHTML=`<div class="nm"><span>PVE Štěchovice II</span><span class="badge" data-k="m"></span></div><div class="lv" data-k="h"></div><div class="fill"><i></i></div><div class="ln"><span>průtok</span><b data-k="q"></b></div><div class="ln"><span><span class="dot" data-k="dot"></span> výkon</span><b data-k="p"></b></div><canvas></canvas>`; box.appendChild(c);
   renderCards(); drawSparks();
 }
 const qk=(c,k)=>c.querySelector(`[data-k="${k}"]`);
@@ -1480,8 +1480,17 @@ $('#tNext').onclick=()=>tourGo(1); $('#tBack').onclick=()=>tourGo(-1); $('#tSkip
 window.addEventListener('resize',()=>{ if (tourOn) showTour(); });
 
 /* ===================== UKÁZKOVÝ REŽIM – zastavení a vysvětlení událostí ===================== */
-let demoMode=true; try{ demoMode=localStorage.getItem('vk-demo')!=='0'; }catch(e){}
-const muted={}; const evQueue=[]; let evCur=null;
+/* Předvolby aplikace (localStorage 'vk-prefs'): zastavující zprávy, kategorie, ztlumené typy */
+const PREF_DEF={stopMode:'stop',cats:{dam:true,obec:true,praha:true,sucho:true,pps:true},muted:{}};
+const PREF=JSON.parse(JSON.stringify(PREF_DEF));
+try{ const s=JSON.parse(localStorage.getItem('vk-prefs')||'null'); if (s){ if (['stop','toast','off'].includes(s.stopMode)) PREF.stopMode=s.stopMode; Object.assign(PREF.cats,s.cats||{}); Object.assign(PREF.muted,s.muted||{}); }
+  else if (localStorage.getItem('vk-demo')==='0') PREF.stopMode='off'; }catch(e){}
+const savePref=()=>{ try{ localStorage.setItem('vk-prefs',JSON.stringify(PREF)); }catch(e){} };
+const EV_CATS=[['dam','Vodní díla','přeliv, retenční prostor, koruna hráze, Lipno II nad 60 m³/s, zatopené Kořensko'],['obec','Obce a záplavy','rozliv a škody v obcích'],['praha','Praha – stupně povodňové aktivity','1.–3. SPA v Chuchli'],['sucho','Sucho a minimální odtok','Orlík 334,60, stálé nadržení, odstavení turbín, odtok pod minimem'],['pps','Výpadek bloku (PpS)','komentovaný příběh FCR → aFRR → mFRR']];
+const catOf=t=>t.startsWith('obec')?'obec':t.startsWith('spa')?'praha':['drought1','mzp','stale','trip'].includes(t)?'sucho':t==='trip1000'?'pps':'dam';
+const STOPMODES=[['stop','Zastavit a vysvětlit','simulace se u důležité události zastaví a vysvětlí, co se děje'],['toast','Jen upozornit','krátké upozornění v rohu, simulace běží dál'],['off','Vypnuto','žádné zprávy – události najdeš jen v záložce Události']];
+let demoMode=PREF.stopMode==='stop';
+const muted=PREF.muted; const evQueue=[]; let evCur=null;
 const EXPL={
   spill:{t:'Voda teče přes přeliv',p:d=>`Turbíny ${d.name} už nestačí převést celý průtok (zvládnou nejvýš ~${fmt(d.units.filter(x=>x.avail).length*d.d.units.Qmax,0)} m³/s), nebo hladina dosáhla povolené meze. Zbytek vody proto odtéká přes přeliv nebo výpusti – bez výroby elektřiny. V profilu to poznáš podle bílé pěny na hrázi.`},
   zas:{t:'Plní se retenční (ochranný) prostor',p:d=>`Přítok je vyšší než neškodný odtok, a tak ${d.name} zadržuje část povodňové vlny v prostoru nad max. zásobní hladinou (${fmt(d.d.hZas,2)} m). Tím snižuje kulminaci pod přehradou – to je hlavní protipovodňová funkce kaskády. Volný prostor ale není nekonečný.`},

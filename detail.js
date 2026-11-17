@@ -98,10 +98,12 @@ function buildDside(d){
     <p class="note">Posunem kteréhokoli ovladače se dílo přepne do ručního režimu; ostatní soustrojí drží aktuální výkon. Zpět na automatiku tlačítkem nahoře.</p></div>
    <div class="sect"><div class="h">Typ soustrojí</div>${[...new Set(d.units.map(x=>x.rev?'RF':(d.d.units.type||'K')))].map(k=>`<div style="display:flex;gap:10px;align-items:flex-start;margin:6px 0"><span class="chip" style="flex:none;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border-2)">${k==='K'?'K':k==='F'?'F':'F↺'}</span><div><b>${KINDNAME[k]}</b> · ${d.units.filter(x=>(x.rev?'RF':(d.d.units.type||'K'))===k).length}×<div class="note" style="margin:2px 0 0">${KINDTXT[k]}</div></div></div>`).join('')}</div>
    <div class="sect"><div class="h">Kapacity při aktuální hladině</div><div class="kv" id="dsK"></div></div>
+   ${['stechovice','vrane'].includes(d.id)?'<button class="bigbtn" id="dPve">🔍 PVE Štěchovice II – přečerpávací elektrárna (Homole ↔ Vrané)</button>':''}
    <p class="note">${DNOTE[d.id]||''}</p>`;
   const toMan=()=>{ if (d.mode!=='manual'){ d.mode='manual'; for (const x of d.units) x.man=+x.P.toFixed(1); d.manGate=+($('#dG')?.value||0); d.manOut=+($('#dO')?.value||0); buildCtrl(); dsMode(); } };
   d.units.forEach((x,i)=>{ const r=$('#dU'+i); r.oninput=()=>{ toMan(); x.man=+r.value; $('#dU'+i+'V').textContent=fmt(x.man,1)+' MW'; if (!running) sim.applyManual(d); }; r.onpointerdown=()=>r._drag=true; r.onpointerup=()=>r._drag=false;
     $(`[data-ua="${i}"]`).onchange=e=>{ x.avail=e.target.checked; }; });
+  if ($('#dPve')) $('#dPve').onclick=()=>openDetail('pve');
   $('#dEmpty').onclick=()=>{ d.mode='manual'; for (const x of d.units) x.man=0; d.manGate=100; d.manOut=100; buildCtrl(); buildDside(d); toast(`${d.name}: vypouštění nádrže`,'warn'); };
   $$('#dPm button').forEach(b=>{ b.classList.toggle('on',b.dataset.m===sim.opump.mode); b.onclick=()=>{ sim.opump.mode=b.dataset.m; $$('#dPm button').forEach(z=>z.classList.toggle('on',z.dataset.m===sim.opump.mode)); buildCtrl(); }; });
   bindSl('dPn',v=>v+' × 87 MW',v=>{ sim.opump.mode='manual'; sim.opump.man=v; $$('#dPm button').forEach(z=>z.classList.toggle('on',z.dataset.m==='manual')); });
@@ -433,7 +435,7 @@ function placeKit(svg,Ys,P){
       el('path',{d:`M${x-w/2},${y-h} L${x-w/2+8},${y-h-14} L${x+w/2-4},${y-h-14} L${x+w/2+3},${y-h} Z`,fill:C.roof,opacity:.5},g);
       for (let i=0;i<3;i++) el('path',{d:`M${x-w/2+24+i*11},${y-8} v-10 a2.5,2.5 0 0 1 5,0 v10 Z`,fill:C.line,opacity:.35},g);
       const t=k.tower(tx,{y,w:o.tw||16,h:o.th||70,cap:o.cap,g});
-      k.reg(x,y,g,[nave,t.body]); if (o.lab) k.label(o.lx??tx,y-(o.th||70)-(o.cap==='spire'?(o.th||70)*.5:44)-8,o.lab); return g; },
+      k.reg(x,y,g,[nave,t.body]); if (o.lab) k.label(o.lx??tx,y-(o.th||70)-(o.cap==='spire'?(o.th||70)*.5:o.cap==='pyramid'?(o.tw||16)*.8:44)-8,o.lab); return g; },
     roundTower(x,o={}){ const y=o.y??k.y(x), w=o.w||18, h=o.h||100, g=el('g',{},par), t=y-h;
       const body=el('rect',{x:x-w/2,y:t,width:w,height:h,fill:C.wall2,stroke:C.line,'stroke-width':1.1},g);
       for (let yy=t+10;yy<y-10;yy+=14) el('line',{x1:x-w/2,x2:x+w/2,y1:yy,y2:yy,stroke:C.line,opacity:.18},g);

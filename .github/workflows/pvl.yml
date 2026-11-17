@@ -31,8 +31,9 @@ jobs:
           set -e
           openssl s_client -connect www.pvl.cz:443 -servername www.pvl.cz -showcerts </dev/null 2>/dev/null \
             | awk '/BEGIN CERT/{n++} n{print > ("srv" n ".pem")} /END CERT/{n=n}' || true
-          last=$(ls srv*.pem | sort -V | tail -1); : > extra-ca.pem
-          for i in 1 2 3; do
+          openssl x509 -in srv1.pem -noout -subject -issuer
+          last=srv1.pem; : > extra-ca.pem   # řetězec stavíme od listového certifikátu (server posílá nesprávný mezilehlý)
+          for i in 1 2 3 4; do
             url=$(openssl x509 -in "$last" -noout -ext authorityInfoAccess 2>/dev/null | sed -n 's/.*CA Issuers - URI:\(.*\)/\1/p' | head -1)
             [ -z "$url" ] && break
             echo "AIA: $url"
