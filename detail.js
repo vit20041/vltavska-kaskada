@@ -132,6 +132,7 @@ function buildDetail(){
     dref.face={pts:[[xF,yCr],[xr,yR],[xe2-8,yR+12],[xe2+4,yR+4]]}; }
   dref.inset=drawTurbineInset(svg,W-310,Math.max(4,Math.min(34,by-62-284)),d.units.some(x=>x.rev)&&false?'RF':(d.d.units.type||'K'),d.units[0]);
   const sc=Math.min(1,gap/80); dref.units=d.units.map((x,i)=>drawTurbine(svg,x,ux0+gap*i+gap/2-14,uy-14*sc,x.rev?'RF':(d.d.units.type||'K'),sc,i));
+  dref.units.forEach((u,i)=>{ u.g.style.cursor='pointer'; u.g.onclick=()=>openUnit(d.id,i); el('title',{},u.g).textContent='Klikni pro detail soustrojí'; });
   // popisky hladin
   dref.tU=el('text',{x:U-10,'font-size':14,'text-anchor':'end','font-weight':700,fill:css('--text'),class:'m'},svg);
   dref.tD=el('text',{x:W-12,'font-size':13,'text-anchor':'end','font-weight':700,fill:css('--text'),class:'m',style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':4},svg);
@@ -296,6 +297,7 @@ function buildLipnoDetail(d){
   el('text',{x:(xd+70+cx0+cw2)/2+20,y:(yVal+cTop)/2+4,'font-size':10.5,fill:css('--text-2'),transform:`rotate(${Math.atan2(cTop+20-yVal,cx0+cw2-xd-70)*57.3} ${(xd+70+cx0+cw2)/2+20} ${(yVal+cTop)/2+4})`},svg).textContent='přístupová štola';
   // soustrojí (Francis, svislá osa)
   dref.units=d.units.map((x,i)=>drawTurbine(svg,x,cx0+64+i*100,yCav-8,'F',0.72,i));
+  dref.units.forEach((u,i)=>{ u.g.style.cursor='pointer'; u.g.onclick=()=>openUnit(d.id,i); el('title',{},u.g).textContent='Klikni pro detail soustrojí'; });
   dref.inset=drawTurbineInset(svg,696,40,'F',d.units[0]);
   // odpadní tunel 3,6 km (zkráceno)
   const yT=Yz(557.5); el('path',{d:`M${cx0+cw2},${yT} L600,${yT} M640,${yT} L${880},${Yz(559.6)}`,stroke:css('--surface-3'),'stroke-width':14,fill:'none'},svg);

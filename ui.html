@@ -369,6 +369,11 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
 </main>
 
 <div class="toast" id="toast"></div>
+<div class="modal" id="unitM" style="z-index:85"><div class="box" style="max-width:960px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h3 style="margin:0">⚙ <span id="uvT"></span></h3><small class="muted" id="uvS"></small></div><button class="btn" id="uvClose">Zavřít</button></div>
+  <svg id="uvSvg" viewBox="0 0 920 450" style="width:100%;height:auto;display:block;margin-top:6px"></svg>
+  <div class="chips" id="uvPh" style="margin:6px 0 10px"></div>
+  <div id="uvCtl" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
+  <p class="note">Živý stav ze simulace. Fáze najíždění a doběhu se nejlépe sledují v rychlosti „reálný čas“ – 15 s/s. Otáčky jsou v % jmenovitých (v provozu je drží síť: 50 Hz = 100 %). Doběh: zavřené lopatky, volné dobíhání, pod ~25 % otáček mechanická brzda; pak doba připravenosti.</p></div></div>
 <div class="modal" id="syncM" style="z-index:90"><div class="box" style="max-width:900px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h3 style="margin:0">⚡ Fázování generátoru · <span id="syT"></span></h3><button class="btn" id="syClose">Zavřít</button></div>
   <p class="note" style="margin:4px 0 8px">Jak se synchronní generátor připojuje k síti: roztočit vodou, nabudit, dorovnat frekvenci, napětí a fázi – a sepnout vypínač přesně v okamžiku shody.</p>
   <svg id="sySvg" viewBox="0 0 860 300" style="width:100%;height:auto;display:block"></svg>
@@ -489,7 +494,7 @@ document.addEventListener('keydown',e=>{
   if (tourOn){ if (k==='arrowright'||k==='enter'){ tourGo(1); return; } if (k==='arrowleft'){ tourGo(-1); return; } }
   if (k===' '){ e.preventDefault(); if (evCur){ evContinue(); return; } setRun(!running); } else if (k==='h') advance(3600); else if (k==='d') advance(86400); else if (k==='w') advance(604800);
   else if (k==='arrowright') setSpeed(+$('#speed').value+1); else if (k==='arrowleft') setSpeed(+$('#speed').value-1);
-  else if (k===',') openSettings(); else if (k==='t') $('#theme').click(); else if (k==='?') $('#modal').classList.toggle('on'); else if (k==='escape'){ $('#modal').classList.remove('on'); closeSettings(); closeDetail(); endTour(); } else if (k==='enter') openDetail(selected);
+  else if (k===',') openSettings(); else if (k==='t') $('#theme').click(); else if (k==='?') $('#modal').classList.toggle('on'); else if (k==='escape'){ $('#modal').classList.remove('on'); closeSettings(); closeUnit(); closeSync(); closeDetail(); endTour(); } else if (k==='enter') openDetail(selected);
   else if (/^[1-9]$/.test(k)) select(ORDER[+k-1]); else if (k==='0') select('pve');
 });
 
@@ -778,7 +783,10 @@ function buildCtrl(){
   }
   const ub=$('#units'); d.units.forEach((x,i)=>{ const t=document.createElement('div'); t.className='ut'+(x.avail?'':' off'); t.title=x.avail?'Kliknutím odstavíš (porucha/revize)':'Kliknutím vrátíš do provozu';
     t.innerHTML=`<svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="21" fill="none" stroke="var(--surface-3)" stroke-width="6"/><circle class="arc" cx="27" cy="27" r="21" fill="none" stroke="var(--good)" stroke-width="6" stroke-linecap="round" stroke-dasharray="0 132" transform="rotate(-90 27 27)"/><text x="27" y="31" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)">${x.rev?'RTG':'TG'}${i+1}</text></svg><div class="p">—</div>`+(d.mode==='manual'?`<input type="range" min="0" max="${u.Pmax}" step="0.1" value="${x.man}">`:'');
-    t.onclick=e=>{ if (e.target.tagName==='INPUT') return; x.avail=!x.avail; t.classList.toggle('off',!x.avail); toast(`${d.name} TG${i+1}: ${x.avail?'v provozu':'odstaveno'}`,x.avail?'info':'warn'); };
+    // klik = odstavit/vrátit (se zpožděním, aby šel odlišit dvojklik), dvojklik = detail stroje
+    t.onclick=e=>{ if (e.target.tagName==='INPUT') return; clearTimeout(t._ct); t._ct=setTimeout(()=>{ x.avail=!x.avail; t.classList.toggle('off',!x.avail); toast(`${d.name} TG${i+1}: ${x.avail?'v provozu':'odstaveno'}`,x.avail?'info':'warn'); },260); };
+    t.ondblclick=e=>{ if (e.target.tagName==='INPUT') return; clearTimeout(t._ct); openUnit(d.id,i); };
+    t.title=(x.avail?'Klik = odstavit (porucha/revize)':'Klik = vrátit do provozu')+' · dvojklik = detail soustrojí';
     const r=t.querySelector('input'); if (r) r.oninput=()=>x.man=+r.value; ub.appendChild(t); });
   renderCtrl(); if ($('details.adv')) $('details.adv').ontoggle=()=>drawVcurve(d);
 }
@@ -803,7 +811,7 @@ function drawTank(d){
    <text x="${x0+w/2}" y="208" font-size="9.5" text-anchor="middle" fill="${css('--muted')}">--- cíl</text>`;
 }
 // stav soustrojí pro popisky (porucha, najíždění, doba připravenosti po odstavení)
-const unitTxt=x=>x.fault?'PORUCHA':!x.avail?'odstaveno':x.pump?'čerpá':x.state==='start'?(()=>{ const f=(sim.t-x.tS)/(x.tLen||60); return f<0.55?'roztáčí se…':f<0.75?'budí se…':'fázuje…'; })():(x.state==='stop'&&x.lock>sim.t)?`připravuje se ${Math.ceil((x.lock-sim.t)/60)} min`:x.P>0.05?fmt(x.P,1)+' MW':'stojí';
+const unitTxt=x=>x.fault?'PORUCHA':!x.avail?'odstaveno':x.pump?'čerpá':x.state==='start'?(()=>{ const f=(sim.t-x.tS)/(x.tLen||60); return f<0.55?'roztáčí se…':f<0.75?'budí se…':'fázuje…'; })():(x.state==='stop'&&x.lock>sim.t)?(rundown(sim.t-(x.lock-(sim.glob.unitReady!=null?sim.glob.unitReady:600)))>0.001?'doběh…':`připravuje se ${Math.ceil((x.lock-sim.t)/60)} min`):x.P>0.05?fmt(x.P,1)+' MW':'stojí';
 const kv=rows=>rows.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join('');
 function renderCtrl(){
   if (selected==='pve') return renderPveCtrl();
@@ -814,7 +822,7 @@ function renderCtrl(){
   drawTank(d);
   const u=d.d.units; $$('#units .ut').forEach((t,i)=>{ const x=d.units[i]; if (!x) return; const pm=x.Pmax||u.Pmax; const arc=t.querySelector('.arc');
     if (x.pump){ arc.setAttribute('stroke',css('--s7')); arc.setAttribute('stroke-dasharray','132 132'); t.querySelector('.p').textContent='čerpá'; }
-    else { arc.setAttribute('stroke',css('--good')); arc.setAttribute('stroke-dasharray',`${(x.P/pm*132).toFixed(1)} 132`); t.querySelector('.p').textContent=d.trip&&x.avail&&!x.fault?'pod vtokem':unitTxt(x); if (x.fault){ arc.setAttribute('stroke',css('--critical')); arc.setAttribute('stroke-dasharray','132 132'); } else if (x.state==='start'){ arc.setAttribute('stroke',css('--warning')); arc.setAttribute('stroke-dasharray',`${(132*Math.min(1,(sim.t-x.tS)/(d.d.units.tStart||60))).toFixed(1)} 132`); } t.title=x.fault?`Porucha: ${x.fault.cause} – oprava do ${tStr(x.fault.until)}`:x.avail?'Kliknutím odstavíš (porucha/revize)':'Kliknutím vrátíš do provozu'; } });
+    else { arc.setAttribute('stroke',css('--good')); arc.setAttribute('stroke-dasharray',`${(x.P/pm*132).toFixed(1)} 132`); t.querySelector('.p').textContent=d.trip&&x.avail&&!x.fault?'pod vtokem':unitTxt(x); if (x.fault){ arc.setAttribute('stroke',css('--critical')); arc.setAttribute('stroke-dasharray','132 132'); } else if (x.state==='start'){ arc.setAttribute('stroke',css('--warning')); arc.setAttribute('stroke-dasharray',`${(132*Math.min(1,(sim.t-x.tS)/(d.d.units.tStart||60))).toFixed(1)} 132`); } t.title=x.fault?`Porucha: ${x.fault.cause} – oprava do ${tStr(x.fault.until)}`:(x.avail?'Klik = odstavit (porucha/revize)':'Klik = vrátit do provozu')+' · dvojklik = detail soustrojí'; } });
   const oi=$('#opInfo'); if (oi){ const p=sim.opump, K=sim.D.kamyk; const Vk=Math.max(0,K.V-K.Vat(K.d.hStale+0.05)); const Ek=Vk*9.81*1000*Math.max(5,d.h-K.h)*0.88/3.6e9;
     oi.innerHTML=kv([['čerpání',p.P>1?fmt(p.P,0)+' MW · '+fmt(p.Q,0)+' m³/s':'—'],['spád Orlík–Kamýk',fmt(p.head||d.h-K.h,1)+' m'],['voda k čerpání v Kamýku',fmt(Vk/1e6,2)+' mil. m³ ≈ '+fmt(Ek,0)+' MWh'],['načerpáno celkem',fmt(p.Ep,0)+' MWh']]); }
   const di=$('#dinfo'); if (di && di.closest('details').open){ const a=d.Vat(d.d.hStale), z=d.Vat(d.d.hZas), r=d.Vat(d.d.hRet);
@@ -1697,6 +1705,98 @@ function syncDraw(){ const S=SY, [cx,cy,R]=S.cxy, act=S.U>0.3&&!S.trip;
   $('#sySteps').innerHTML=SYNC_STEPS.map(([t],i)=>`<span class="chip ${i===S.st?'on':''}" style="cursor:default">${i+1}. ${t}</span>`).join('');
   $('#syTxt').innerHTML=S.bad&&S.st>=4?'<b style="color:var(--critical)">Chybné fázování:</b> vypínač sepnul při fázovém rozdílu ~90°. Mezi generátorem a sítí je velký rozdíl napětí → obrovský proudový ráz a mechanický ráz na hřídel, vinutí i spojku. Ochrany soustrojí okamžitě vypnou; v praxi hrozí poškození stroje. Proto fázuje automatický synchronizátor s kontrolou podmínek (synchrocheck).':SYNC_STEPS[S.st][1];
 }
+/* ===================== DETAIL SOUSTROJÍ (jeden stroj živě) ===================== */
+// Fáze se odvozují ze stavového automatu jádra (x.state, x.tS, x.tLen, x.lock, x.fault):
+// klid → roztáčení (lopatky na otevření naprázdno) → buzení (~95 % otáček) → fázování → provoz → doběh (zavřené lopatky,
+// volné dobíhání, pod ~25 % otáček mechanická brzda) → doba připravenosti → klid. Porucha = okamžité odpojení a doběh.
+const UPH=[['klid','Klid'],['roztaceni','Roztáčení'],['buzeni','Buzení'],['fazovani','Fázování'],['provoz','Provoz'],['dobeh','Doběh'],['pripravenost','Připravenost'],['porucha','Porucha']];
+function rundown(tau){ const tb=50*Math.log(4); return tau<tb?Math.exp(-tau/50):Math.max(0,0.25-(tau-tb)/30*0.25); } // volný doběh, pod 25 % brzda
+function unitPhase(d,x){ const t=sim.t, ready=sim.glob.unitReady!=null?sim.glob.unitReady:600, fg=sim.pps&&sim.pps.sig?sim.pps.sig.f:50;
+  const H=Math.max(0.5,d.head||d.d.units.Hnom), Qmax=d.d.units.Qmax, Pmax=x.Pmax||d.d.units.Pmax;
+  const r={n:0,U:0,exc:false,brk:false,gate:0,f:0,slip:null,P:x.P||0,Q:x.Q||0,H,Pmax,Qmax,eta:null,k:'klid',note:''};
+  if (x.fault){ const tF=x.fault.until-x.fault.hrs*3600; r.n=rundown(t-tF); r.k='porucha'; r.note=`${x.fault.cause} · oprava do ${tStr(x.fault.until,true)}`; r.P=0; r.Q=0; return r; }
+  if (!x.avail){ r.k='klid'; r.note='odstaveno – mimo provoz (revize)'; return r; }
+  if (x.pump){ r.k='provoz'; r.n=1; r.U=1; r.exc=true; r.brk=true; r.f=fg; r.note='čerpací režim – stroj se točí opačně'; r.gate=0.9; return r; }
+  if (x.state==='start'){ const f=clamp01((t-x.tS)/(x.tLen||60)); r.gate=0.1; r.Q=x.Q||0;
+    r.n=0.985*(1-Math.exp(-f/0.166)); if (f>0.55){ r.exc=true; r.U=clamp01((f-0.55)/0.2); }
+    if (f<0.55){ r.k='roztaceni'; r.note='rozváděcí lopatky na otevření naprázdno, voda roztáčí soustrojí'; }
+    else if (f<0.75){ r.k='buzeni'; r.note='budicí proud do rotoru, napětí na svorkách roste'; }
+    else { r.k='fazovani'; r.slip=0.12-0.07*(f-0.75)/0.25; r.n=(fg+r.slip)/50; r.note='synchronizátor dorovnává otáčky, napětí a fázi'; }
+    r.f=50*r.n; return r; }
+  if (x.state==='run'){ r.k='provoz'; r.n=fg/50; r.f=fg; r.U=1; r.exc=true; r.brk=true; r.gate=Math.min(1,0.1+0.9*clamp01((x.Q||0)/Qmax));
+    r.eta=x.Q>0.5?x.P*1e6/(1000*9.81*x.Q*H):null; r.note=x.P<0.5?'přifázováno, výkon se zvyšuje':'synchronní provoz – otáčky drží síť'; return r; }
+  // stop: doběh nebo doba připravenosti
+  if (x.lock>0){ const tStop=x.lock-ready, tau=t-tStop; r.n=rundown(tau);
+    if (r.n>0.001){ r.k='dobeh'; r.note=r.n>0.25?'lopatky zavřené, stroj volně dobíhá':'mechanická brzda'; return r; }
+    if (x.lock>t){ r.k='pripravenost'; r.note=`stroj stojí, kontroly – start možný za ${Math.ceil((x.lock-t)/60)} min`; return r; } }
+  r.k='klid'; r.note='připraven ke startu'; return r; }
+
+const UV={on:false};
+function openUnit(damId,i){ const d=sim.D[damId]; if (!d||!d.units[i]) return; UV.d=d; UV.i=i; UV.buf=[]; UV.ph=0; UV.last=null; UV.on=true;
+  $('#unitM').classList.add('on'); unitBuild(); requestAnimationFrame(unitFrame); }
+function closeUnit(){ UV.on=false; $('#unitM').classList.remove('on'); }
+function unitBuild(){ const d=UV.d, x=d.units[UV.i], kind=x.rev?'RF':(d.d.units.type||'K'), name=`${d.name} ${x.rev?'RTG':'TG'}${UV.i+1}`;
+  $('#uvT').textContent=name; $('#uvS').textContent=`${KINDNAME[kind]} · ${fmt(x.Pmax||d.d.units.Pmax,x.Pmax||d.d.units.Pmax<10?2:0)} MW · Qmax ${fmt(d.d.units.Qmax,0)} m³/s · spád ~${fmt(d.d.units.Hnom,0)} m`;
+  const s=$('#uvSvg'); s.innerHTML=''; const E=(t,a,p)=>el(t,a,p||s);
+  const defs=E('defs',{}); E('filter',{id:'uvGl',x:'-50%',y:'-50%',width:'200%',height:'200%'},defs).innerHTML='<feGaussianBlur stdDeviation="5"/>';
+  UV.tb=drawTurbine(s,x,170,195,kind,2.1,UV.i,true); UV.tb.glow.setAttribute('filter','url(#uvGl)');
+  // otáčkoměr
+  const cx=470,cy=150,R=78; E('path',{d:`M${cx-R},${cy} A${R},${R} 0 0 1 ${cx+R},${cy}`,fill:'none',stroke:css('--surface-3'),'stroke-width':14});
+  const ang=v=>Math.PI*(1-v/1.2); const arc=(a,b,c)=>{ const [x1,y1]=[cx+R*Math.cos(ang(a)),cy-R*Math.sin(ang(a))],[x2,y2]=[cx+R*Math.cos(ang(b)),cy-R*Math.sin(ang(b))]; E('path',{d:`M${x1},${y1} A${R},${R} 0 0 1 ${x2},${y2}`,fill:'none',stroke:css(c),'stroke-width':14,opacity:.55}); };
+  arc(0.95,1.05,'--good'); arc(1.1,1.2,'--critical');
+  for (let v=0;v<=1.2001;v+=0.1){ const a=ang(v); E('line',{x1:cx+(R-18)*Math.cos(a),y1:cy-(R-18)*Math.sin(a),x2:cx+(R-9)*Math.cos(a),y2:cy-(R-9)*Math.sin(a),stroke:css('--text-2'),'stroke-width':Math.round(v*10)%5?1:2}); if (Math.round(v*10)%5===0) E('text',{x:cx+(R-30)*Math.cos(a),y:cy-(R-30)*Math.sin(a)+4,'text-anchor':'middle','font-size':10,fill:css('--muted')}).textContent=Math.round(v*100); }
+  UV.needle=E('line',{x1:cx,y1:cy,x2:cx-R+20,y2:cy,stroke:css('--warning'),'stroke-width':4,'stroke-linecap':'round'}); E('circle',{cx,cy,r:6,fill:css('--text-2')});
+  UV.nT=E('text',{x:cx,y:cy+30,'text-anchor':'middle','font-size':22,'font-weight':750,class:'m',fill:css('--text')});
+  E('text',{x:cx,y:cy+48,'text-anchor':'middle','font-size':11,fill:css('--muted')}).textContent='otáčky [% jmenovitých]';
+  UV.phT=E('text',{x:170,y:318,'text-anchor':'middle','font-size':15,'font-weight':750});
+  UV.noteT=E('text',{x:170,y:336,'text-anchor':'middle','font-size':11.5,fill:css('--text-2')});
+  // vypínač a buzení
+  UV.brk=E('g',{}); UV.vals=E('g',{'font-size':12.5});
+  // trend
+  E('rect',{x:20,y:352,width:880,height:92,rx:8,fill:css('--surface-2'),stroke:css('--border')});
+  UV.trP=E('path',{fill:'none',stroke:css('--s4'),'stroke-width':2}); UV.trN=E('path',{fill:'none',stroke:css('--s1'),'stroke-width':1.6}); UV.trG=E('path',{fill:'none',stroke:css('--s3'),'stroke-width':1.4,'stroke-dasharray':'4 3'});
+  E('text',{x:30,y:366,'font-size':11,fill:css('--s4'),'font-weight':650}).textContent='— výkon';
+  E('text',{x:95,y:366,'font-size':11,fill:css('--s1'),'font-weight':650}).textContent='— otáčky';
+  E('text',{x:165,y:366,'font-size':11,fill:css('--s3'),'font-weight':650}).textContent='- - rozváděcí lopatky';
+  UV.trT=E('text',{x:890,y:366,'text-anchor':'end','font-size':11,fill:css('--muted')});
+  // ovládání
+  const pm=x.Pmax||d.d.units.Pmax;
+  $('#uvCtl').innerHTML=`<button class="btn sm acc" id="uvStart">▶ Najet</button><button class="btn sm" id="uvStop">■ Odstavit</button><button class="btn sm" id="uvAuto">↺ Automatika MŘ</button><button class="btn sm" id="uvRev"></button><button class="btn sm danger" id="uvFlt">⚠ Porucha</button><button class="btn sm" id="uvSync">⚡ Ukázka fázování</button>
+   <div class="sl" style="flex:1;min-width:220px;margin:0"><div class="top"><span>žádaný výkon (ruční režim)</span><b id="uvPV"></b></div><input type="range" id="uvP" min="0" max="${pm}" step="0.1" value="${x.man||0}"></div>`;
+  const toMan=()=>{ if (d.mode!=='manual'){ d.mode='manual'; for (const y of d.units) y.man=+y.P.toFixed(1); } };
+  $('#uvStart').onclick=()=>{ toMan(); x.man=Math.max(x.man||0,pm*0.8); $('#uvP').value=x.man; buildCtrl(); };
+  $('#uvStop').onclick=()=>{ toMan(); x.man=0; $('#uvP').value=0; buildCtrl(); };
+  $('#uvAuto').onclick=()=>{ d.mode='auto'; buildCtrl(); };
+  $('#uvRev').onclick=()=>{ x.avail=!x.avail; buildCtrl(); };
+  $('#uvFlt').onclick=()=>{ sim.triggerFault(d.id,UV.i); buildCtrl(); };
+  $('#uvSync').onclick=()=>openSync(`${d.name} ${x.rev?'RTG':'TG'}${UV.i+1}`,pm,d.d.units.ramp);
+  $('#uvP').oninput=e=>{ toMan(); x.man=+e.target.value; if (!running) sim.applyManual(d); };
+  $('#uvClose').onclick=closeUnit; $('#unitM').onclick=e=>{ if (e.target.id==='unitM') closeUnit(); }; }
+function unitFrame(now){ if (!UV.on) return; const dt=UV.last?Math.min(0.1,(now-UV.last)/1000):0; UV.last=now;
+  const d=UV.d, x=d.units[UV.i], r=unitPhase(d,x);
+  // roztočení oběžného kola: zobrazovaná rychlost ~ skutečné otáčky (vizuálně zpomaleno)
+  UV.ph=(UV.ph+r.n*260*dt*(x.pump?-1:1))%360; const wet=r.Q>0.3||r.k==='roztaceni'||r.k==='buzeni'||r.k==='fazovani';
+  UV.tb.upd(UV.ph,r.gate,wet,clamp01(r.P/r.Pmax),!!x.pump);
+  UV.tb.glow.setAttribute('opacity',r.brk&&r.P>0.05?Math.min(.9,.3+.6*r.P/r.Pmax):r.exc?.2:0);
+  UV.tb.gen.setAttribute('stroke',r.brk?css('--light'):r.exc?css('--warning'):css('--border-2'));
+  const ph=UPH.find(p=>p[0]===r.k), col=r.k==='porucha'?'--critical':r.k==='provoz'?'--good':r.k==='klid'||r.k==='pripravenost'?'--muted':'--warning';
+  UV.phT.textContent=ph[1].toUpperCase(); UV.phT.setAttribute('fill',css(col)); UV.noteT.textContent=r.note;
+  const a=Math.PI*(1-Math.min(1.2,r.n)/1.2), [cx,cy,R]=[470,150,78]; UV.needle.setAttribute('x2',cx+(R-14)*Math.cos(a)); UV.needle.setAttribute('y2',cy-(R-14)*Math.sin(a)); UV.nT.textContent=fmt(r.n*100,1)+' %';
+  const yes=(b,t1,t0)=>`<tspan fill="${b?css('--good'):css('--muted')}">${b?t1:t0}</tspan>`;
+  const rows=[['výkon',fmt(r.P,1)+' / '+fmt(r.Pmax,r.Pmax<10?2:0)+' MW'],['průtok',fmt(r.Q,1)+' m³/s'],['čistý spád',fmt(r.H,1)+' m'],['účinnost',r.eta!=null?fmt(r.eta*100,1)+' %':'—'],
+    ['rozváděcí lopatky',fmt(r.gate*100,0)+' %'],['frekvence stroje',r.n>0.02?fmt(50*r.n,2)+' Hz':'—'],['frekvence sítě',fmt(sim.pps&&sim.pps.sig?sim.pps.sig.f:50,3)+' Hz'],['napětí generátoru',fmt(r.U*100,0)+' % Un'],
+    ['buzení',null,yes(r.exc,'ZAP','VYP')],['generátorový vypínač',null,yes(r.brk,'ZAPNUT','vypnut')],['skluz při fázování',r.slip!=null?'+'+fmt(r.slip,2)+' Hz':'—'],['režim díla',d.mode==='auto'?'automatika MŘ':d.mode==='manual'?'ručně':'plán']];
+  UV.vals.innerHTML=rows.map(([l,v,h],k)=>`<text x="590" y="${40+k*22}" fill="${css('--text-2')}">${l}</text><text x="900" y="${40+k*22}" text-anchor="end" font-weight="650" class="m" fill="${css('--text')}">${h||v}</text>`).join('');
+  // fáze jako řetězec
+  $('#uvPh').innerHTML=UPH.map(([k,l])=>`<span class="chip ${k===r.k?'on':''}" style="cursor:default${k==='porucha'&&r.k==='porucha'?';background:var(--critical);border-color:var(--critical)':''}">${l}</span>`).join('');
+  $('#uvRev').textContent=x.avail?'Mimo provoz (revize)':'Vrátit do provozu'; $('#uvPV').textContent=fmt(x.man||0,1)+' MW';
+  // trend: vzorky v simulačním čase, okno podle rychlosti
+  const B=UV.buf; if (!B.length||sim.t!==B[B.length-1][0]) B.push([sim.t,r.P/r.Pmax,r.n,r.gate]); const win=Math.max(180,Math.min(86400,speed*40));
+  while (B.length>2&&B[0][0]<sim.t-win) B.shift(); if (B.length>2000) B.splice(0,B.length-2000);
+  const X=t=>30+860*(1-(sim.t-t)/win), Y=v=>438-66*clamp01(v/1.2), pth=k=>B.map((p,j)=>(j?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[k]).toFixed(1)).join('');
+  UV.trP.setAttribute('d',pth(1)); UV.trN.setAttribute('d',pth(2)); UV.trG.setAttribute('d',pth(3));
+  UV.trT.textContent=`posledních ${win>=3600?fmt(win/3600,1)+' h':Math.round(win/60)+' min'} simulace · rychlost ${$('#speedL').textContent}`;
+  requestAnimationFrame(unitFrame); }
 /* ===================== ŽIVÁ DATA PVL (artifact db, plní je naplánovaná úloha) ===================== */
 let liveData=null;
 function applyLive(L){
@@ -1745,7 +1845,7 @@ $('#scen').value='aktualni'; loadScenario(sim,'aktualni'); setCap('aktualni');
 buildProfile(); buildCtrl(); buildChartTabs(); buildCharts(); buildBottom(); setRun(false); setSpeed(SPEED_I0);
 sim.step(); renderAll(); requestAnimationFrame(loop);
 if (document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ buildProfile(); renderAll(); });
-window.__sim=sim; window.__vk={openDetail,endTour,select}; window.openDetail=openDetail;
+window.__sim=sim; window.__vk={openDetail,endTour,select,openUnit}; window.openDetail=openDetail;
 let showW=true; try{ showW=localStorage.getItem('vk-welcome')!=='0'; }catch(e){}
 const wClose=()=>{ $('#welcome').classList.remove('on'); try{ if ($('#wNo').checked) localStorage.setItem('vk-welcome','0'); }catch(e){} };
 $('#wTour').onclick=()=>{ wClose(); startTour(); }; $('#wMan').onclick=()=>{ wClose(); $('#modal').classList.add('on'); }; $('#wGo').onclick=wClose;

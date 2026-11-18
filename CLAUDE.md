@@ -45,6 +45,9 @@ budoucí Orlík 2033 (2×Francis 95 MW + 2×reverzní Francis 87 MW, čerpání 
   řezem (světle, čárkovaně). Výpusti končí na vzdušním líci. Slapy = přelévaná elektrárna (líc → střecha strojovny → odskok,
   face.pts). Zatopený přepad (dolní voda nad hranou) = vodorovné proudění polem. Lipno I: přeliv ústí do starého koryta (dref.spillTail).
   Zdvižný uzávěr vyjede jen nad hladinu. Snímky ke kontrole: Edge headless (viz scratchpad shot.ps1 – kopie index.html + nastavovací skript).
+- Detail soustrojí (ui.html `openUnit(damId,i)`, klik na stroj v řezu / dvojklik na kartičku TG): fáze (`unitPhase`: klid,
+  roztáčení, buzení, fázování, provoz, doběh s brzdou pod 25 %, připravenost, porucha), otáčkoměr v % jmenovitých, lopatky, Q, H, η,
+  U, f, buzení, vypínač, trend a ovládání (najet/odstavit/automatika/revize/porucha).
 - Ukázka fázování generátoru (ui.html `openSync`, tlačítko v detailu): roztáčení → nabuzení → dorovnání (synchronoskop, průběhy
   napětí, podmínky Δf/ΔU/Δφ) → sepnutí → zatěžování; volitelně chybné fázování. Soustrojí ve stavu start ukazuje roztáčí se/budí se/fázuje.
 - Přepady (detail.js `makeSheet`/`makeSpray`): paprsek s tloušťkou = přepadová výška (zdvižný uzávěr: min(výška, otevření);
