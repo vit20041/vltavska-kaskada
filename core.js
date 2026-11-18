@@ -626,12 +626,24 @@ class Sim {
     let Pt = Pset >= 0 ? Pset + req.dp : Pset;
     if (Pt > 0 && p.V <= def.Vmin) Pt = 0; if (Pt < 0 && p.V >= def.Vmax) Pt = 0;
     Pt = clamp(Pt, -def.PpMax, def.PtMax);
-    const rate = def.ramp * dt; p.P = p.P + clamp(Pt - p.P, -rate * 2, rate * 2);
+    // stavový automat reverzního soustrojí: stop → start (turbínový ~90 s; čerpadlový ~6 min: odvodnění oběžného kola
+    // stlačeným vzduchem, rozběh pomocným pohonem, fázování, zavodnění) → provoz → odlehčení → stop + doba připravenosti.
+    // Přechod turbína ↔ čerpadlo vždy přes zastavení. Čerpadlo jede na plný příkon (synchronní stroj, pevné otáčky).
+    const u = p.u || (p.u = { state: 'stop', lock: 0, avail: true, fault: null, P: 0, Q: 0, pump: false, rev: true, Pmax: def.PtMax });
+    const t = this.t, tReady = this.glob.unitReady != null ? this.glob.unitReady : 600;
+    const want = !u.avail || u.fault ? 'stop' : Pt > 0.5 ? 'gen' : Pt < -0.5 ? 'pump' : 'stop';
+    if (u.state === 'stop') { if (want !== 'stop' && !(u.lock > t)) { u.state = 'start'; u.dir = want; u.tS = t; u.tLen = want === 'gen' ? 90 : 360; } }
+    else if (u.state === 'start') { if (want !== u.dir) { u.state = 'stop'; u.lock = t + tReady; } else if (t - u.tS >= u.tLen) u.state = 'run'; }
+    else if (u.state === 'run' && want !== u.dir && Math.abs(p.P) < 0.5) { u.state = 'stop'; u.lock = t + tReady; }
+    const tgt = u.state === 'run' && want === u.dir ? (u.dir === 'pump' ? -def.PpMax : Math.max(0, Pt)) : 0;
+    const rate = def.ramp * dt; p.P = p.P + clamp(tgt - p.P, -rate * 2, rate * 2);
+    if (u.fault || !u.avail) p.P = 0;
+    u.pump = u.state === 'run' && u.dir === 'pump';
     let Q = 0; if (p.P > 0) Q = p.P * 1e6 / (RHO * G * Math.max(H, 50) * def.etaT); else if (p.P < 0) Q = p.P * 1e6 * def.etaP / (RHO * G * Math.max(H, 50));
     if (req.parts && Pset >= 0) { const act = p.P - Math.max(0, Pset); for (const k in req.parts) { const st = this.pps.stats[k]; const rq = Math.abs(req.parts[k]); st.req += rq * dt / 3600; const share = Math.abs(req.dp) > 1e-6 ? req.parts[k] / req.dp : 0; st.del += Math.min(rq, Math.max(0, act * share * Math.sign(req.parts[k] || 1))) * dt / 3600; } }
     // Q>0 výroba: voda z Homole do Vraného; Q<0 čerpání
     const dV = -Q * dt; p.V = clamp(p.V + dV, 0, def.Vmax);
-    p.Q = Q; Vr.V = Math.max(0, Vr.V + Q * dt); Vr.h = Vr.curve.h(Vr.V);
+    p.Q = Q; Vr.V = Math.max(0, Vr.V + Q * dt); Vr.h = Vr.curve.h(Vr.V); u.P = Math.abs(p.P); u.Q = Math.abs(Q);
     p.E += Math.max(0, p.P) * dt / 3600; p.Ep += Math.max(0, -p.P) * dt / 3600;
   }
 
@@ -798,7 +810,7 @@ function loadScenario(sim, key, opt) {
   for (const s of PPS_DEF) sim.pps.stats[s.id] = { req: 0, del: 0 }; sim.pps.rev = { cap: 0, act: 0, spot: 0, pump: 0, pen: 0 }; sim.pps.sig = { f: 50, afrr: 0, m5: 0, m15: 0, m5t: 0, m15t: 0, ev: [] };
   for (const d of sim.dams) { d.d = Object.assign({}, d.d0); d.mode = 'auto'; d.par.tgtOverride = null; const h = (sc.levels && sc.levels[d.id] != null) ? sc.levels[d.id] : d.d.h0; d.reset(h); d.par.Qn = d.d.Qn; for (const u of d.units) u.avail = true; }
   sim.opump.P = 0; sim.opump.Q = 0; sim.opump.Ep = 0; sim.opump.ema = 0; sim.opump.mode = 'auto'; const o33 = sim.orlik2033; sim.orlik2033 = false;
-  sim.pve.V = 0.3e6; sim.pve.P = 0; sim.pve.E = 0; sim.pve.Ep = 0; sim.pve.mode = 'auto';
+  sim.pve.V = 0.3e6; sim.pve.P = 0; sim.pve.E = 0; sim.pve.Ep = 0; sim.pve.mode = 'auto'; sim.pve.u = null;
   for (const n of sim.nodes) { n.mode = 'scen'; n.mult = 1; n.pulses = []; n.manual = n.def.now; }
   sim.glob.prahaProt = true; sim.glob.QminVrane = 40;
   sc.setup(sim, opt);

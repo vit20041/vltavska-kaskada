@@ -424,6 +424,7 @@ function buildPveDetail(){ const svg=$('#dsvg'); svg.innerHTML=''; const W=1000,
   const bx=600,by=Yz(232); el('rect',{x:bx,y:by,width:110,height:Yz(185)-by,rx:6,fill:css('--conc-2'),opacity:.55,stroke:css('--border-2')},svg);
   el('text',{x:bx-8,y:by+14,'font-size':12,'text-anchor':'end','font-weight':700,fill:css('--text')},svg).textContent='strojovna';
   dref.units=[drawTurbine(svg,{rev:true},bx+55,Yz(205),'RF',0.75,0)];
+  dref.units[0].g.style.cursor='pointer'; dref.units[0].g.onclick=()=>openUnit('pve',0); el('title',{},dref.units[0].g).textContent='Klikni pro detail soustrojí';
   dref.pv.out=el('path',{d:`M${bx+90},${Yz(199)} L760,${Yz(199)}`,stroke:css('--water-line'),'stroke-width':4,fill:'none','stroke-dasharray':'8 9',class:'flowing',opacity:0},svg);
   dref.inset=drawTurbineInset(svg,W-310,30,'RF',{rev:true});
   dref.pv.dir=el('text',{x:430,y:Yz(420),'font-size':14,'font-weight':700,fill:css('--text'),'text-anchor':'middle'},svg);

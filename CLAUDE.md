@@ -47,7 +47,10 @@ budoucí Orlík 2033 (2×Francis 95 MW + 2×reverzní Francis 87 MW, čerpání 
   Zdvižný uzávěr vyjede jen nad hladinu. Snímky ke kontrole: Edge headless (viz scratchpad shot.ps1 – kopie index.html + nastavovací skript).
 - Detail soustrojí (ui.html `openUnit(damId,i)`, klik na stroj v řezu / dvojklik na kartičku TG): fáze (`unitPhase`: klid,
   roztáčení, buzení, fázování, provoz, doběh s brzdou pod 25 %, připravenost, porucha), otáčkoměr v % jmenovitých, lopatky, Q, H, η,
-  U, f, buzení, vypínač, trend a ovládání (najet/odstavit/automatika/revize/porucha).
+  U, f, buzení, vypínač, trend a ovládání (najet/odstavit/automatika/revize/porucha). Půdorys rozvaděče (`drawPlan`): spirála,
+  pevné lopatky, rozváděcí lopatky na čepech (~6° zavřeno … ~50° otevřeno), oběžné kolo; Kaplan: natočení lopatek kola
+  přes kombinátor β = f(otevření, spád). PVE: `sim.pve.u` stavový automat (turbínový start 90 s, čerpadlový 6 min –
+  odvodnění, rozběh pomocným pohonem, fázování, zavodnění; přechod turbína↔čerpadlo přes stop), detail přes `openUnit('pve',0)`.
 - Ukázka fázování generátoru (ui.html `openSync`, tlačítko v detailu): roztáčení → nabuzení → dorovnání (synchronoskop, průběhy
   napětí, podmínky Δf/ΔU/Δφ) → sepnutí → zatěžování; volitelně chybné fázování. Soustrojí ve stavu start ukazuje roztáčí se/budí se/fázuje.
 - Přepady (detail.js `makeSheet`/`makeSpray`): paprsek s tloušťkou = přepadová výška (zdvižný uzávěr: min(výška, otevření);
