@@ -811,7 +811,7 @@ function drawTank(d){
    <text x="${x0+w/2}" y="208" font-size="9.5" text-anchor="middle" fill="${css('--muted')}">--- cíl</text>`;
 }
 // stav soustrojí pro popisky (porucha, najíždění, doba připravenosti po odstavení)
-const unitTxt=x=>x.fault?'PORUCHA':!x.avail?'odstaveno':x.pump?'čerpá':x.state==='start'?(()=>{ const f=(sim.t-x.tS)/(x.tLen||60); return f<0.55?'roztáčí se…':f<0.75?'budí se…':'fázuje…'; })():(x.state==='stop'&&x.lock>sim.t)?(rundown(sim.t-(x.lock-(sim.glob.unitReady!=null?sim.glob.unitReady:600)))>0.001?'doběh…':`připravuje se ${Math.ceil((x.lock-sim.t)/60)} min`):x.P>0.05?fmt(x.P,1)+' MW':'stojí';
+const unitTxt=x=>x.fault?'PORUCHA':!x.avail?'odstaveno':x.pump?'čerpá':x.state==='start'?(()=>{ const f=(sim.t-x.tS)/(x.tLen||60); return x.dir==='pump'?(f<0.55?'rozběh čerpadla…':f<0.75?'fázuje…':'zavodňuje…'):f<0.55?'roztáčí se…':f<0.75?'budí se…':'fázuje…'; })():(x.state==='stop'&&x.lock>sim.t)?(rundown(sim.t-(x.lock-(sim.glob.unitReady!=null?sim.glob.unitReady:600)))>0.001?'doběh…':`připravuje se ${Math.ceil((x.lock-sim.t)/60)} min`):x.P>0.05?fmt(x.P,1)+' MW':'stojí';
 const kv=rows=>rows.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join('');
 function renderCtrl(){
   if (selected==='pve') return renderPveCtrl();
@@ -1717,7 +1717,7 @@ function unitPhase(d,x){ const t=sim.t, ready=sim.glob.unitReady!=null?sim.glob.
   const r={n:0,U:0,exc:false,brk:false,gate:0,f:0,slip:null,P:x.P||0,Q:x.Q||0,H,Pmax,Qmax,eta:null,k:'klid',note:''};
   if (x.fault){ const tF=x.fault.until-x.fault.hrs*3600; r.n=rundown(t-tF); r.k='porucha'; r.note=`${x.fault.cause} · oprava do ${tStr(x.fault.until,true)}`; r.P=0; r.Q=0; return r; }
   if (!x.avail){ r.k='klid'; r.note='odstaveno – mimo provoz (revize)'; return r; }
-  if (x.pump){ r.k='cerpani'; r.n=fg/50; r.U=1; r.exc=true; r.brk=true; r.f=fg; r.gate=0.75; r.eta=x.P>0.5&&x.Q>0.1?1000*9.81*x.Q*H/(x.P*1e6):null;
+  if (x.pump){ r.k='cerpani'; if (x.Pp!=null){ r.P=x.Pp; r.Q=x.Qp; } r.n=fg/50; r.U=1; r.exc=true; r.brk=true; r.f=fg; r.gate=0.75; r.eta=r.P>0.5&&r.Q>0.1?1000*9.81*r.Q*H/(r.P*1e6):null;
     r.note='čerpací režim – stroj se točí opačně, motor-generátor pohání čerpadlo (příkon je dán otáčkami a spádem)'; return r; }
   if (x.state==='start'&&x.dir==='pump'){ // čerpadlový rozběh: oběžné kolo ve vzduchu, rozběh pomocným pohonem, fázování, zavodnění
     const f=clamp01((t-x.tS)/(x.tLen||360)); r.exc=true; r.gate=0;
@@ -1755,15 +1755,15 @@ function drawPlan(par,cx,cy,R,kind){ const g=el('g',{},par), T2=css('--text-2'),
   // spirála (zužuje se po obvodu) + vtok
   let d=''; for (let i=0;i<=72;i++){ const th=i/72*2*Math.PI, r=R*(0.98-0.2*i/72); d+=(i?'L':'M')+(cx+r*Math.cos(th)).toFixed(1)+','+(cy-r*Math.sin(th)).toFixed(1); }
   el('path',{d:d+` L${cx+R*0.78},${cy}`,fill:css('--surface-3'),stroke:T2,'stroke-width':1.6,'fill-opacity':.5},g);
-  el('path',{d:`M${cx+R*0.98},${cy} L${cx+R*0.98},${cy+R*0.45} L${cx+R*1.35},${cy+R*0.45} L${cx+R*1.35},${cy+R*0.0}`,fill:'none',stroke:T2,'stroke-width':1.6},g);
+  el('path',{d:`M${cx+R*0.98},${cy} L${cx+R*0.98},${cy+R*0.62} M${cx+R*0.78},${cy} L${cx+R*0.78},${cy+R*0.62}`,fill:'none',stroke:T2,'stroke-width':1.6},g); // vtok zdola, voda ve spirále obíhá proti směru hodin
   const water=el('circle',{cx,cy,r:R*0.74,fill:css('--water-1'),opacity:0},g);
   // pevné lopatky (stator) – nepohyblivé, nesou spirálu
-  const Ns=kind==='K'?12:14, rs=R*0.68; for (let k=0;k<Ns;k++){ const a=k/Ns*2*Math.PI; const x=cx+rs*Math.cos(a), y=cy-rs*Math.sin(a), rot=-(a*180/Math.PI)-90+35;
+  const Ns=kind==='K'?12:14, rs=R*0.68; for (let k=0;k<Ns;k++){ const a=k/Ns*2*Math.PI; const x=cx+rs*Math.cos(a), y=cy-rs*Math.sin(a), rot=-(a*180/Math.PI)-90-35; /* tečna po směru proudu (proti směru hodin) natočená dovnitř */
     el('path',{d:'M-8,0 Q0,-3.2 9,0 Q0,1.6 -8,0 Z',transform:`translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${rot.toFixed(1)})`,fill:css('--conc-2'),stroke:STR},g); }
   // rozváděcí lopatky – na čepech, zavřené ≈ tečně (překrývají se), otevřené ≈ k ose
   const Ng=kind==='K'?24:20, rg=R*0.56, Lg=2*Math.PI*rg/Ng*1.35, gv=[];
   for (let k=0;k<Ng;k++){ const a=k/Ng*2*Math.PI, x=cx+rg*Math.cos(a), y=cy-rg*Math.sin(a);
-    const e=el('path',{d:`M${-Lg*0.45},0 Q0,${-Lg*0.16} ${Lg*0.55},0 Q0,${Lg*0.07} ${-Lg*0.45},0 Z`,fill:css('--s2'),stroke:css('--s2'),'stroke-width':.6,opacity:.9},g);
+    const e=el('path',{d:`M${-Lg*0.45},0 C${-Lg*0.45},${-Lg*0.13} ${-Lg*0.1},${-Lg*0.13} ${Lg*0.55},0 C${-Lg*0.1},${Lg*0.06} ${-Lg*0.45},${Lg*0.08} ${-Lg*0.45},0 Z`,fill:css('--s2'),stroke:css('--s2'),'stroke-width':.6,opacity:.9},g);
     el('circle',{cx:x,cy:y,r:1.8,fill:T2},g); gv.push({e,x,y,a}); }
   // oběžné kolo
   const rr=R*0.4, rot=el('g',{},g), blades=[];
@@ -1773,16 +1773,17 @@ function drawPlan(par,cx,cy,R,kind){ const g=el('g',{},par), T2=css('--text-2'),
   // proudnice (částice vody)
   const parts=[...Array(26)].map((_,k)=>({s:k/26,ph:k*0.37,e:el('circle',{r:1.8,fill:css('--water-line'),opacity:0},g)}));
   const lab=(x,y,t,a)=>{ const e=el('text',{x,y,'font-size':10.5,'text-anchor':a||'middle',fill:T2},g); e.textContent=t; };
-  lab(cx+R*1.16,cy+R*0.62,'vtok do spirály'); lab(cx,cy-R*1.04,'spirála · pevné lopatky · rozváděcí lopatky · oběžné kolo');
+  lab(cx+R*0.88,cy+R*0.76,'↑ vtok'); lab(cx,cy-R*1.04,'spirála · pevné lopatky · rozváděcí lopatky · oběžné kolo');
   return { upd(ph,gate,blade,flow,pump,dt){
     const al=(6+44*clamp01(gate))*Math.PI/180; // úhel lopatky vůči tečně: zavřeno ~6°, plně otevřeno ~50°
-    for (const v of gv){ const tang=-(v.a*180/Math.PI)-90; v.e.setAttribute('transform',`translate(${v.x.toFixed(1)},${v.y.toFixed(1)}) rotate(${(tang+al*180/Math.PI).toFixed(1)})`); }
+    for (const v of gv){ const tang=-(v.a*180/Math.PI)-90; v.e.setAttribute('transform',`translate(${v.x.toFixed(1)},${v.y.toFixed(1)}) rotate(${(tang-al*180/Math.PI).toFixed(1)})`); }
     rot.setAttribute('transform',`rotate(${(-ph).toFixed(1)} ${cx} ${cy})`);
     if (kind==='K') blades.forEach((b,k)=>{ const a=k/5*2*Math.PI, w=0.18+0.42*clamp01(blade); // průmět lopatky do půdorysu roste s natočením
       const p1=[cx+rr*0.36*Math.cos(a-w*0.6),cy-rr*0.36*Math.sin(a-w*0.6)], p2=[cx+rr*Math.cos(a-w),cy-rr*Math.sin(a-w)], p3=[cx+rr*Math.cos(a+w),cy-rr*Math.sin(a+w)], p4=[cx+rr*0.36*Math.cos(a+w*0.6),cy-rr*0.36*Math.sin(a+w*0.6)];
       b.setAttribute('d',`M${p1} L${p2} A${rr},${rr} 0 0 0 ${p3} L${p4} Z`); });
     water.setAttribute('opacity',flow>0.01?0.14+0.2*flow:0);
-    for (const q of parts){ q.s=(q.s+dt*(0.25+0.5*flow)*(pump?-1:1)+1)%1; const s=q.s, r=R*(0.9-0.55*s), th=q.ph*6+s*4.2*(pump?1:1);
+    const dth=Math.min(6,Math.max(1,0.95/Math.tan(al))); /* stáčení proudu odpovídá úhlu lopatek: malé otevření = téměř tečně */
+    for (const q of parts){ q.s=(q.s+dt*(0.25+0.5*flow)*(pump?-1:1)+1)%1; const s=q.s, r=R*(0.9-0.55*s), th=q.ph*6+s*dth;
       q.e.setAttribute('cx',(cx+r*Math.cos(th)).toFixed(1)); q.e.setAttribute('cy',(cy-r*Math.sin(th)).toFixed(1)); q.e.setAttribute('opacity',flow>0.01?0.85:0); } } }; }
 
 function unitBuild(){ const d=unitDam(UV.id), x=d.units[UV.i], kind=x.rev?'RF':(d.d.units.type||'K'), pve=UV.id==='pve', name=pve?'PVE Štěchovice II – reverzní soustrojí':`${d.name} ${x.rev?'RTG':'TG'}${UV.i+1}`;
@@ -1813,7 +1814,7 @@ function unitBuild(){ const d=unitDam(UV.id), x=d.units[UV.i], kind=x.rev?'RF':(
   UV.trT=E('text',{x:670,y:378,'text-anchor':'end','font-size':11,fill:css('--muted')});
   // ovládání
   const ctl=pve?`<button class="btn sm acc" id="uvStart">▶ Výroba</button><button class="btn sm" id="uvPump">⟲ Čerpání</button><button class="btn sm" id="uvStop">■ Odstavit</button><button class="btn sm" id="uvAuto">↺ Automatika</button><button class="btn sm" id="uvRev"></button><button class="btn sm" id="uvSync">⚡ Ukázka fázování</button>`
-    :`<button class="btn sm acc" id="uvStart">▶ Najet</button><button class="btn sm" id="uvStop">■ Odstavit</button><button class="btn sm" id="uvAuto">↺ Automatika MŘ</button><button class="btn sm" id="uvRev"></button><button class="btn sm danger" id="uvFlt">⚠ Porucha</button><button class="btn sm" id="uvSync">⚡ Ukázka fázování</button>`;
+    :`<button class="btn sm acc" id="uvStart">▶ Najet</button>${x.rev?'<button class="btn sm" id="uvPump">⟲ Čerpat z Kamýku</button>':''}<button class="btn sm" id="uvStop">■ Odstavit</button><button class="btn sm" id="uvAuto">↺ Automatika MŘ</button><button class="btn sm" id="uvRev"></button><button class="btn sm danger" id="uvFlt">⚠ Porucha</button><button class="btn sm" id="uvSync">⚡ Ukázka fázování</button>`;
   $('#uvCtl').innerHTML=ctl+`<div class="sl" style="flex:1;min-width:220px;margin:0"><div class="top"><span>žádaný výkon (ruční režim)</span><b id="uvPV"></b></div><input type="range" id="uvP" min="${pve?-PVE_DEF.PpMax:0}" max="${pm}" step="0.1" value="${pve?sim.pve.man||0:x.man||0}"></div>`;
   if (pve){ const p=sim.pve, setP=v=>{ p.mode='manual'; p.man=v; $('#uvP').value=v; buildCtrl(); };
     $('#uvStart').onclick=()=>setP(pm*0.9); $('#uvPump').onclick=()=>setP(-PVE_DEF.PpMax); $('#uvStop').onclick=()=>setP(0);
@@ -1824,6 +1825,9 @@ function unitBuild(){ const d=unitDam(UV.id), x=d.units[UV.i], kind=x.rev?'RF':(
     $('#uvStop').onclick=()=>{ toMan(); x.man=0; $('#uvP').value=0; buildCtrl(); };
     $('#uvAuto').onclick=()=>{ d.mode='auto'; buildCtrl(); }; $('#uvRev').onclick=()=>{ x.avail=!x.avail; buildCtrl(); };
     $('#uvFlt').onclick=()=>{ sim.triggerFault(d.id,UV.i); buildCtrl(); };
+    if (x.rev){ const ri=d.units.filter(y=>y.rev&&y.avail).indexOf(x), op=sim.opump; // pořadí mezi reverzními stroji určuje, který čerpá
+      $('#uvPump').onclick=()=>{ toMan(); x.man=0; op.mode='manual'; op.man=Math.max(op.man||0,ri+1); buildCtrl(); };
+      const st=$('#uvStop').onclick; $('#uvStop').onclick=()=>{ st(); if (x.dir==='pump'||op.man>ri){ op.mode='manual'; op.man=Math.min(op.man||0,ri); } }; }
     $('#uvP').oninput=e=>{ toMan(); x.man=+e.target.value; if (!running) sim.applyManual(d); }; }
   $('#uvSync').onclick=()=>openSync(name.replace(' – reverzní soustrojí',''),pm,d.d.units.ramp);
   $('#uvClose').onclick=closeUnit; $('#unitM').onclick=e=>{ if (e.target.id==='unitM') closeUnit(); }; }
@@ -1843,11 +1847,11 @@ function unitFrame(now){ if (!UV.on) return; const dt=UV.last?Math.min(0.1,(now-
   UV.phT.textContent=ph[1].toUpperCase(); UV.phT.setAttribute('fill',css(col)); if (UV.noteK!==r.note){ UV.noteK=r.note; const w=r.note.split(' '), L=[]; let c=''; for (const z of w){ if ((c+' '+z).trim().length>44&&c){ L.push(c); c=z; } else c=(c+' '+z).trim(); } L.push(c); UV.noteT.innerHTML=L.slice(0,3).map((l,k)=>`<tspan x="150" dy="${k?13:0}">${l}</tspan>`).join(''); }
   const [cx,cy,R]=UV.tc, a=Math.PI*(1-Math.min(1.2,r.n)/1.2); UV.needle.setAttribute('x2',cx+(R-12)*Math.cos(a)); UV.needle.setAttribute('y2',cy-(R-12)*Math.sin(a)); UV.nT.textContent=fmt(r.n*100,1)+' %';
   const yes=(b,t1,t0)=>`<tspan fill="${b?css('--good'):css('--muted')}">${b?t1:t0}</tspan>`;
-  const Pref=r.k==='cerpani'&&pve?PVE_DEF.PpMax:r.Pmax; const rows=[[r.k==='cerpani'?'příkon':'výkon',fmt(r.P,1)+' / '+fmt(Pref,Pref<10?2:0)+' MW'],['průtok',fmt(r.Q,1)+' m³/s'+(r.k==='cerpani'?' ↑':'')],['spád',fmt(r.H,1)+' m'],[r.k==='cerpani'?'účinnost čerpadla':'účinnost',r.eta!=null?fmt(r.eta*100,1)+' %':'—'],
+  const Pref=r.k==='cerpani'?(pve?PVE_DEF.PpMax:(x.PpMax||r.Pmax)):r.Pmax; const rows=[[r.k==='cerpani'?'příkon':'výkon',fmt(r.P,1)+' / '+fmt(Pref,Pref<10?2:0)+' MW'],['průtok',fmt(r.Q,1)+' m³/s'+(r.k==='cerpani'?' ↑':'')],['spád',fmt(r.H,1)+' m'],[r.k==='cerpani'?'účinnost čerpadla':'účinnost',r.eta!=null?fmt(r.eta*100,1)+' %':'—'],
     ['rozváděcí lopatky',fmt(r.gate*100,0)+' %'],...(kind==='K'?[['lopatky oběžného kola',fmt(beta*100,0)+' % rozsahu']]:[]),['frekvence stroje',r.n>0.02?fmt(50*r.n,2)+' Hz':'—'],['frekvence sítě',fmt(sim.pps&&sim.pps.sig?sim.pps.sig.f:50,3)+' Hz'],['napětí generátoru',fmt(r.U*100,0)+' % Un'],
     ['buzení',null,yes(r.exc,'ZAP','VYP')],['generátorový vypínač',null,yes(r.brk,'ZAPNUT','vypnut')],['skluz při fázování',r.slip!=null?'+'+fmt(r.slip,2)+' Hz':'—'],['režim',pve?{auto:'automatika',manual:'ručně',stop:'stop'}[d.mode]:d.mode==='auto'?'automatika MŘ':d.mode==='manual'?'ručně':'plán']];
   UV.vals.innerHTML=rows.map(([l,v,h],k)=>`<text x="618" y="${40+k*22}" fill="${css('--text-2')}">${l}</text><text x="905" y="${40+k*22}" text-anchor="end" font-weight="650" class="m" fill="${css('--text')}">${h||v}</text>`).join('');
-  $('#uvPh').innerHTML=UPH.filter(([k])=>pve||(k!=='zavodneni'&&k!=='cerpani')).map(([k,l])=>`<span class="chip ${k===r.k?'on':''}" style="cursor:default${k==='porucha'&&r.k==='porucha'?';background:var(--critical);border-color:var(--critical)':''}">${l}</span>`).join('');
+  $('#uvPh').innerHTML=UPH.filter(([k])=>pve||x.rev||(k!=='zavodneni'&&k!=='cerpani')).map(([k,l])=>`<span class="chip ${k===r.k?'on':''}" style="cursor:default${k==='porucha'&&r.k==='porucha'?';background:var(--critical);border-color:var(--critical)':''}">${l}</span>`).join('');
   $('#uvRev').textContent=x.avail?'Mimo provoz (revize)':'Vrátit do provozu'; $('#uvPV').textContent=fmt(pve?sim.pve.man||0:x.man||0,1)+' MW';
   const B=UV.buf; if (!B.length||sim.t!==B[B.length-1][0]) B.push([sim.t,r.P/r.Pmax,r.n,r.gate]); const win=Math.max(180,Math.min(86400,speed*40));
   while (B.length>2&&B[0][0]<sim.t-win) B.shift(); if (B.length>2000) B.splice(0,B.length-2000);

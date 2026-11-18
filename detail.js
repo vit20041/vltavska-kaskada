@@ -151,6 +151,7 @@ function buildDside(d){
    <div class="sect"><div class="h"><span>Ruční řízení</span><span class="badge" id="dsMb"></span></div>
     <div class="seg" id="dM"><button data-m="auto">Automatika MŘ</button><button data-m="manual">Ručně</button></div>
     <div id="dsU" style="margin-top:8px">${d.units.map((x,i)=>`<div class="sl"><div class="top"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-ua="${i}" ${x.avail?'checked':''}> ${x.rev?'RTG':'TG'}${i+1}</label><b id="dU${i}V">${fmt(x.P,1)} MW</b></div><input type="range" id="dU${i}" min="0" max="${x.Pmax||d.d.units.Pmax}" step="0.1" value="${x.P.toFixed(1)}"></div>`).join('')}</div>
+    ${detId==='orlik'?`<button class="bigbtn" id="dO33">${sim.orlik2033?'↩ Zpět na dnešní Orlík (4× Kaplan 91 MW)':'🔮 Orlík 2033: 2× Francis 95 MW + 2× reverzní 87 MW'}</button>`:''}
     ${detId==='orlik'&&sim.orlik2033?`<div class="field"><label>Čerpání z Kamýku</label><div class="seg" id="dPm" style="width:auto"><button data-m="auto">auto</button><button data-m="manual">ručně</button><button data-m="off">vyp.</button></div></div>${sl('Čerpající soustrojí','dPn',0,2,1,sim.opump.man,v=>v+' × 87 MW')}`:''}
     ${sl('Přeliv – otevření uzávěrů','dG',0,100,1,d.mode==='manual'?d.manGate:Math.round(clamp01(d.Qspill/Math.max(1,d.spillCap(d.h)))*100),v=>v+' %')}
     ${d.d.outK>0?sl('Spodní výpusti','dO',0,100,1,d.mode==='manual'?d.manOut:Math.round(clamp01(d.Qoutl/Math.max(1,d.outCap(d.h)))*100),v=>v+' %'):''}
@@ -168,6 +169,7 @@ function buildDside(d){
   if ($('#dPve')) $('#dPve').onclick=()=>openDetail('pve');
   $('#dSync').onclick=()=>openSync(`${d.name} ${d.units[0].rev?'RTG':'TG'}1`,d.units[0].Pmax||d.d.units.Pmax,d.d.units.ramp);
   $('#dEmpty').onclick=()=>{ d.mode='manual'; for (const x of d.units) x.man=0; d.manGate=100; d.manOut=100; buildCtrl(); buildDside(d); toast(`${d.name}: vypouštění nádrže`,'warn'); };
+  if ($('#dO33')) $('#dO33').onclick=()=>{ sim.setOrlikVariant(!sim.orlik2033); buildCtrl(); buildCharts(); buildDetail(); };
   $$('#dPm button').forEach(b=>{ b.classList.toggle('on',b.dataset.m===sim.opump.mode); b.onclick=()=>{ sim.opump.mode=b.dataset.m; $$('#dPm button').forEach(z=>z.classList.toggle('on',z.dataset.m===sim.opump.mode)); buildCtrl(); }; });
   bindSl('dPn',v=>v+' × 87 MW',v=>{ sim.opump.mode='manual'; sim.opump.man=v; $$('#dPm button').forEach(z=>z.classList.toggle('on',z.dataset.m==='manual')); });
   bindSl('dG',v=>v+' %',v=>{ toMan(); d.manGate=v; }); bindSl('dO',v=>v+' %',v=>{ toMan(); d.manOut=v; });

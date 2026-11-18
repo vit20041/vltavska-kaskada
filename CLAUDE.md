@@ -1,94 +1,77 @@
-# Simulátor Vltavské kaskády – předávací výtah (stav 17. 11. 2026)
+# Simulátor Vltavské kaskády – výtah pro Claude (stav 19. 11. 2026)
 
-Autor zadání: Vít (puntičkář – chce odborně správně a pečlivě). Komunikace česky.
+Zadavatel: Vít – puntičkář, chce odborně správně, pečlivě a realisticky (vzhled i funkce). Komunikace česky.
+Nevymýšlet neověřená technická data (typy uzávěrů, počty polí, ot/min, úhly) – raději relativní hodnoty / obecný popis a říct to.
+Po dokončení úpravy: pečlivě otestovat (regrese + ostré snímky) a rovnou publikovat (git push + artefakt) – uživatel to tak chce.
 
-## Co to je
-Interaktivní webová simulace celé Vltavské kaskády: Lipno I, Lipno II, Hněvkovice, Kořensko, Orlík, Kamýk, Slapy,
-Štěchovice (+ PVE Štěchovice II), Vrané; přítoky Malše, Lužnice, Otava, Sázava, Berounka → Praha-Chuchle.
-Průtoky/hladiny, výroba, povodně a sucho (MŘ), ruční řízení, podpůrné služby ČEPS (FCR, aFRR, mFRR5/MZ5, mFRR15/MZ15),
-budoucí Orlík 2033 (2×Francis 95 MW + 2×reverzní Francis 87 MW, čerpání z Kamýku), obce a záplavy.
+## Kde to běží
+- GitHub Pages: https://vit20041.github.io/vltavska-kaskada/ (repo vit20041/vltavska-kaskada, větev main, vlastní git v této složce;
+  pozor: nadřazený git je celý domovský adresář – vždy pracovat v této složce).
+- Artefakt: https://claude.ai/artifact/MPvYe3xbBppGATCP8P5dDa (capability db, pravidlo `live`: read view / write owner).
+  Republikace: Artifact publish s `url` výše a file_path index.html (při refusalu je nutné přečíst celou živou verzi).
+- Offline: `Vltavska-kaskada-simulator.html` (= index.html).
 
-- Online (veřejný artefakt): https://claude.ai/artifact/MPvYe3xbBppGATCP8P5dDa  (slug a52a227d-4fc4-4ff1-bd3e-a468c9a78049)
-- Offline: jeden soubor `Vltavska-kaskada-simulator.html` (= index.html)
+## Postup práce
+1. Upravit `core.js` (jádro, bez DOM) / `ui.html` (UI) / `detail.js` (řezy děl, obce – vkládá se do ui.html mezi značky
+   `/* ===== DETAIL ELEKTRÁRNY` a `/* ===== PRŮVODCE`).
+2. Sestavit: `powershell -ExecutionPolicy Bypass -File build.ps1` → index.html + Vltavska-kaskada-simulator.html.
+3. Ověřit: (a) regrese v prohlížeči (Claude Browser → `file:///…/index.html`, v JS `__sim`, `VK.loadScenario`, `VK.addEvent`,
+   `__vk.{openDetail,openUnit,select,endTour}`; počkat ~1 s po načtení): pro scénáře aktualni, prumer, sucho, p2002, p2013, qn,
+   o2033, pps + Q20/Q100 kontrolovat 0 h pod stálým nadržením a 0 h pod MZP Vraného;
+   (b) ostré snímky: `tools/shot.ps1 -dam <id> -scen <sc> -days <d> [-extra "<js před detailem>"] [-post "<js po>"] [-vb "<viewBox>"]`
+   (Edge headless, výstup do %TEMP%\vk-shot, číst přes Read). Náhled v panelu prohlížeče je malý – na detaily nestačí.
+4. Publikovat: build → `git add` (CLAUDE.md, *.html, *.js) → commit (s Co-Authored-By) → `git pull --rebase` (bot commituje
+   live/pvl.json každou hodinu) → `git push` → republikovat artefakt.
 
 ## Soubory
-- `core.js` – výpočetní jádro (bez DOM, běží i v node). DAMS_DEF, NODES_DEF, PVE_DEF, PPS_DEF, PLACES_DEF, class Sim, SCENARIOS.
-- `ui.html` – celé UI (CSS + JS), obsahuje značku `/*CORE*/`, kam se vloží core.js.
-- `detail.js` – zdroj sekce „DETAIL ELEKTRÁRNY … PRŮVODCE“; po úpravě je NUTNÉ ji vložit do ui.html
-  (python splice mezi značky `/* ===================== DETAIL ELEKTRÁRNY` a `/* ===================== PRŮVODCE =====`).
-  Doporučení: v Claude Code to zjednodušit – detail.js načítat přímo v build.py místo ruční synchronizace.
-- `build.py` – `ui.html` + `core.js` → `index.html`.
-- `test.js` – regrese v node: `node test.js <scénář> <dny> <N> <každýchH>` (scénáře: aktualni, prumer, sucho, p2002, p2013, qn, o2033, pps).
-- `shot.py` – screenshot přes playwright (`FULL=0 python3 shot.py "<js>"`). V JS jsou k dispozici `__sim` a `__vk.{openDetail,endTour,select}`.
-- `fetch_pvl.js` – JS pro stažení aktuálních dat z portálu Povodí Vltavy (spouští se v prohlížeči na pvl.cz; WebFetch je blokován robots.txt).
+- core.js: DAMS_DEF, NODES_DEF, PVE_DEF, PPS_DEF, PLACES_DEF, class Dam/Sim/History, SCENARIOS, loadScenario, addEvent; export VK.
+- ui.html: CSS + UI (profil, KPI, grafy, inspektor, záložky, události/ukázkový režim, Nastavení, fázování, detail soustrojí).
+- detail.js: řezy děl (buildDetail, buildLipnoDetail, buildPveDetail), přepady (makeSheet/makeSpray), turbíny (drawTurbine,
+  drawTurbineInset), obce (placeKit, PLACESCENE).
+- fetch_pvl.mjs + .github/workflows/pvl.yml: hodinová data PVL → live/pvl.json (pvl.cz má neúplný řetězec certifikátů →
+  AIA + NODE_EXTRA_CA_CERTS). fetch_pvl.js: verze pro prohlížeč (tMs jako SEČ – v létě ověřit SEČ/SELČ).
+- tools/shot.ps1: ostré snímky detailů. test.js / shot.py / build.py: starší nástroje pro node/python (na tomto PC není node ani python).
 
-## Model (zkráceně)
-- Bilance nádrží, krok 10/60/300 s; čáry objemů PCHIP z bodů PVL; P = ρgQHη (křivky účinnosti Kaplan/Francis).
-- Dolní voda: z další nádrže nebo z konzumpční křivky. Přeliv Cw·(h−práh)^1.5 se zatopením (Villemonte),
-  výpusti k·√(h−max(práh, dolní voda)) – nelze vypustit pod dolní vodu. Dolní voda pro kapacity je vyhlazená (twS, τ 1 h).
-- Dispečer dle MŘ (zjednodušeně): akumulační (Orlík, Slapy, Lipno I) – cílové hladiny, neškodný odtok, ochrana Prahy, sucho
-  (Orlík 334,60 → Slapy → Orlík do 329,60); vyrovnávací/udržované hladiny; Vrané MZP 40 m³/s.
-  VŠECHNY přechody mezi režimy jsou plynulé (váhy w), aby odtok nepřeskakoval mezi kroky – NEVRACET skokové podmínky.
-- Rychlost simulace od reálného času (1 s/s) po 7 dní/s; krok dt se volí automaticky (dtFor: ~40 kroků/s, min 1 s, max maxDt
-  z „Model a export“). Zpoždění toků (routeStep) je časové [t,Q], takže změna dt za běhu nic nerozbije; skoky +1 h/den běží s maxDt.
-- Nasazení soustrojí s hysterezí (přifázovat hned, odstavit po 30 min) + hystereze nízkého spádu (lowHead 1,0/1,4 m).
-- Turbíny se odstaví pod kótou vtoku (hIntake); ruční režim: `x.man` [MW], `applyManual(dam)` při pauze.
-- Soustrojí mají stavový automat `x.state` stop → start (u.tStart s, roztáčení naprázdno 5 % Qmax) → run → stop
-  + doba připravenosti `x.lock` (glob.unitReady, výchozí 600 s). Orlík: start 60 s + ramp 1,4 MW/s ≈ 128 s na plný výkon.
-  Při přidávání stroje drží běžící stroje zbytek výkonu (bez propadu). Poruchy: `x.fault` {until,cause}, glob.faults/faultRate,
-  `sim.triggerFault()`; událost key `<dam>fault<i>` (typ 'fault', kategorie 'porucha').
-- Ochrana stálého nadržení (2026-11-18): pásmo hStale+0,3 m – turbína nejede pod Qmin (malý průtok převezmou výpusti),
-  bez hystereze nasazení; Vrané: MZP se plynule vzdává u stálého nadržení. Kamýk/Štěchovice se dopouštějí jen z přebytku
-  nad potřebou MZP; Orlík/Slapy přidávají deficit vyrovnávacích nádrží pod sebou (Kamýk; Štěchovice + Vrané) /12 h.
-  Ověřeno: všechny scénáře + Q20/Q100 + poruchy → nikde pod stálým nadržením, MZP splněno.
-- Řez detailu je veden PŘELIVNÝM POLEM: těleso jen po přelivnou hranu (xF = líc ve výšce hrany), pilíř a most nad ní jsou za
-  řezem (světle, čárkovaně). Výpusti končí na vzdušním líci. Slapy = přelévaná elektrárna (líc → střecha strojovny → odskok,
-  face.pts). Zatopený přepad (dolní voda nad hranou) = vodorovné proudění polem. Lipno I: přeliv ústí do starého koryta (dref.spillTail).
-  Zdvižný uzávěr vyjede jen nad hladinu. Snímky ke kontrole: Edge headless (viz scratchpad shot.ps1 – kopie index.html + nastavovací skript).
-- Detail soustrojí (ui.html `openUnit(damId,i)`, klik na stroj v řezu / dvojklik na kartičku TG): fáze (`unitPhase`: klid,
-  roztáčení, buzení, fázování, provoz, doběh s brzdou pod 25 %, připravenost, porucha), otáčkoměr v % jmenovitých, lopatky, Q, H, η,
-  U, f, buzení, vypínač, trend a ovládání (najet/odstavit/automatika/revize/porucha). Půdorys rozvaděče (`drawPlan`): spirála,
-  pevné lopatky, rozváděcí lopatky na čepech (~6° zavřeno … ~50° otevřeno), oběžné kolo; Kaplan: natočení lopatek kola
-  přes kombinátor β = f(otevření, spád). PVE: `sim.pve.u` stavový automat (turbínový start 90 s, čerpadlový 6 min –
-  odvodnění, rozběh pomocným pohonem, fázování, zavodnění; přechod turbína↔čerpadlo přes stop), detail přes `openUnit('pve',0)`.
-- Ukázka fázování generátoru (ui.html `openSync`, tlačítko v detailu): roztáčení → nabuzení → dorovnání (synchronoskop, průběhy
-  napětí, podmínky Δf/ΔU/Δφ) → sepnutí → zatěžování; volitelně chybné fázování. Soustrojí ve stavu start ukazuje roztáčí se/budí se/fázuje.
-- Přepady (detail.js `makeSheet`/`makeSpray`): paprsek s tloušťkou = přepadová výška (zdvižný uzávěr: min(výška, otevření);
-  klapka/spouštěný: přes hranu), provzdušnění po líci, ponoření na hladině dolní vody, vodní skok s pěnou a tříští.
-- Obce: PLACES_DEF s orientačními prahy rozlivu/škod (průtok nebo hladina; Týn i vzdutí Orlíku).
+## Model – podstatné invarianty
+- Bilance nádrží; čáry objemů PCHIP z bodů PVL; P = ρgQHη. Přeliv Cw·h^1.5 se zatopením, výpusti k·√Δh (nelze pod dolní vodu).
+- Dispečer dle MŘ (zjednodušeně). VŠECHNY přechody režimů plynulé (váhy w) – nevracet skokové podmínky.
+- Stálé nadržení má přednost: pásmo hStale+0,3 m (turbína nejede pod Qmin, bez hystereze), Vrané plynule vzdá MZP u stálého
+  nadržení; Kamýk/Štěchovice se dopouštějí jen z přebytku nad MZP; Orlík/Slapy přidávají deficit vyrovnávacích nádrží pod sebou /12 h.
+- Krok dt automaticky podle rychlosti (dtFor v ui.html: ~40 kroků/s, 1 s … maxDt); rychlost od reálného času po 7 dní/s;
+  routeStep má časové zpoždění [t,Q] (dt se smí měnit za běhu); skoky +1 h/den počítají s maxDt.
+- Soustrojí (core operatePlant): x.state stop → start (u.tStart; Orlík 60 s + ramp 1,4 MW/s ≈ 128 s, Lipno I 120 s;
+  roztáčení naprázdno 5 % Qmax) → run → stop + x.lock (glob.unitReady, výchozí 600 s). Přidávaný stroj: běžící drží zbytek výkonu.
+  Poruchy: x.fault {until,cause,hrs}, glob.faults/faultRate, sim.triggerFault(damId,i); událost `<dam>fault<i>`.
+- Čerpání: PVE `sim.pve.u` (turbínový start 90 s, čerpadlový 360 s, přechod přes stop, čerpadlo plný příkon);
+  Orlík 2033 reverzní stroje (x.rev): x.dir='pump', čerpadlový start 360 s v orlikPumpStep, x.Pp/x.Qp/x.PpMax pro detail;
+  stroj s x.dir='pump' operatePlant přeskakuje; při opump.want>0 Orlík nevyrábí (aby šlo zastavit a přepnout).
+- Obce: PLACES_DEF – orientační prahy rozlivu/škod (průtok nebo hladina; Týn i vzdutí Orlíku).
 
-## UI
-- Podélný profil (SVG), KPI, grafy (zoom tažením, dvojklik reset), inspektor, záložky (díla, obce, přítoky, PpS, události, nastavení, parametry).
-- Detail (Enter / dvojklik): řez dílem, uzávěry (Vrané a Lipno = klapky jdou dolů/sklápí se), výpusti, turbíny v řezu
-  (Kaplan vs Francis vs reverzní, synchronní stálé otáčky; výkon ukazuje elektrický vývod ⚡ a tloušťka toku), zvětšený řez soustrojím.
-  Lipno I = podzemní kaverna, šachty, odpadní tunel. Detail PVE (Homole ↔ Vrané) – otevře se dvojklikem v profilu/kartě,
-  tlačítkem v ovládání PVE nebo z detailu Štěchovic a Vraného.
-- Detail obce (detail.js: `placeKit` + `PLACESCENE`): každá obec má vlastní scénu – tvar údolí [x, s], stavby (Krumlov: zámek
-  + meandr 2×, ČB: Černá věž + Malše/Vltava, Týn: Temelín, Zvíkov: hrad + Podolský most, Štěchovice: hráz, Davle: sv. Kilián
-  + Sázava, Zbraslav: zámek, Praha: Hrad, mosty, mobilní stěny). Stupnice s: 0 dno, 1 rozliv, 2 škody (Ys = 482 − 100·s).
-  Voda se šíří souvisle od `seeds` (koryta) – za mobilní stěnou (`barrier`, staví se při s > at) zůstane sucho; zaplavené
-  stavby mají červený obrys, loďky/pontony plavou na hladině.
-- Ukázkový režim: zastavení u událostí s vysvětlením, „Souhrn“ a „Přeskočit vše“, „🔕 Nezastavovat“; příběh výpadku bloku.
-- ⚙ Nastavení (modál, klávesa `,`; localStorage `vk-prefs`): zprávy Zastavit / Jen upozornit / Vypnuto, kategorie
-  (díla, obce, Praha SPA, sucho, PpS), obnovení ztlumených typů, motiv, plynulost, úvodní obrazovka, reset.
-  Záložka „Model a export“ = parametry modelu (dřív „Nastavení“).
-- Úvodní obrazovka s průvodcem (localStorage `vk-welcome`), manuál, mobilní layout.
+## UI – co kde je
+- Profil (SVG), KPI, grafy, inspektor vpravo, spodní záložky (díla, obce, přítoky, PpS, události, Model a export, parametry).
+- Detail díla (Enter/dvojklik): řez PŘELIVNÝM POLEM (těleso po přelivnou hranu, pilíř+most za řezem čárkovaně), uzávěr
+  (zdvižný – vyjede jen nad hladinu; Vrané spouštěný; Lipno sklopné klapky), přepad = paprsek s tloušťkou přepadové výšky,
+  provzdušnění, ponoření do dolní vody, vodní skok/tříšť; zatopený přepad vodorovně; výpusti končí na líci.
+  Slapy = přelévaná elektrárna (face.pts: líc → střecha strojovny → odskok). Lipno I: kaverna, šachty, tunel, přeliv do
+  starého koryta (dref.spillTail). Orlík: přepínač dnes/2033 (#dO33). PVE detail Homole ↔ Vrané.
+- Detail soustrojí `openUnit(damId,i)` (klik na stroj v řezu, dvojklik na kartičku TG, PVE tlačítko): unitPhase (klid,
+  roztáčení, buzení, fázování, zavodnění, provoz, čerpání, doběh s brzdou <25 %, připravenost, porucha); svislý řez +
+  půdorys rozvaděče `drawPlan` (voda ve spirále proti směru hodin, vtok zespodu vpravo; rozváděcí lopatky po proudu:
+  úhel k tečně 6° … 50°, náběžná hrana proti proudu; Kaplan: lopatky kola přes kombinátor β = f(otevření, spád));
+  otáčky v % jmenovitých (v provozu = f sítě/50); trend; ovládání (najet/čerpat/odstavit/automatika/revize/porucha).
+- Ukázka fázování `openSync` (synchronoskop, průběhy napětí, podmínky Δf/ΔU/Δφ, chybné fázování).
+- Detail obce: placeKit + PLACESCENE (vlastní scéna každé obce, voda se šíří od seeds, mobilní stěny v Praze).
+- Události/ukázkový režim; ⚙ Nastavení (klávesa `,`, localStorage vk-prefs): Zastavit/Jen upozornit/Vypnuto, kategorie,
+  náhodné poruchy + četnost, doba připravenosti, motiv, plynulost, úvodní obrazovka, reset.
 
-## Rozpracované / TODO
-1. HOTOVO 17. 11. 2026: artefakt publikován s capability db (pravidlo `live`: read view, write owner), dokument `live/pvl`
-   naplněn; naplánovaná úloha `vltava-zive-data-pvl` (každou hodinu, běží jen při zapnutém PC s Claude app) spustí
-   fetch_pvl.js ve vestavěném prohlížeči a zapíše JSON. Anonymní návštěvníci vidí jen vestavěná data (db jen pro přihlášené).
-   POZOR: fetch_pvl.js počítá tMs jako hh-1 (SEČ) – v letním čase ověřit, zda PVL udává SEČ nebo SELČ.
-   HOTOVO 17. 11. 2026: GitHub Pages https://vit20041.github.io/vltavska-kaskada/ (repo vit20041/vltavska-kaskada, vlastní
-   git v této složce, Pages z main /). Workflow `.github/workflows/pvl.yml` každou hodinu spustí `fetch_pvl.mjs` (Node, bez DOM)
-   a commitne `live/pvl.json` jen při novém měření; UI ho na webu načítá každých 10 min (v artefaktu čte db).
-   pvl.cz posílá neúplný řetězec certifikátů (chybí „Alpiro RSA DV SSL CA 2“) → workflow ho dohledá přes AIA od listového
-   certifikátu a předá přes NODE_EXTRA_CA_CERTS (ověřování zůstává zapnuté). Po `git push` vždy nejdřív `git pull`
-   (bot commituje data). Publikovat = build.ps1 → commit index.html → push (+ republikovat artefakt).
-- Sestavení na Windows (bez Pythonu): `powershell -ExecutionPolicy Bypass -File build.ps1` – vloží detail.js i core.js
-  do ui.html a zapíše index.html + Vltavska-kaskada-simulator.html (ruční splice detail.js už není potřeba).
-2. Krátký odkaz: zkracovač (tinyurl/bit.ly) nebo GitHub Pages.
-3. Ověřit zbylé skoky odtoku (Vrané při qn ~4. den, Orlík při přechodech špiček – ty jsou reálné).
-4. Kořensko: zkontrolovat konzumpční křivku dolní vody (z0 345,6) vs. Hnom 6 m.
-5. Krumlov 2002 v modelu ~530 m³/s (skutečnost ~800) – podíl mezipovodí 0,45 je hrubý.
-6. Prahy obcí jsou orientační – případně zpřesnit z povodňových plánů / záplavových map.
+## Ověřené zdroje (pro realismus)
+- ČEZ: Slapy – strojovna přímo pod přelivy (přelévaná elektrárna), kapacita přelivů 2400 m³/s.
+- Orlík: stávající přeliv + 2 spodní výpusti ≈ 3150 m³/s; nový boční bezpečnostní přeliv (3 pole se segmentovými uzávěry,
+  skluz 367 m) – stavba do 2026.
+- Typy uzávěrů a počty polí ostatních děl NEOVĚŘENO (veřejně nedohledáno).
+
+## TODO
+1. Kořensko: konzumpční křivka dolní vody (z0 345,6) vs. Hnom 6 m.
+2. Krumlov 2002 v modelu ~530 m³/s (skutečnost ~800) – podíl mezipovodí 0,45 je hrubý.
+3. Prahy obcí orientační – zpřesnit z povodňových plánů.
+4. Přesné uspořádání polí/uzávěrů děl, pokud uživatel dodá technické listy ČEZ/PVL.

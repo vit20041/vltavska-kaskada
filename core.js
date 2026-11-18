@@ -204,7 +204,7 @@ class Dam {
   reset(h) {
     this.h = h; this.V = this.curve.V(h); this.Qin = 0; this.Qout = 0; this.Qturb = 0; this.Qspill = 0; this.Qoutl = 0; this.P = 0; this.Pbase = 0; this.twS = null;
     this.ema24 = null; this.ema6 = null; this.ema1 = null; this.flood = false; this.drowned = false; this.phase = ''; this.trip = false;
-    for (const u of this.units) { u.P = 0; u.Q = 0; u.state = 'stop'; u.lock = 0; u.fault = null; }
+    for (const u of this.units) { u.P = 0; u.Q = 0; u.state = 'stop'; u.lock = 0; u.fault = null; u.dir = null; u.pump = false; }
     this.E = 0; this.reqDP = 0; this.actDP = 0; this.head = 0; this.tw = 0;
   }
   target(doy) { if (this.par.tgtOverride != null) return this.par.tgtOverride; const m = Math.floor(doy / 30.42); return (m >= 3 && m <= 9) ? this.par.tgtSummer : this.par.tgtWinter; } // dub–říj léto
@@ -434,7 +434,7 @@ class Sim {
     const u = dam.d.units, safety = this.glob.safety;
     // použitelné soustrojí: v provozu nebo připravené ke startu (ne v poruše, ne v době připravenosti po odstavení)
     const ready = x => x.state === 'run' || x.state === 'start' || !(x.lock > this.t);
-    const availUnits = dam.units.filter(x => x.avail && !x.pump && !x.fault && ready(x));
+    const availUnits = dam.units.filter(x => x.avail && !x.pump && x.dir !== 'pump' && !x.fault && ready(x)); // stroj v čerpadlovém rozběhu/provozu nevyrábí
     const Hest = Math.max(0.5, dam.h - (dam.twS != null ? dam.twS : this.tailwater(dam, dam.Qout || Qb)) - 0.01 * u.Hnom);
     if (Hest < 1.0) dam.lowHead = true; else if (Hest > 1.4) dam.lowHead = false; // hystereze – při malém spádu stroje necyklovat
     const QtUnit = Math.min(u.Qmax, this.unitQforP(dam, u.Pmax, Hest) || u.Qmax);
@@ -446,7 +446,7 @@ class Sim {
     let Qt_target, Pset = null;
     if (dam.mode === 'manual') { Pset = 0; for (const x of dam.units) x.Pset = x.avail ? x.man : 0; }
     else if (dam.mode === 'plan') { Pset = dam.plan[Math.floor(this.hourOfDay) % 24]; }
-    else { Qt_target = (ctx.peaking ? this.turbineSchedule(dam, Qb, Qtmax) : Math.min(Qb, Qtmax)); if (dam.id === 'orlik' && this.opump.n > 0 && dam.h < dam.d.hZas) Qt_target = 0; }
+    else { Qt_target = (ctx.peaking ? this.turbineSchedule(dam, Qb, Qtmax) : Math.min(Qb, Qtmax)); if (dam.id === 'orlik' && (this.opump.n > 0 || this.opump.want > 0) && dam.h < dam.d.hZas) Qt_target = 0; }
     // podpůrné služby
     let req = { dp: 0, parts: null }; const pid = dam.id;
     if (PPS_PLANTS.includes(pid) && dam.mode !== 'manual') req = this.ppsRequest(pid);
@@ -499,6 +499,7 @@ class Sim {
     let P = 0, Q = 0; const t = this.t, tStart = u.tStart || 60, tReady = this.glob.unitReady != null ? this.glob.unitReady : 600;
     for (const x of dam.units) {
       const rate = u.ramp * dt; const capU = x.Pmax ? Math.min(x.Pmax, PmaxU * x.Pmax / u.Pmax) : PmaxU;
+      if (x.dir === 'pump') { x.P = 0; x.Q = 0; continue; } // čerpání řídí orlikPumpStep
       const ok = x.avail && !x.pump && !x.fault && !dam.trip, want = ok && Math.min(x.Pset, capU) > 0.01;
       if (!x.state) x.state = x.P > 0.01 ? 'run' : 'stop';
       if (x.state === 'stop') { if (want && !(x.lock > t)) { x.state = 'start'; x.tS = t; x.tLen = tStart; } }
@@ -651,7 +652,7 @@ class Sim {
     const O = this.D.orlik; this.orlik2033 = !!on;
     if (on) { O.d.units = Object.assign({}, O.d0.units, { type: 'F', Pmax: 95, Qmax: 150, Qmin: 50, eta: 0.93 });
       const sp = [95, 95, 87, 87]; O.units.forEach((x, i) => { x.Pmax = sp[i]; x.rev = i >= 2; x.pump = false; }); }
-    else { O.d.units = Object.assign({}, O.d0.units); O.units.forEach(x => { delete x.Pmax; x.rev = false; x.pump = false; }); this.opump.P = 0; this.opump.Q = 0; }
+    else { O.d.units = Object.assign({}, O.d0.units); O.units.forEach(x => { delete x.Pmax; x.rev = false; x.pump = false; x.dir = null; }); this.opump.P = 0; this.opump.Q = 0; }
     this.emit('scénář', on ? 'Orlík 2033: 2× Francis 95 MW + 2× reverzní Francis 87 MW (čerpání z Kamýku)' : 'Orlík: současný stav 4× Kaplan 91 MW', 'info');
   }
   orlikPumpStep(dt) { // reverzní soustrojí čerpají z Kamýku do Orlíku
@@ -666,8 +667,15 @@ class Sim {
       if (cheap && ok) nWant = revs.length;
     } else if (p.mode === 'manual') nWant = Math.min(revs.length, Math.round(p.man));
     if (K.h <= K.d.hStale + 0.08) nWant = 0;
-    // soustrojí v čerpání nesmí zároveň vyrábět
-    revs.forEach((x, i) => { const want = i < nWant; if (want && x.P > 0.5) { x.Pset = 0; x.pumpWait = true; } x.pump = want && x.P <= 0.5; });
+    // reverzní soustrojí: do čerpání jen ze zastavení (turbínový provoz nejdřív odlehčit a odstavit), čerpadlový rozběh ~6 min
+    // (odvodnění oběžného kola stlačeným vzduchem, rozběh pomocným pohonem, fázování, zavodnění), po odstavení doba připravenosti
+    const t = this.t, tReady = this.glob.unitReady != null ? this.glob.unitReady : 600; p.want = nWant;
+    revs.forEach((x, i) => { const want = i < nWant && !x.fault;
+      if (x.dir !== 'pump') { if (want && x.state === 'stop' && !(x.lock > t)) { x.dir = 'pump'; x.state = 'start'; x.tS = t; x.tLen = 360; } }
+      else if (x.state === 'start') { if (!want) { x.state = 'stop'; x.dir = null; x.lock = t + tReady; } else if (t - x.tS >= x.tLen) x.state = 'run'; }
+      else if (x.state === 'run' && !want) { x.state = 'stop'; x.dir = null; x.lock = t + tReady; }
+      x.pump = x.dir === 'pump' && x.state === 'run'; });
+    for (const x of O.units) if (x.rev && x.dir === 'pump' && (!x.avail || x.fault)) { x.state = 'stop'; x.dir = null; x.pump = false; x.lock = t + tReady; }
     const nP = revs.filter(x => x.pump).length; p.n = nP;
     const PpU = 92, etaP = 0.90, QpU = Math.min(130, PpU * 1e6 * etaP / (RHO * G * H));
     const tgt = nP * PpU; p.P += clamp(tgt - p.P, -0.8 * dt, 0.5 * dt);
@@ -675,6 +683,7 @@ class Sim {
     let Q = p.P > 0.5 ? Math.min(nP * QpU, p.P * 1e6 * etaP / (RHO * G * H)) : 0;
     const Qav = Math.max(0, (K.V - K.Vat(K.d.hStale + 0.05)) / dt); if (Q > Qav) { Q = Qav; p.P = Q * RHO * G * H / etaP / 1e6; }
     p.Q = Q; K.V -= Q * dt; K.h = K.curve.h(K.V);
+    for (const x of O.units) if (x.rev) { x.Pp = x.pump && nP ? p.P / nP : 0; x.Qp = x.pump && nP ? Q / nP : 0; x.PpMax = PpU; } // příkon/průtok na stroj pro detail
     p.Ep += p.P * dt / 3600; p.ema += (1 - Math.exp(-dt / 86400)) * (Q - p.ema);
     return Q;
   }
