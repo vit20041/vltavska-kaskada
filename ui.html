@@ -310,7 +310,7 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
     <div class="sp"></div>
     <div class="pillbox">
       <button class="ib" id="theme" title="Světlý / tmavý režim (T)"><svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-3px"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
-      <button class="ib" id="liveB" title="Aktuální data z portálu Povodí Vltavy – klikni pro načtení" style="display:none"></button><button class="ib" id="tourBtn" title="Interaktivní průvodce">▶ Průvodce</button><button class="ib" id="help" title="Manuál (?)">Manuál</button>
+      <button class="ib" id="liveB" title="Aktuální data z portálu Povodí Vltavy – klikni pro načtení" style="display:none"></button><button class="ib" id="setBtn" title="Nastavení (klávesa ,)">⚙ Nastavení</button><button class="ib" id="tourBtn" title="Interaktivní průvodce">▶ Průvodce</button><button class="ib" id="help" title="Manuál (?)">Manuál</button>
     </div>
   </div>
   <div class="kpis">
@@ -327,7 +327,7 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
   <section class="hero" id="hero">
     <svg id="profile" viewBox="0 0 1200 510" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Podélný profil Vltavské kaskády"></svg>
     <div class="cap" id="cap"><b id="capT"></b><span id="capD"></span></div>
-    <div class="evc" id="evc"><h4 id="evT"></h4><div class="m1" id="evM"></div><p id="evP"></p><div class="nav"><label><input type="checkbox" id="evMute"> tento typ už nezastavovat</label><button class="btn sm" id="evDet">🔍 Detail</button><button class="btn sm acc" id="evGo">Pokračovat ▶</button></div><div class="nav" style="margin-top:6px"><button class="btn sm" id="evSum">📋 Souhrn</button><button class="btn sm" id="evSkip">⏭ Přeskočit vše</button></div><div id="evS" style="display:none;margin-top:10px;max-height:220px;overflow:auto;border-top:1px solid var(--border);padding-top:8px"></div></div>
+    <div class="evc" id="evc"><h4 id="evT"></h4><div class="m1" id="evM"></div><p id="evP"></p><div class="nav"><label><input type="checkbox" id="evMute"> tento typ už nezastavovat</label><button class="btn sm" id="evDet">🔍 Detail</button><button class="btn sm acc" id="evGo">Pokračovat ▶</button></div><div class="nav" style="margin-top:6px"><button class="btn sm" id="evSum">📋 Souhrn</button><button class="btn sm" id="evSkip">⏭ Přeskočit vše</button><button class="btn sm" id="evOff" title="Zprávy se už nebudou zobrazovat – změníš v ⚙ Nastavení">🔕 Nezastavovat</button></div><div id="evS" style="display:none;margin-top:10px;max-height:220px;overflow:auto;border-top:1px solid var(--border);padding-top:8px"></div></div>
   </section>
 
   <div class="work">
@@ -369,6 +369,7 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
 </main>
 
 <div class="toast" id="toast"></div>
+<div class="modal" id="setM"><div class="box" id="setBox" style="max-width:640px"></div></div>
 <div class="modal" id="modal"><div class="box man">
   <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Manuál simulátoru</h3><button class="btn" id="modalClose">Zavřít</button></div>
   <p>Simulátor počítá v reálném čase vodní bilanci všech devíti děl Vltavské kaskády, výrobu elektřiny, povodně, sucho i podpůrné služby pro ČEPS. Vše běží v prohlížeči.</p>
@@ -476,7 +477,7 @@ document.addEventListener('keydown',e=>{
   if (tourOn){ if (k==='arrowright'||k==='enter'){ tourGo(1); return; } if (k==='arrowleft'){ tourGo(-1); return; } }
   if (k===' '){ e.preventDefault(); if (evCur){ evContinue(); return; } setRun(!running); } else if (k==='h') advance(3600); else if (k==='d') advance(86400); else if (k==='w') advance(604800);
   else if (k==='arrowright') setSpeed(+$('#speed').value+1); else if (k==='arrowleft') setSpeed(+$('#speed').value-1);
-  else if (k==='t') $('#theme').click(); else if (k==='?') $('#modal').classList.toggle('on'); else if (k==='escape'){ $('#modal').classList.remove('on'); closeDetail(); endTour(); } else if (k==='enter') openDetail(selected);
+  else if (k===',') openSettings(); else if (k==='t') $('#theme').click(); else if (k==='?') $('#modal').classList.toggle('on'); else if (k==='escape'){ $('#modal').classList.remove('on'); closeSettings(); closeDetail(); endTour(); } else if (k==='enter') openDetail(selected);
   else if (/^[1-9]$/.test(k)) select(ORDER[+k-1]); else if (k==='0') select('pve');
 });
 
@@ -560,6 +561,9 @@ function buildProfile(){
     const ph=el('rect',{x:x0+w-1,y:yb-12,width:15,height:11,rx:2,fill:css('--conc-2')},grp);
     const lights=[0,1,2].map(i=>el('rect',{x:x0+w+1+i*4.3,y:yb-9,width:2.6,height:4,rx:.6,fill:css('--light'),opacity:0},grp));
     const glowC=el('circle',{cx:x0+w+7,cy:yb-7,r:9,fill:css('--light'),opacity:0,filter:'url(#glow)'},grp);
+    const cascD=`M${x0+2},${yc+4} Q${x0+w+10},${(yc+yb)/2} ${x0+w+4},${yb-3}`; // přepad po vzdušním líci
+    const casc=el('path',{d:cascD,fill:'none',stroke:css('--water-1'),'stroke-linecap':'round',opacity:0},grp);
+    const spray=el('ellipse',{cx:x0+w+9,cy:yb-5,rx:3,ry:2,fill:'#fff',opacity:0,filter:'url(#glow)'},grp);
     const foam=el('path',{d:`M${x0+2},${yc+4} Q${x0+w+10},${(yc+yb)/2} ${x0+w+4},${yb-3}`,fill:'none',stroke:'#fff','stroke-width':3.2,'stroke-dasharray':'3 6',class:'flowing',opacity:0},grp);
     const outT={textContent:''};
     // štítek
@@ -573,7 +577,7 @@ function buildProfile(){
     const st=el('text',{x:bx+10,y:by+52,'font-size':10.5,'font-weight':600,fill:css('--muted')},grp);
     const tt=el('title',{},grp);
     const ring=el('circle',{cx:x0,cy:(yc+yb)/2,r:10,fill:'none',stroke:css('--warning'),'stroke-width':3,opacity:0,class:'pulse'},grp);
-    prof.res[d.id]={water,surf,nm,pw,lv,pc,box,lights,glowC,foam,outT,x0,x1,g,tt,st,ring,bx,by,bw,bh};
+    prof.res[d.id]={water,surf,nm,pw,lv,pc,box,lights,glowC,foam,casc,spray,outT,x0,x1,g,tt,st,ring,bx,by,bw,bh};
   }
   // obce a místa ohrožená povodní
   prof.pl={};
@@ -641,7 +645,8 @@ function renderProfile(){
     const on=d.P>0.05; r.pw.textContent=on?'⚡'+fmt(d.P,d.P<10?1:0)+' MW':''; r.pw.setAttribute('fill',css('--good'));
     if (d.id==='orlik'&&sim.orlik2033&&sim.opump.P>1){ r.pw.textContent='⟲ čerpá '+fmt(sim.opump.P,0)+' MW'; r.pw.setAttribute('fill',css('--s7')); }
     r.lights.forEach(l=>l.setAttribute('opacity',on?1:0)); r.glowC.setAttribute('opacity',on?Math.min(.7,.25+d.P/150):0);
-    const sp=d.Qspill+d.Qoutl; r.foam.setAttribute('opacity',sp>1?Math.min(1,.35+Math.log10(1+sp)/4):0);
+    const sp=d.Qspill+d.Qoutl, I=sp>1?Math.min(1,Math.log10(1+sp)/3.3):0; r.foam.setAttribute('opacity',sp>1?Math.min(1,.35+Math.log10(1+sp)/4):0); r.foam.setAttribute('stroke-width',(1.6+2.6*I).toFixed(1));
+    r.casc.setAttribute('opacity',I?.85:0); r.casc.setAttribute('stroke-width',(2+9*I).toFixed(1)); r.spray.setAttribute('opacity',(0.55*I).toFixed(2)); r.spray.setAttribute('rx',(3+14*I).toFixed(1)); r.spray.setAttribute('ry',(2+7*I).toFixed(1));
     r.outT.textContent=fmtQ(d.Qout)+' m³/s';
     const sel=d.id===selected, crit=d.h>d.d.hRet+0.01||d.h<d.d.hStale-0.01, warn=d.h>d.d.hZas+0.02;
     r.box.setAttribute('stroke',sel?css('--accent'):crit?css('--critical'):warn?css('--serious'):css('--border-2')); r.box.setAttribute('stroke-width',sel||crit||warn?2:1);
@@ -785,6 +790,8 @@ function drawTank(d){
    <text x="${x0+w+6}" y="${y(d.d.hStale)+4}" font-size="9.5" fill="${css('--muted')}" font-family="var(--mono)">${fmt(d.d.hStale,1)}</text>
    <text x="${x0+w/2}" y="208" font-size="9.5" text-anchor="middle" fill="${css('--muted')}">--- cíl</text>`;
 }
+// stav soustrojí pro popisky (porucha, najíždění, doba připravenosti po odstavení)
+const unitTxt=x=>x.fault?'PORUCHA':!x.avail?'odstaveno':x.pump?'čerpá':x.state==='start'?'najíždí…':(x.state==='stop'&&x.lock>sim.t)?`připravuje se ${Math.ceil((x.lock-sim.t)/60)} min`:x.P>0.05?fmt(x.P,1)+' MW':'stojí';
 const kv=rows=>rows.map(([a,b])=>`<span>${a}</span><span>${b}</span>`).join('');
 function renderCtrl(){
   if (selected==='pve') return renderPveCtrl();
@@ -795,7 +802,7 @@ function renderCtrl(){
   drawTank(d);
   const u=d.d.units; $$('#units .ut').forEach((t,i)=>{ const x=d.units[i]; if (!x) return; const pm=x.Pmax||u.Pmax; const arc=t.querySelector('.arc');
     if (x.pump){ arc.setAttribute('stroke',css('--s7')); arc.setAttribute('stroke-dasharray','132 132'); t.querySelector('.p').textContent='čerpá'; }
-    else { arc.setAttribute('stroke',css('--good')); arc.setAttribute('stroke-dasharray',`${(x.P/pm*132).toFixed(1)} 132`); t.querySelector('.p').textContent=x.avail?(x.P>0.05?fmt(x.P,1)+' MW':'stojí'):'odstaveno'; } });
+    else { arc.setAttribute('stroke',css('--good')); arc.setAttribute('stroke-dasharray',`${(x.P/pm*132).toFixed(1)} 132`); t.querySelector('.p').textContent=d.trip&&x.avail&&!x.fault?'pod vtokem':unitTxt(x); if (x.fault){ arc.setAttribute('stroke',css('--critical')); arc.setAttribute('stroke-dasharray','132 132'); } else if (x.state==='start'){ arc.setAttribute('stroke',css('--warning')); arc.setAttribute('stroke-dasharray',`${(132*Math.min(1,(sim.t-x.tS)/(d.d.units.tStart||60))).toFixed(1)} 132`); } t.title=x.fault?`Porucha: ${x.fault.cause} – oprava do ${tStr(x.fault.until)}`:x.avail?'Kliknutím odstavíš (porucha/revize)':'Kliknutím vrátíš do provozu'; } });
   const oi=$('#opInfo'); if (oi){ const p=sim.opump, K=sim.D.kamyk; const Vk=Math.max(0,K.V-K.Vat(K.d.hStale+0.05)); const Ek=Vk*9.81*1000*Math.max(5,d.h-K.h)*0.88/3.6e9;
     oi.innerHTML=kv([['čerpání',p.P>1?fmt(p.P,0)+' MW · '+fmt(p.Q,0)+' m³/s':'—'],['spád Orlík–Kamýk',fmt(p.head||d.h-K.h,1)+' m'],['voda k čerpání v Kamýku',fmt(Vk/1e6,2)+' mil. m³ ≈ '+fmt(Ek,0)+' MWh'],['načerpáno celkem',fmt(p.Ep,0)+' MWh']]); }
   const di=$('#dinfo'); if (di && di.closest('details').open){ const a=d.Vat(d.d.hStale), z=d.Vat(d.d.hZas), r=d.Vat(d.d.hRet);
@@ -912,7 +919,7 @@ function drawChart(c){
 }
 
 /* ===================== SPODNÍ PANEL ===================== */
-const BT=[['dams','Vodní díla'],['places','Obce a záplavy'],['nodes','Přítoky'],['pps','Podpůrné služby'],['log','Události'],['set','Nastavení'],['par','Parametry a zdroje']];
+const BT=[['dams','Vodní díla'],['places','Obce a záplavy'],['nodes','Přítoky'],['pps','Podpůrné služby'],['log','Události'],['set','Model a export'],['par','Parametry a zdroje']];
 function buildBottom(){ const t=$('#btabs'); t.innerHTML=BT.map(([k,l])=>`<button class="tab ${k===botTab?'on':''}" data-t="${k}">${l}${k==='log'?' <span class="badge" id="logN" style="margin-left:4px">0</span>':''}${k==='places'?' <span class="badge crit" id="plN" style="margin-left:4px">0</span>':''}</button>`).join(''); t.querySelectorAll('.tab').forEach(e=>e.onclick=()=>{ botTab=e.dataset.t; buildBottom(); renderAll(); });
   const p=$('#bpanel'); ({places:buildPlaces,dams:buildCards,nodes:buildNodes,pps:buildPps,log:p=>{ p.innerHTML='<div class="log" id="log"></div>'; logN=-1; renderLog(); },set:buildSet,par:buildParams})[botTab](p); }
 function buildCards(p){
@@ -990,8 +997,7 @@ function buildSet(p){
    <div class="field"><label><input type="checkbox" id="gProt" ${sim.glob.prahaProt?'checked':''}> Ochrana Prahy (řízení Orlíku a Slap podle Berounky a Sázavy)</label></div>
    ${sl('Limit průtoku v Chuchli','gL',300,3000,50,sim.glob.QprahaLim,v=>fmt(v,0)+' m³/s')}
    <div class="field"><label><input type="checkbox" id="gSafe" ${sim.glob.safety?'checked':''}> Bezpečnostní automatika přelivů</label></div>
-   <div class="field"><label><input type="checkbox" id="gDemo" ${demoMode?'checked':''}> Ukázkový režim – zastavit a vysvětlit důležité události</label></div>
-   <div class="field"><label>Plynulost zobrazení</label><select class="f" id="gSm" style="width:auto"><option value="hi">plynulá (60 fps)</option><option value="lo">úsporná – slabší PC</option></select></div>
+   <div class="field"><label>Zprávy, zobrazení a předvolby aplikace</label><button class="btn sm" id="gPref">⚙ Nastavení aplikace</button></div>
    <div class="field"><label>Orlík</label><select class="f" id="gO" style="width:auto"><option value="0">dnes – 4× Kaplan</option><option value="1">2033 – Francis + přečerpávání</option></select></div>
    <div class="field"><label>Časový krok výpočtu</label><select class="f" id="gDt" style="width:auto"><option value="10">10 s – přesné PpS</option><option value="60">60 s</option><option value="300">5 min – rychlé</option></select></div>
    ${sl('Průměrná cena elektřiny','gS',500,6000,100,sim.glob.spot,v=>fmt(v,0)+' Kč/MWh')}
@@ -999,9 +1005,8 @@ function buildSet(p){
    <b>Export dat</b><p class="note" style="margin-top:4px">Historie simulace (minutové hodnoty) jako CSV se středníky – vlož do Excelu.</p>
    <button class="btn sm" id="csv">Kopírovat CSV</button><textarea id="csvOut" readonly></textarea>
    <p class="note"><b>Offline:</b> stránka je jeden soubor HTML – ulož a otevři v prohlížeči i bez internetu.</p></div></div>`;
-  $('#gDt').value=sim.dt; $('#gSm').value=smoothMode; $('#gO').value=sim.orlik2033?'1':'0';
-  $('#gDemo').onchange=e=>{ demoMode=e.target.checked; try{ localStorage.setItem('vk-demo',demoMode?'1':'0'); }catch(_){} };
-  $('#gSm').onchange=e=>{ smoothMode=e.target.value; try{ localStorage.setItem('vk-smooth',smoothMode); }catch(_){} };
+  $('#gDt').value=sim.dt; $('#gO').value=sim.orlik2033?'1':'0';
+  $('#gPref').onclick=openSettings;
   $('#gO').onchange=e=>{ sim.setOrlikVariant(e.target.value==='1'); buildCtrl(); buildCharts(); };
   bindSl('gQ',v=>v+' m³/s',v=>sim.glob.QminVrane=v); bindSl('gL',v=>fmt(v,0)+' m³/s',v=>sim.glob.QprahaLim=v); bindSl('gS',v=>fmt(v,0)+' Kč/MWh',v=>sim.glob.spot=v);
   $('#gProt').onchange=e=>sim.glob.prahaProt=e.target.checked; $('#gSafe').onchange=e=>sim.glob.safety=e.target.checked; $('#gDt').onchange=e=>{ sim.dt=+e.target.value; sim.primeRoutes(); };
@@ -1481,13 +1486,14 @@ window.addEventListener('resize',()=>{ if (tourOn) showTour(); });
 
 /* ===================== UKÁZKOVÝ REŽIM – zastavení a vysvětlení událostí ===================== */
 /* Předvolby aplikace (localStorage 'vk-prefs'): zastavující zprávy, kategorie, ztlumené typy */
-const PREF_DEF={stopMode:'stop',cats:{dam:true,obec:true,praha:true,sucho:true,pps:true},muted:{}};
+const PREF_DEF={stopMode:'stop',cats:{dam:true,obec:true,praha:true,sucho:true,pps:true,porucha:true},muted:{},faults:false,faultRate:0.5,unitReady:600};
 const PREF=JSON.parse(JSON.stringify(PREF_DEF));
-try{ const s=JSON.parse(localStorage.getItem('vk-prefs')||'null'); if (s){ if (['stop','toast','off'].includes(s.stopMode)) PREF.stopMode=s.stopMode; Object.assign(PREF.cats,s.cats||{}); Object.assign(PREF.muted,s.muted||{}); }
+try{ const s=JSON.parse(localStorage.getItem('vk-prefs')||'null'); if (s){ if (['stop','toast','off'].includes(s.stopMode)) PREF.stopMode=s.stopMode; Object.assign(PREF.cats,s.cats||{}); Object.assign(PREF.muted,s.muted||{}); if (typeof s.faults==='boolean') PREF.faults=s.faults; if (isFinite(s.faultRate)) PREF.faultRate=+s.faultRate; if (isFinite(s.unitReady)) PREF.unitReady=+s.unitReady; }
   else if (localStorage.getItem('vk-demo')==='0') PREF.stopMode='off'; }catch(e){}
 const savePref=()=>{ try{ localStorage.setItem('vk-prefs',JSON.stringify(PREF)); }catch(e){} };
-const EV_CATS=[['dam','Vodní díla','přeliv, retenční prostor, koruna hráze, Lipno II nad 60 m³/s, zatopené Kořensko'],['obec','Obce a záplavy','rozliv a škody v obcích'],['praha','Praha – stupně povodňové aktivity','1.–3. SPA v Chuchli'],['sucho','Sucho a minimální odtok','Orlík 334,60, stálé nadržení, odstavení turbín, odtok pod minimem'],['pps','Výpadek bloku (PpS)','komentovaný příběh FCR → aFRR → mFRR']];
-const catOf=t=>t.startsWith('obec')?'obec':t.startsWith('spa')?'praha':['drought1','mzp','stale','trip'].includes(t)?'sucho':t==='trip1000'?'pps':'dam';
+const applyPrefSim=()=>{ sim.glob.faults=PREF.faults; sim.glob.faultRate=PREF.faultRate; sim.glob.unitReady=PREF.unitReady; }; applyPrefSim();
+const EV_CATS=[['dam','Vodní díla','přeliv, retenční prostor, koruna hráze, Lipno II nad 60 m³/s, zatopené Kořensko'],['obec','Obce a záplavy','rozliv a škody v obcích'],['praha','Praha – stupně povodňové aktivity','1.–3. SPA v Chuchli'],['sucho','Sucho a minimální odtok','Orlík 334,60, stálé nadržení, odstavení turbín, odtok pod minimem'],['pps','Výpadek bloku (PpS)','komentovaný příběh FCR → aFRR → mFRR'],['porucha','Poruchy soustrojí','náhodné poruchy TG (zapnou se níže v části Provoz soustrojí)']];
+const catOf=t=>t==='fault'?'porucha':t.startsWith('obec')?'obec':t.startsWith('spa')?'praha':['drought1','mzp','stale','trip'].includes(t)?'sucho':t==='trip1000'?'pps':'dam';
 const STOPMODES=[['stop','Zastavit a vysvětlit','simulace se u důležité události zastaví a vysvětlí, co se děje'],['toast','Jen upozornit','krátké upozornění v rohu, simulace běží dál'],['off','Vypnuto','žádné zprávy – události najdeš jen v záložce Události']];
 let demoMode=PREF.stopMode==='stop';
 const muted=PREF.muted; const evQueue=[]; let evCur=null;
@@ -1510,8 +1516,12 @@ function evInfo(e){ const k=e.key||'';
   if (k.startsWith('obec:')){ const [,id,st]=k.split(':'); const p=sim.places.find(x=>x.def.id===id); if (!p) return null; const d=p.def, crit=st==='2';
     const dam={frymburk:'lipno1',vbrod:'lipno2',krumlov:'lipno2',cb:'hnevkovice',tyn:'korensko',zvikov:'orlik',stech:'stechovice',davle:'vrane',zbraslav:'praha',praha:'praha'}[id];
     const why={frymburk:'Hladina Lipna vystoupala nad max. retenční kótu – voda zaplavuje břehy. Lipno mělo odpouštět dřív (až 90 m³/s).',vbrod:'Lipno II pouští víc než neškodných 90 m³/s. Pomůže dřívější předpouštění Lipna, aby mělo volný prostor.',krumlov:'K odtoku z Lipna se přidávají přítoky z mezipovodí. Snížením odtoku z Lipna lze Krumlov ulehčit, dokud má Lipno volný retenční prostor.',cb:'Pod Českými Budějovicemi se slévá Vltava s Malší – na Malši ani mezipovodí kaskáda vliv nemá, jen na odtok z Lipna.',tyn:'Týn ohrožuje průtok Vltavy s Lužnicí a zároveň vzdutí Orlíku. Nižší hladina Orlíku (předpouštění) pomáhá.',zvikov:'Orlík je nad max. retenční hladinou – zaplavuje chaty a silnice na březích. Je třeba zvýšit odtok, i když to zhorší situaci pod přehradou.',stech:'Ze Slap a Štěchovic odtéká velké množství vody. Rozhoduje, kolik zadrží Orlík a Slapy.',davle:'K odtoku ze Štěchovic se přidává Sázava, kterou kaskáda neovlivní.',zbraslav:'Průtok v Chuchli přesáhl 3. SPA – zaplavují se nízko položená místa. Pomůže snížit odtok z Vraného, dokud Orlík a Slapy mají volný prostor.',praha:'Průtok překročil kapacitu pražské protipovodňové ochrany – vážné škody v centru. Tak to dopadlo v srpnu 2002 (5 160 m³/s).'}[id]||'';
-    return {id:dam,type:'obec'+st,x:{t:(crit?'⚠ Záplava: ':'Rozliv: ')+d.name,p:()=>`${crit?'Voda způsobuje vážné škody':'Voda se začíná vylévat z koryta'} (${d.kind==='h'?fmt(p.val,2)+' m n.m.':fmtQ(p.val)+' m³/s'}; rozliv od ${fmt(d.warn,d.kind==='h'?2:0)}, škody od ${fmt(d.crit,d.kind==='h'?2:0)}). ${why}`},d:sim.D[dam]}; } for (const d of sim.dams){ if (k.startsWith(d.id)){ const suf=k.slice(d.id.length); if (EXPL[suf]) return {id:d.id,type:suf,x:EXPL[suf],d}; } } if (EXPL[k]) return {id:k.startsWith('spa')?'praha':k==='drought1'?'orlik':k==='mzp'?'vrane':k==='lip60'?'lipno2':k==='korDrown'?'korensko':null,type:k,x:EXPL[k]}; return null; }
-sim.listeners.push(e=>{ if (!demoMode || !e.key) return; if (e.key==='trip1000' && !muted.trip1000){ startTripStory(e); return; } const inf=evInfo(e); if (!inf || muted[inf.type]) return; inf.e=e; evQueue.push(inf); if (!evCur) showEv(); });
+    return {id:dam,type:'obec'+st,x:{t:(crit?'⚠ Záplava: ':'Rozliv: ')+d.name,p:()=>`${crit?'Voda způsobuje vážné škody':'Voda se začíná vylévat z koryta'} (${d.kind==='h'?fmt(p.val,2)+' m n.m.':fmtQ(p.val)+' m³/s'}; rozliv od ${fmt(d.warn,d.kind==='h'?2:0)}, škody od ${fmt(d.crit,d.kind==='h'?2:0)}). ${why}`},d:sim.D[dam]}; } for (const d of sim.dams){ if (k.startsWith(d.id)){ const suf=k.slice(d.id.length); if (/^fault[0-9]/.test(suf)){ const i=+suf.slice(5), x=d.units[i]; return {id:d.id,type:'fault',x:{t:`Porucha soustrojí: ${d.name} ${x&&x.rev?'RTG':'TG'}${i+1}`,p:()=>`${e.msg.split(': ').slice(1).join(': ')}. Stroj se okamžitě odpojil od sítě a zastavil. Výkon převezmou ostatní soustrojí (pokud jsou připravená – po odstavení každý stroj potřebuje dobu připravenosti, start trvá desítky sekund až minuty). Co turbíny nepojmou, odteče přes přeliv nebo výpusti bez výroby. U PpS hrozí nedodávka a penále.`},d}; } if (EXPL[suf]) return {id:d.id,type:suf,x:EXPL[suf],d}; } } if (EXPL[k]) return {id:k.startsWith('spa')?'praha':k==='drought1'?'orlik':k==='mzp'?'vrane':k==='lip60'?'lipno2':k==='korDrown'?'korensko':null,type:k,x:EXPL[k]}; return null; }
+sim.listeners.push(e=>{ if (PREF.stopMode==='off' || !e.key) return;
+  if (e.key==='trip1000'){ if (muted.trip1000||!PREF.cats.pps) return; if (PREF.stopMode==='toast'){ toast('Výpadek bloku 1 000 MW – najíždějí zálohy FCR, aFRR a mFRR','warn'); return; } startTripStory(e); return; }
+  const inf=evInfo(e); if (!inf || muted[inf.type] || !PREF.cats[catOf(inf.type)]) return;
+  if (PREF.stopMode==='toast'){ toast(inf.x.t,e.sev==='crit'?'crit':'warn'); return; }
+  inf.e=e; evQueue.push(inf); if (!evCur) showEv(); });
 /* --- komentovaný příběh: výpadek bloku --- */
 const story=[];
 const storyDue=()=>story.length>0 && sim.t>=story[0].at;
@@ -1547,7 +1557,7 @@ function showEv(){
   $('#hero').scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 function clearRing(){ if (!prof.res) return; for (const k in prof.res){ prof.res[k].ring.classList.remove('on'); prof.res[k].ring.setAttribute('opacity',0); } }
-function evContinue(){ if (!evCur) return; if ($('#evMute').checked) muted[evCur.type]=true; showEv(); if (!evCur) setRun(true); }
+function evContinue(){ if (!evCur) return; if ($('#evMute').checked){ muted[evCur.type]=true; savePref(); } showEv(); if (!evCur) setRun(true); }
 $('#evGo').onclick=evContinue;
 function evSummary(){ const box=$('#evS'); const it=(inf,cls,k)=>{ let p=''; try{ p=inf.x.p(inf.d||sim.D[inf.id]||{}); }catch(e){} p=p.split(/(?<=\.)\s/)[0];
     return `<div ${k!=null?`data-ek="${k}"`:''} style="padding:6px 4px;border-radius:8px;cursor:${k!=null?'pointer':'default'};${cls}"><div class="m1" style="margin:0">${tStr(inf.e.t,true)}${k==null?'':' · čeká'}</div><b style="font-size:13px">${inf.x.t}</b><div style="font-size:12px;color:var(--text-2)">${p}</div></div>`; };
@@ -1556,6 +1566,48 @@ function evSummary(){ const box=$('#evS'); const it=(inf,cls,k)=>{ let p=''; try
   box.querySelectorAll('[data-ek]').forEach(e=>e.onclick=()=>{ const k=+e.dataset.ek; evQueue.splice(0,k); showEv(); evSummary(); }); }
 $('#evSum').onclick=()=>{ const b=$('#evS'); const on=b.style.display==='none'; b.style.display=on?'block':'none'; if (on) evSummary(); };
 $('#evSkip').onclick=()=>{ const n=evQueue.length+1; evQueue.length=0; if (typeof story!=='undefined') story.length=0; evCur=null; $('#evS').style.display='none'; $('#evc').classList.remove('on'); clearRing(); toast(`Přeskočeno ${n} ${n===1?'událost':n<5?'události':'událostí'} – vše je v záložce Události`,'info'); setRun(true); }; $('#evDet').onclick=()=>{ const id=evCur&&evCur.id; if (id) openDetail(id); };
+$('#evOff').onclick=()=>{ PREF.stopMode='toast'; demoMode=false; savePref(); $('#evSkip').onclick(); toast('Zastavování vypnuto – události se jen krátce ohlásí. Změníš v ⚙ Nastavení.','info'); };
+/* ===================== NASTAVENÍ APLIKACE ===================== */
+function openSettings(){ buildSettings(); $('#setM').classList.add('on'); }
+function closeSettings(){ $('#setM').classList.remove('on'); }
+function buildSettings(){
+  const nm=Object.keys(muted).filter(k=>muted[k]).length; let wel=true; try{ wel=localStorage.getItem('vk-welcome')!=='0'; }catch(e){}
+  const off=PREF.stopMode==='off';
+  $('#setBox').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">⚙ Nastavení</h3><button class="btn" id="setClose">Zavřít</button></div>
+   <p class="note" style="margin-top:4px">Ukládá se v tomto prohlížeči. Parametry modelu (minimální odtok, ochrana Prahy, časový krok…) jsou v záložce <b>Model a export</b>.</p>
+   <div class="sect"><div class="h">Zastavující zprávy (ukázkový režim)</div>
+    <div class="seg" id="sMode" style="margin-top:6px">${STOPMODES.map(([k,l])=>`<button data-m="${k}" class="${PREF.stopMode===k?'on':''}">${l}</button>`).join('')}</div>
+    <p class="note">${STOPMODES.find(x=>x[0]===PREF.stopMode)[2]}.</p>
+    <div style="margin-top:10px;${off?'opacity:.45;pointer-events:none':''}"><div class="note" style="margin:0 0 4px">Které události hlásit:</div>${EV_CATS.map(([k,l,n])=>`<div class="field" style="justify-content:flex-start"><label style="color:var(--text)"><input type="checkbox" data-cat="${k}" ${PREF.cats[k]?'checked':''}> <b>${l}</b> <span class="muted">– ${n}</span></label></div>`).join('')}</div>
+    <div class="field"><label>Ztlumené typy („tento typ už nezastavovat“): <b>${nm}</b></label><button class="btn sm" id="sUnmute" ${nm?'':'disabled'}>Obnovit</button></div></div>
+   <div class="sect"><div class="h">Provoz soustrojí</div>
+    <div class="field"><label><input type="checkbox" id="sFlt" ${PREF.faults?'checked':''}> Náhodné poruchy soustrojí (TG)</label><select class="f" id="sFr" style="width:auto"><option value="0.1">vzácně – ~1× za 10 dní</option><option value="0.5">občas – ~1× za 2 dny</option><option value="2">často – ~2× denně</option><option value="8">zkouška – ~8× denně</option></select></div>
+    <div class="field"><label>Doba připravenosti po odstavení</label><select class="f" id="sRdy" style="width:auto"><option value="0">bez čekání</option><option value="300">5 min</option><option value="600">10 min</option><option value="1200">20 min</option><option value="1800">30 min</option></select></div>
+    <div class="field"><label>Vyvolat poruchu náhodného soustrojí teď</label><button class="btn sm danger" id="sFltNow">⚠ Porucha TG</button></div>
+    <p class="note">Start soustrojí trvá ~1 min (Lipno I 2 min), pak výkon roste rychlostí regulace (Orlík na plný výkon ~128 s). Po odstavení je stroj po dobu připravenosti nedostupný (doběh, brzdění, kontroly). Porucha stroj okamžitě odpojí; oprava trvá hodiny až dny podle závady.</p></div>
+   <div class="sect"><div class="h">Zobrazení</div>
+    <div class="field"><label>Motiv</label><select class="f" id="sTheme" style="width:auto"><option value="dark">tmavý</option><option value="light">světlý</option></select></div>
+    <div class="field"><label>Plynulost animací</label><select class="f" id="sSm" style="width:auto"><option value="hi">plynulá (60 fps)</option><option value="lo">úsporná – slabší PC, mobil</option></select></div>
+    <div class="field"><label><input type="checkbox" id="sWel" ${wel?'checked':''}> Při spuštění ukázat úvodní obrazovku</label></div></div>
+   <div class="sect"><div class="h">Obnovení</div><div class="field"><label>Vrátit všechna nastavení aplikace na výchozí</label><button class="btn sm" id="sReset">Výchozí nastavení</button></div></div>
+   <p class="note">Klávesy: <kbd>,</kbd> nastavení · <kbd>mezerník</kbd> start/pauza i „Pokračovat“ · <kbd>T</kbd> motiv · <kbd>?</kbd> manuál · <kbd>Esc</kbd> zavřít</p>`;
+  $('#sTheme').value=root.dataset.theme||'dark'; $('#sSm').value=smoothMode;
+  $('#setClose').onclick=closeSettings;
+  $$('#sMode button').forEach(b=>b.onclick=()=>{ PREF.stopMode=b.dataset.m; demoMode=PREF.stopMode==='stop'; savePref(); if (PREF.stopMode!=='stop'&&evCur) $('#evSkip').onclick(); buildSettings(); });
+  $$('[data-cat]').forEach(c=>c.onchange=()=>{ PREF.cats[c.dataset.cat]=c.checked; savePref(); });
+  $('#sUnmute').onclick=()=>{ for (const k in muted) delete muted[k]; savePref(); buildSettings(); toast('Všechny typy událostí budou znovu hlášeny','info'); };
+  $('#sFr').value=String(PREF.faultRate); $('#sRdy').value=String(PREF.unitReady);
+  $('#sFlt').onchange=e=>{ PREF.faults=e.target.checked; savePref(); applyPrefSim(); toast(PREF.faults?'Náhodné poruchy zapnuty':'Náhodné poruchy vypnuty','info'); };
+  $('#sFr').onchange=e=>{ PREF.faultRate=+e.target.value; savePref(); applyPrefSim(); };
+  $('#sRdy').onchange=e=>{ PREF.unitReady=+e.target.value; savePref(); applyPrefSim(); };
+  $('#sFltNow').onclick=()=>{ const c=sim.triggerFault(); closeSettings(); if (!c) toast('Žádné soustrojí není k dispozici','info'); else { renderAll(); buildCtrl(); } };
+  $('#sTheme').onchange=e=>setTheme(e.target.value);
+  $('#sSm').onchange=e=>{ smoothMode=e.target.value; try{ localStorage.setItem('vk-smooth',smoothMode); }catch(_){} };
+  $('#sWel').onchange=e=>{ try{ localStorage.setItem('vk-welcome',e.target.checked?'1':'0'); }catch(_){} };
+  $('#sReset').onclick=()=>{ PREF.stopMode='stop'; Object.assign(PREF.cats,PREF_DEF.cats); for (const k in muted) delete muted[k]; demoMode=true; PREF.faults=PREF_DEF.faults; PREF.faultRate=PREF_DEF.faultRate; PREF.unitReady=PREF_DEF.unitReady; applyPrefSim(); savePref(); smoothMode='hi';
+    setTheme('dark'); try{ for (const k of ['vk-smooth','vk-welcome','vk-demo','vk-theme']) localStorage.removeItem(k); }catch(_){} buildSettings(); toast('Nastavení obnoveno na výchozí','info'); };
+}
+$('#setBtn').onclick=openSettings; $('#setM').onclick=e=>{ if (e.target.id==='setM') closeSettings(); };
 /* ===================== ŽIVÁ DATA PVL (artifact db, plní je naplánovaná úloha) ===================== */
 let liveData=null;
 function applyLive(L){

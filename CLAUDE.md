@@ -31,14 +31,33 @@ budoucí Orlík 2033 (2×Francis 95 MW + 2×reverzní Francis 87 MW, čerpání 
   VŠECHNY přechody mezi režimy jsou plynulé (váhy w), aby odtok nepřeskakoval mezi kroky – NEVRACET skokové podmínky.
 - Nasazení soustrojí s hysterezí (přifázovat hned, odstavit po 30 min) + hystereze nízkého spádu (lowHead 1,0/1,4 m).
 - Turbíny se odstaví pod kótou vtoku (hIntake); ruční režim: `x.man` [MW], `applyManual(dam)` při pauze.
+- Soustrojí mají stavový automat `x.state` stop → start (u.tStart s, roztáčení naprázdno 5 % Qmax) → run → stop
+  + doba připravenosti `x.lock` (glob.unitReady, výchozí 600 s). Orlík: start 60 s + ramp 1,4 MW/s ≈ 128 s na plný výkon.
+  Při přidávání stroje drží běžící stroje zbytek výkonu (bez propadu). Poruchy: `x.fault` {until,cause}, glob.faults/faultRate,
+  `sim.triggerFault()`; událost key `<dam>fault<i>` (typ 'fault', kategorie 'porucha').
+- Ochrana stálého nadržení (2026-11-18): pásmo hStale+0,3 m – turbína nejede pod Qmin (malý průtok převezmou výpusti),
+  bez hystereze nasazení; Vrané: MZP se plynule vzdává u stálého nadržení. Kamýk/Štěchovice se dopouštějí jen z přebytku
+  nad potřebou MZP; Orlík/Slapy přidávají deficit vyrovnávacích nádrží pod sebou (Kamýk; Štěchovice + Vrané) /12 h.
+  Ověřeno: všechny scénáře + Q20/Q100 + poruchy → nikde pod stálým nadržením, MZP splněno.
+- Přepady (detail.js `makeSheet`/`makeSpray`): paprsek s tloušťkou = přepadová výška (zdvižný uzávěr: min(výška, otevření);
+  klapka/spouštěný: přes hranu), provzdušnění po líci, ponoření na hladině dolní vody, vodní skok s pěnou a tříští.
 - Obce: PLACES_DEF s orientačními prahy rozlivu/škod (průtok nebo hladina; Týn i vzdutí Orlíku).
 
 ## UI
 - Podélný profil (SVG), KPI, grafy (zoom tažením, dvojklik reset), inspektor, záložky (díla, obce, přítoky, PpS, události, nastavení, parametry).
 - Detail (Enter / dvojklik): řez dílem, uzávěry (Vrané a Lipno = klapky jdou dolů/sklápí se), výpusti, turbíny v řezu
   (Kaplan vs Francis vs reverzní, synchronní stálé otáčky; výkon ukazuje elektrický vývod ⚡ a tloušťka toku), zvětšený řez soustrojím.
-  Lipno I = podzemní kaverna, šachty, odpadní tunel. Detail PVE (Homole ↔ Vrané). Detail obce (příčný řez údolím, domy).
-- Ukázkový režim: zastavení u událostí s vysvětlením, „Souhrn“ a „Přeskočit vše“; příběh výpadku bloku (ČEPS, aFRR, mFRR).
+  Lipno I = podzemní kaverna, šachty, odpadní tunel. Detail PVE (Homole ↔ Vrané) – otevře se dvojklikem v profilu/kartě,
+  tlačítkem v ovládání PVE nebo z detailu Štěchovic a Vraného.
+- Detail obce (detail.js: `placeKit` + `PLACESCENE`): každá obec má vlastní scénu – tvar údolí [x, s], stavby (Krumlov: zámek
+  + meandr 2×, ČB: Černá věž + Malše/Vltava, Týn: Temelín, Zvíkov: hrad + Podolský most, Štěchovice: hráz, Davle: sv. Kilián
+  + Sázava, Zbraslav: zámek, Praha: Hrad, mosty, mobilní stěny). Stupnice s: 0 dno, 1 rozliv, 2 škody (Ys = 482 − 100·s).
+  Voda se šíří souvisle od `seeds` (koryta) – za mobilní stěnou (`barrier`, staví se při s > at) zůstane sucho; zaplavené
+  stavby mají červený obrys, loďky/pontony plavou na hladině.
+- Ukázkový režim: zastavení u událostí s vysvětlením, „Souhrn“ a „Přeskočit vše“, „🔕 Nezastavovat“; příběh výpadku bloku.
+- ⚙ Nastavení (modál, klávesa `,`; localStorage `vk-prefs`): zprávy Zastavit / Jen upozornit / Vypnuto, kategorie
+  (díla, obce, Praha SPA, sucho, PpS), obnovení ztlumených typů, motiv, plynulost, úvodní obrazovka, reset.
+  Záložka „Model a export“ = parametry modelu (dřív „Nastavení“).
 - Úvodní obrazovka s průvodcem (localStorage `vk-welcome`), manuál, mobilní layout.
 
 ## Rozpracované / TODO

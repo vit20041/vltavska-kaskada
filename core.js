@@ -58,7 +58,7 @@ const DAMS_DEF = [
     pts: [[705.6, 0], [716.1, 23.354], [721.29, 134.51], [724.9, 276.345], [725.6, 309.502]],
     hStale: 716.10, hZas: 724.90, hRet: 725.60, hCrown: 728.62, hCrest: 723.27,
     spillCw: 41.7, outK: 37.39, outZ0: 704.4, mzp: 1.5, mzpP: 0.24,
-    units: { n: 2, type: 'F', Pmax: 60, Qmax: 46, Qmin: 8, ramp: 0.5, eta: 0.92, Hnom: 160 },
+    units: { n: 2, type: 'F', Pmax: 60, Qmax: 46, Qmin: 8, ramp: 0.5, eta: 0.92, Hnom: 160, tStart: 120 },
     tgtSummer: 724.40, tgtWinter: 723.60, Treg: 20, Qn: 90, peak: [[6, 9], [17, 21]], h0: 721.29 },
   { id: 'lipno2', hIntake: 556.8, name: 'Lipno II', km: 319.1, role: 'equal', tw: { z0: 549.6, a: 0.15, b: 0.6 },
     pts: [[553.1, 0], [557.6, 0.222], [559.62, 0.61], [562.7, 1.664], [563.35, 1.96]],
@@ -82,7 +82,7 @@ const DAMS_DEF = [
     pts: [[284, 0], [329.6, 280.0], [334.74, 346.45], [349.9, 623.08], [351.2, 654.43], [353.6, 716.5]],
     hStale: 329.60, hZas: 349.90, hRet: 353.60, hCrown: 354.60, hCrest: 345.60, hDrought: 334.60,
     spillCw: 110, outK: 46.18, outZ0: 289.06,
-    units: { n: 4, type: 'K', Pmax: 91, Qmax: 150, Qmin: 40, ramp: 0.71, eta: 0.92, Hnom: 70.5 },
+    units: { n: 4, type: 'K', Pmax: 91, Qmax: 150, Qmin: 40, ramp: 1.4, eta: 0.92, Hnom: 70.5, tStart: 60 }, // start 60 s + náběh ~65 s ≈ 128 s na plný výkon
     tgtSummer: 349.70, tgtWinter: 348.50, Treg: 10, Qn: 1000, peak: [[6, 9], [17, 21]], h0: 334.74 },
   { id: 'kamyk', hIntake: 276.5, name: 'Kamýk', km: 134.7, role: 'equal', tw: { ref: 'slapy', z0: 265.5, a: 0.05, b: 0.65 },
     pts: [[266, 0], [282.1, 8.32], [283.23, 10.25], [284.6, 12.97]],
@@ -204,7 +204,7 @@ class Dam {
   reset(h) {
     this.h = h; this.V = this.curve.V(h); this.Qin = 0; this.Qout = 0; this.Qturb = 0; this.Qspill = 0; this.Qoutl = 0; this.P = 0; this.Pbase = 0; this.twS = null;
     this.ema24 = null; this.ema6 = null; this.ema1 = null; this.flood = false; this.drowned = false; this.phase = ''; this.trip = false;
-    for (const u of this.units) { u.P = 0; u.Q = 0; }
+    for (const u of this.units) { u.P = 0; u.Q = 0; u.state = 'stop'; u.lock = 0; u.fault = null; }
     this.E = 0; this.reqDP = 0; this.actDP = 0; this.head = 0; this.tw = 0;
   }
   target(doy) { if (this.par.tgtOverride != null) return this.par.tgtOverride; const m = Math.floor(doy / 30.42); return (m >= 3 && m <= 9) ? this.par.tgtSummer : this.par.tgtWinter; } // dub–říj léto
@@ -239,7 +239,7 @@ class Sim {
     this.pve = { V: 0.30e6, P: 0, Q: 0, mode: 'auto', man: 0, E: 0, Ep: 0 };
     this.orlik2033 = false; this.opump = { mode: 'auto', man: 0, P: 0, Q: 0, Ep: 0, E: 0, ema: 0, n: 0, head: 0 };
     this.dt = 60; this.t = 0; this.t0 = Date.UTC(2026, 10, 17, 21, 0) ; // čas začátku (UTC, zobrazení SEČ)
-    this.glob = { QminVrane: 40, prahaProt: true, QprahaLim: 1500, safety: true, spot: 2300, seed: 7 };
+    this.glob = { QminVrane: 40, prahaProt: true, QprahaLim: 1500, safety: true, spot: 2300, seed: 7, unitReady: 600, faults: false, faultRate: 0.5 };
     this.route = { lipno2: { buf: [], lag: 14 * 3600, k: 6 * 3600, s: 0 }, vrane: { buf: [], lag: 1.5 * 3600, k: 0.5 * 3600, s: 0 } };
     this.praha = 0; this.log = []; this.listeners = [];
     // PpS
@@ -316,6 +316,12 @@ class Sim {
           else if (sEmpty) { phase = 'stálé nadržení'; Qb = Math.min(Math.max(Qwb, needS), emaIn); }
           else Qb = Math.max(Qwb, Math.min(needS, emaIn + 5));
         }
+        { // doplnit vyrovnávací nádrže pod dílem (Kamýk pod Orlíkem, Štěchovice + Vrané pod Slapy) – kryjí odtok mezi špičkami;
+          // bez toho po povodni zůstanou na dně pásma a v noci nestačí na minimální odtok z Vraného
+          const bufs = dam.id === 'orlik' ? [this.D.kamyk] : [this.D.stechovice, this.D.vrane];
+          let def = 0; for (const b of bufs) def += Math.max(0, b.Vat(b.par.hSet) - b.V);
+          const allow = clamp((dam.h - (d.hStale + 0.3)) / 0.5, 0, 1) * (dam.id === 'orlik' && oDrought && !sEmpty ? 0 : 1);
+          if (def > 0 && allow > 0) Qb += allow * def / (12 * 3600); }
         // povodňový režim
         let Qn = p.Qn;
         if (this.glob.prahaProt) {
@@ -341,12 +347,17 @@ class Sim {
       const e6 = dam.ema24 == null ? dam.Qin : dam.ema24; const Vs = dam.Vat(p.hSet);
       let Qb = e6 + (dam.V - Vs) / ((p.tau || 3) * 3600);
       if (dam.id === 'stechovice') { const Vr = this.D.vrane; Qb += (Vr.Vat(Vr.par.hSet) - Vr.V) / (5 * 3600); }
+      if (dam.id === 'kamyk' || dam.id === 'stechovice') { // dopouštět jen z přebytku – minimální odtok z Vraného má přednost
+        const need = Math.max(0, this.glob.QminVrane - ctx.sazava - (dam.id === 'kamyk' ? ctx.mezis : 0));
+        Qb = Math.max(Qb, Math.min(need, e6)); }
       if (dam.h < d.hStale + 0.15) Qb = Math.min(Qb, dam.Qin + (dam.V - dam.Vat(d.hStale + 0.15)) / 3600);
       let phase = 'vyrovnávání';
       if (d.role === 'final') {
         const qmin = this.glob.QminVrane;
-        if (Qb < qmin) { Qb = qmin; phase = 'MZP ' + qmin + ' m³/s'; }
-        if (dam.h <= d.hStale + 0.05 && Qb > dam.Qin) { Qb = Math.max(dam.Qin, 0); phase = 'nedostatek vody – MZP neplněn'; }
+        // MZP se nadlepšuje ze zásoby Vraného jen nad stálým nadržením; u něj plynule přejde na odtok = přítok
+        // (stálé nadržení má přednost – dříve MZP přebíjelo ochranu hladiny a nádrž se vypouštěla pod kótu)
+        if (Qb < qmin) { const w = clamp((dam.h - (d.hStale + 0.05)) / 0.25, 0, 1), Q0 = Math.max(Qb, Math.min(qmin, Math.max(0, dam.Qin)));
+          Qb = Q0 + w * (qmin - Q0); phase = w > 0.5 ? 'MZP ' + qmin + ' m³/s' : 'nedostatek vody – MZP neplněn'; }
       }
       if (dam.id === 'lipno2') { Qb = clamp(Qb, p.Qmin, Math.max(p.Qmax, 0)); const w = clamp((dam.h - (d.hZas - 1.0)) / 0.7, 0, 1); // plynulý přechod na převádění (bez přeskakování)
         if (w > 0) { Qb = Math.max(Qb, (1 - w) * Qb + w * (e6 + Math.max(0, dam.V - Vs) / (2 * 3600))); phase = 'převádění'; } }
@@ -418,10 +429,13 @@ class Sim {
   /* ---------- provoz elektrárny v jednom kroku ---------- */
   operatePlant(dam, Qb, ctx, dt) {
     const u = dam.d.units, safety = this.glob.safety;
-    const availUnits = dam.units.filter(x => x.avail && !x.pump);
+    // použitelné soustrojí: v provozu nebo připravené ke startu (ne v poruše, ne v době připravenosti po odstavení)
+    const ready = x => x.state === 'run' || x.state === 'start' || !(x.lock > this.t);
+    const availUnits = dam.units.filter(x => x.avail && !x.pump && !x.fault && ready(x));
     const Hest = Math.max(0.5, dam.h - (dam.twS != null ? dam.twS : this.tailwater(dam, dam.Qout || Qb)) - 0.01 * u.Hnom);
     if (Hest < 1.0) dam.lowHead = true; else if (Hest > 1.4) dam.lowHead = false; // hystereze – při malém spádu stroje necyklovat
     const QtUnit = Math.min(u.Qmax, this.unitQforP(dam, u.Pmax, Hest) || u.Qmax);
+    const nearStale = dam.mode === 'auto' && dam.h < dam.d.hStale + 0.3; // ochranné pásmo nad stálým nadržením
     const canRun = dam.h > (dam.d.hIntake || -1e9);
     if (!canRun && !dam.trip) { dam.trip = true; this.emit('stav', `${dam.name}: hladina pod vtokem turbín (${(dam.d.hIntake).toFixed(1)}) – soustrojí odstavena`, 'crit', dam.id + 'trip'); }
     if (canRun && dam.trip && dam.h > dam.d.hIntake + 0.3) dam.trip = false;
@@ -440,6 +454,8 @@ class Sim {
     if (Pset == null) { // převod průtoku na výkon
       const n = Qt_target > 0 ? clamp(Math.ceil(Qt_target / (QtUnit * 0.95)), 1, availUnits.length) : 0;
       const q1 = n ? Qt_target / n : 0; Pb = n * this.unitP(dam, Math.max(q1, n ? u.Qmin : 0), Hest);
+      // u stálého nadržení nesmí turbína kvůli svému min. průtoku pouštět víc vody, než se má – malý průtok převezmou výpusti
+      if (nearStale && n && q1 < u.Qmin * 0.9) Pb = 0;
     }
     // točivé zálohy – drž v pásmu
     let nOn = 0;
@@ -452,28 +468,43 @@ class Sim {
     dam.Pbase = Pb;
     let Ptot = Math.max(0, Pb + req.dp);
     // omezení vodou: min. hladina
-    if (safety && dam.h <= (dam.d.hStale - 0.0) && dam.d.role === 'storage') Ptot = Math.min(Ptot, this.unitP(dam, Math.max(0, dam.Qin) / Math.max(1, availUnits.length), Hest) * availUnits.length);
+    if (safety && dam.h <= dam.d.hStale + 0.02) Ptot = Math.min(Ptot, this.unitP(dam, Math.max(0, dam.Qin) / Math.max(1, availUnits.length), Hest) * availUnits.length);
     Ptot = Math.min(Ptot, PmaxU * availUnits.length);
     // rozdělení na soustrojí
     let n = 0;
     if (dam.mode !== 'manual') {
       const Pmin1 = this.unitP(dam, u.Qmin, Hest);
       n = Ptot > 0.05 ? clamp(Math.ceil(Ptot / (PmaxU * 0.97)), 1, availUnits.length) : 0;
+      if (nearStale && Pset == null && Ptot < Pmin1 * 0.9) n = 0; // pod min. výkonem u stálého nadržení raději stát
       if (nOn > n) n = nOn;
       // hystereze nasazení soustrojí: přifázovat hned, odstavit až po 30 min trvale nižší potřeby (ne cyklovat stroje)
       const nPrev = Math.min(dam.nCommit || 0, availUnits.length);
-      if (n >= nPrev || n === 0 && Ptot <= 0.05 && Pset == null && !(this.pps.on && tot.spin > 0)) { dam.nCommit = n; dam.nLowT = 0; }
+      if (n >= nPrev || nearStale || n === 0 && Ptot <= 0.05 && Pset == null && !(this.pps.on && tot.spin > 0)) { dam.nCommit = n; dam.nLowT = 0; }
       else { dam.nLowT = (dam.nLowT || 0) + dt; const Pmin1b = this.unitP(dam, u.Qmin, Hest);
         if (dam.nLowT >= 1800 || Ptot < nPrev * Pmin1b * 0.98) { dam.nCommit = n; dam.nLowT = 0; } else n = nPrev; }
-      let k = 0; for (const x of dam.units) { if (!x.avail || x.pump) { x.Pset = 0; continue; } x.Pset = k < n ? Math.max(Pmin1 * (Ptot > 0 ? 1 : 0), Ptot / n) : 0; k++; }
+      // výkon přednostně soustrojím, která už běží (nestartovat zbytečně další)
+      const order = availUnits.slice().sort((a, b) => (a.state === 'run' || a.state === 'start' ? 0 : 1) - (b.state === 'run' || b.state === 'start' ? 0 : 1));
+      for (const x of dam.units) x.Pset = 0;
+      const share = n ? Ptot / n : 0;
+      order.forEach((x, k) => { x.Pset = k < n ? Math.max(Pmin1 * (Ptot > 0 ? 1 : 0), share) : 0; });
+      // přidávaný stroj teprve najíždí / nabírá výkon → běžící stroje drží zbytek, aby celkový výkon nepoklesl
+      const sel = order.slice(0, n), low = sel.filter(x => x.state !== 'run' || x.P < share - 0.5), high = sel.filter(x => !low.includes(x));
+      if (low.length && high.length) { const lowP = low.reduce((a, x) => a + (x.state === 'run' ? x.P : 0), 0), each = (Ptot - lowP) / high.length;
+        for (const x of high) x.Pset = Math.min(PmaxU, Math.max(share, each)); }
     }
-    // dynamika (rychlost změny výkonu)
-    let P = 0, Q = 0;
+    // dynamika: stavový automat soustrojí (stop → najíždění → provoz → odstavení → doba připravenosti) + rychlost změny výkonu
+    let P = 0, Q = 0; const t = this.t, tStart = u.tStart || 60, tReady = this.glob.unitReady != null ? this.glob.unitReady : 600;
     for (const x of dam.units) {
       const rate = u.ramp * dt; const capU = x.Pmax ? Math.min(x.Pmax, PmaxU * x.Pmax / u.Pmax) : PmaxU;
-      x.P = x.P + clamp(Math.min(x.Pset, capU) - x.P, -rate * 1.5, rate);
-      if (!x.avail || x.pump || dam.trip) { x.P = 0; } x.P = clamp(x.P, 0, capU);
-      x.Q = x.P > 0.01 && Hest > 0.5 ? Math.min(u.Qmax, this.unitQforP(dam, x.P, Hest)) : 0; if (x.Q === 0) x.P = 0;
+      const ok = x.avail && !x.pump && !x.fault && !dam.trip, want = ok && Math.min(x.Pset, capU) > 0.01;
+      if (!x.state) x.state = x.P > 0.01 ? 'run' : 'stop';
+      if (x.state === 'stop') { if (want && !(x.lock > t)) { x.state = 'start'; x.tS = t; } }
+      else if (x.state === 'start') { if (!want) { x.state = 'stop'; x.lock = t + tReady; } else if (t - x.tS >= tStart) x.state = 'run'; }
+      else if (x.state === 'run') { if (!ok) { x.state = 'stop'; x.lock = t + tReady; x.P = 0; } else if (!want && x.P <= 0.01) { x.state = 'stop'; x.lock = t + tReady; } }
+      if (x.state === 'run') { x.P = x.P + clamp(Math.min(x.Pset, capU) - x.P, -rate * 1.5, rate); x.P = clamp(x.P, 0, capU); } else x.P = 0;
+      x.Q = x.P > 0.01 && Hest > 0.5 ? Math.min(u.Qmax, this.unitQforP(dam, x.P, Hest)) : 0;
+      if (x.state === 'start') x.Q = 0.05 * u.Qmax * Math.min(1, (t - x.tS) / tStart); // roztáčení naprázdno – voda bez výroby
+      else if (x.Q === 0) x.P = 0;
       if (x.P > 0.01 && x.Q < u.Qmin * 0.7 && dam.mode !== 'manual') { /* pod minimem – provoz s horší účinností */ }
       P += x.P; Q += x.Q;
     }
@@ -495,7 +526,7 @@ class Sim {
     const q = {}; for (const n of this.nodes) q[n.id] = Math.max(0, this.lagged(n, tH));
     this.q = q;
     if (this.pps.sig.pend15 && this.t >= this.pps.sig.pend15) { this.callMfrr('m15', 1, 60, 1); this.pps.sig.pend15 = 0; }
-    this.ppsSignals(dt);
+    this.ppsSignals(dt); this.faultsStep(dt);
     const ctx0 = { sazava: q.sazava, berounka: q.berounka, mezis: q.mezis };
     const order = ['lipno1', 'lipno2', 'hnevkovice', 'korensko', 'orlik', 'kamyk', 'slapy', 'stechovice', 'vrane'];
     // přítok do jednotlivých nádrží
@@ -574,7 +605,7 @@ class Sim {
 
   // ruční změna při pozastavené simulaci: projevit hned (bez čekání na další krok)
   applyManual(dam) { const H = Math.max(0.5, dam.head || dam.d.units.Hnom); let P = 0, Q = 0;
-    for (const x of dam.units) { x.Pset = x.avail ? x.man : 0; x.P = (dam.trip || dam.lowHead || dam.drowned) ? 0 : Math.max(0, Math.min(x.Pset, x.Pmax || dam.d.units.Pmax));
+    for (const x of dam.units) { x.Pset = x.avail ? x.man : 0; x.P = (dam.trip || dam.lowHead || dam.drowned || x.fault || x.state !== 'run') ? 0 : // stojící stroj musí nejdřív najet Math.max(0, Math.min(x.Pset, x.Pmax || dam.d.units.Pmax));
       x.Q = x.P > 0.01 ? Math.min(dam.d.units.Qmax, this.unitQforP(dam, x.P, H)) : 0; P += x.P; Q += x.Q; }
     dam.P = P; dam.Qturb = Q; dam.Qout = Q + (dam.Qspill || 0) + (dam.Qoutl || 0); }
   pveStep(dt) {
@@ -659,6 +690,27 @@ class Sim {
     this.once('korDrown', D.korensko.drowned, 'Kořensko zatopeno vzdutím Orlíku – elektrárna mimo provoz', 'info');
     this.once('mzp', D.vrane.Qout < this.glob.QminVrane - 1 && this.t > 3600, `Vrané: odtok ${D.vrane.Qout.toFixed(1)} m³/s pod minimem ${this.glob.QminVrane}`, 'warn');
     this.once('lip60', D.lipno2.Qout > 60, 'Lipno II: odtok > 60 m³/s – hlášení povodňové komisi', 'warn');
+  }
+
+  /* ---------- náhodné poruchy soustrojí ---------- */
+  // faultRate = průměrný počet poruch v celé kaskádě za den; stroj v provozu se porouchá ~3× častěji než stojící
+  faultsStep(dt) {
+    for (const d of this.dams) d.units.forEach((x, i) => { if (x.fault && this.t >= x.fault.until) { x.fault = null; this.emit('porucha', `${d.name} ${x.rev ? 'RTG' : 'TG'}${i + 1}: porucha odstraněna, soustrojí je znovu k dispozici`, 'info'); } });
+    if (!this.glob.faults) return;
+    const fr = this.fr || (this.fr = rng(4242));
+    if (fr() < this.glob.faultRate / 86400 * dt) this.triggerFault();
+  }
+  triggerFault(damId, ui) {
+    const fr = this.fr || (this.fr = rng(4242)); const cand = [];
+    for (const d of this.dams) { if (damId && d.id !== damId) continue; d.units.forEach((x, i) => { if (x.fault || !x.avail || (ui != null && ui !== i)) return; cand.push({ d, x, i, w: x.state === 'run' ? 3 : 1 }); }); }
+    if (!cand.length) return null;
+    let s = 0; for (const c of cand) s += c.w; let r = fr() * s, c = cand[0]; for (const k of cand) { r -= k.w; if (r <= 0) { c = k; break; } }
+    const CAUSES = [['zapůsobila ochrana generátoru', 2, 8], ['vysoká teplota ložiska', 4, 16], ['únik oleje z hydraulického systému', 6, 30], ['porucha regulátoru turbíny', 2, 12], ['zvýšené vibrace soustrojí', 8, 48], ['výpadek vývodu do sítě (rozvodna)', 1, 4], ['porucha budicí soupravy', 3, 14], ['závada na rozváděcích lopatkách', 12, 72]];
+    const [cause, a, b] = CAUSES[Math.floor(fr() * CAUSES.length)], hrs = a + (b - a) * fr() * fr();
+    const wasRun = c.x.state === 'run' && c.x.P > 0.5, P0 = c.x.P;
+    c.x.fault = { until: this.t + hrs * 3600, cause, hrs };
+    this.emit('porucha', `${c.d.name} ${c.x.rev ? 'RTG' : 'TG'}${c.i + 1}: PORUCHA – ${cause}${wasRun ? ` (výpadek ${P0.toFixed(1)} MW)` : ''}, oprava ~${Math.round(hrs)} h`, 'crit', c.d.id + 'fault' + c.i);
+    return c;
   }
 
   totalStorage() { let v = 0; for (const d of this.dams) v += d.V; return v; }
