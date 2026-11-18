@@ -25,20 +25,37 @@ function makeSheet(par){ const g=el('g',{},par);
   const aer=el('path',{fill:'#fff',opacity:0},g); // provzdušněná „bílá voda“ – na líci se paprsek nasává vzduch a opticky zvětšuje
   const streaks=[0.25,0.55,0.82].map((f,i)=>({f,e:el('path',{fill:'none',stroke:'#fff','stroke-linecap':'round','stroke-width':1.4+i*0.4,'stroke-dasharray':`${10+i*6} ${9+i*5}`,class:'flowing',style:`animation-duration:${0.42+i*0.12}s`,opacity:0},g)}));
   const spray=makeSpray(par,18,5);
-  return { g, sg:spray.g, upd(xs,xe,crestY,t0,yh,face,yTail,q,time){ // xs..xe = přelivné pole, t0 = přepadová výška [px], face = líc {x0,y0,x1,y1}
+  return { g, sg:spray.g, upd(xs,xe,crestY,t0,yh,face,yTail,q,time){ // xs..xe = přelivné pole, t0 = přepadová výška [px]
+    // face = líc: {x0,y0,x1,y1} (přímka) nebo {pts:[[x,y],…]} (lomená přelivná plocha, např. skluz přes střechu strojovny; konec nad vodou = odskok paprsku)
+    const P=face.pts||[[face.x0,face.y0],[face.x1,face.y1]], last=P[P.length-1];
     const I=clamp01(Math.log10(1+q)/3.3), on=q>0.5&&t0>0.3;
-    if (!on){ body.setAttribute('opacity',0); aer.setAttribute('opacity',0); streaks.forEach(s=>s.e.setAttribute('opacity',0)); spray.upd(face.x1,Math.min(yTail,face.y1),0,0,time); return; }
-    t0=Math.max(2,t0); const t1=Math.max(1.6,t0*0.67), yAt=x=>face.y0+(face.y1-face.y0)*(x-face.x0)/(face.x1-face.x0);
-    const xf0=Math.max(xe+3,face.x0+(face.x1-face.x0)*clamp01((crestY-face.y0)/(face.y1-face.y0)));
+    if (!on){ body.setAttribute('opacity',0); aer.setAttribute('opacity',0); streaks.forEach(s=>s.e.setAttribute('opacity',0)); spray.upd(last[0],Math.min(yTail,last[1]),0,0,time); return; }
+    t0=Math.max(2,t0); const t1=Math.max(1.6,t0*0.67);
+    // zatopený přepad (dolní voda nad přelivnou hranou): voda proudí polem vodorovně, žádný padající paprsek
+    if (yTail<crestY-2){ const top=Math.min(yh,yTail), xR=P[0][0]+40;
+      body.setAttribute('d',`M${xs-26},${top} L${xR},${top} L${xR},${crestY} L${xs-26},${crestY} Z`); body.setAttribute('opacity',0.55); aer.setAttribute('opacity',0);
+      streaks.forEach((s,i)=>{ const y=crestY-(crestY-top)*s.f; s.e.setAttribute('d',`M${xs-26},${y.toFixed(1)} L${xR+30},${(y+2).toFixed(1)}`); s.e.setAttribute('opacity',(0.3+0.4*I).toFixed(2)); });
+      spray.upd(xR-10,yTail-1,30+50*I,I*0.45,time,6); return; }
+    // vzorkování lomené čáry líce od přelivné hrany dolů, po průsečík s hladinou dolní vody
+    const xf0=Math.max(xe+3,P[0][0]); const seg=[]; let L=0;
+    for (let i=0;i<P.length-1;i++){ const a=P[i],b=P[i+1]; const l=Math.hypot(b[0]-a[0],b[1]-a[1]); seg.push([a,b,L,l]); L+=l; }
+    const at=s=>{ const d=s*L; for (const [a,b,l0,l] of seg) if (d<=l0+l+1e-6){ const f=l?(d-l0)/l:0; return [a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f]; } return last; };
     const S=[[xs-26,crestY,Math.min(yh,crestY-t0),0],[xs,crestY,crestY-t0*0.85,0],[xe,crestY,crestY-t1,0]];
-    const xw=Math.max(xf0+6,yTail<face.y1?face.x0+(face.x1-face.x0)*clamp01((yTail-face.y0)/(face.y1-face.y0)):face.x1); // kde líc protne hladinu dolní vody
-    const N=12; for (let i=0;i<=N;i++){ const s=i/N, x=xf0+(xw-xf0)*s, y=yAt(x), t=t1*(1-0.55*Math.sqrt(s))+1.5; S.push([x,y,y-t,(2+8*I)*Math.pow(s,0.7)]); }
-    const end=[xw+6,Math.min(yTail,face.y1)+1]; // napojení na hladinu ve vývaru
+    const N=16; let xw=null, wet=false;
+    for (let i=0;i<=N;i++){ const s=i/N; let [x,y]=at(s); if (i===0) x=Math.max(x,xf0);
+      if (y>=yTail){ // líc se noří do dolní vody
+        const [xa,ya]=S[S.length-1]; const f=clamp01((yTail-ya)/Math.max(1e-6,y-ya)); x=xa+(x-xa)*f; y=yTail; wet=true; }
+      const t=t1*(1-0.55*Math.sqrt(s))+1.5; S.push([x,y,y-t,(2+8*I)*Math.pow(s,0.7)]); xw=x; if (wet) break; }
+    if (!wet){ // odskok: volný paprsek z konce přelivné plochy (např. přes střechu strojovny) do řeky
+      const [x0,y0]=S[S.length-1], Lj=30+110*I, up=6+16*I, dy=yTail-y0;
+      for (let k=1;k<=10;k++){ const u=k/10, x=x0+Lj*u, y=y0-up*4*u*(1-u)*0.6+dy*u*u, t=t1*0.5*(1+0.6*u)+1.5; S.push([x,y,y-t,(3+8*I)*(0.6+0.4*u)]); }
+      xw=x0+Lj; }
+    const end=[xw+6,yTail+1]; // napojení na hladinu dolní vody
     const d='M'+S.map(p=>p[0].toFixed(1)+','+p[2].toFixed(1)).join(' L')+` L${end[0]},${end[1]-2} L${end[0]},${end[1]+3} `+S.slice().reverse().map(p=>'L'+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+' Z';
     body.setAttribute('d',d); body.setAttribute('opacity',0.92);
     aer.setAttribute('d','M'+S.map(p=>p[0].toFixed(1)+','+(p[2]-p[3]).toFixed(1)).join(' L')+' '+S.slice().reverse().map(p=>'L'+p[0].toFixed(1)+','+p[2].toFixed(1)).join(' ')+' Z'); aer.setAttribute('opacity',(0.35+0.4*I).toFixed(2));
     for (const s of streaks){ s.e.setAttribute('d','M'+S.map(p=>p[0].toFixed(1)+','+(p[1]-(p[1]-p[2])*s.f).toFixed(1)).join(' L')+` L${end[0]},${end[1]}`); s.e.setAttribute('opacity',(0.35+0.55*I).toFixed(2)); }
-    const yJ=Math.min(yTail,face.y1)-1, drowned=yTail<face.y1-25; // zatopený skok – jen „vření“ na hladině
+    const yJ=yTail-1, drowned=yTail<last[1]-25 && !face.pts; // zatopený skok – jen „vření“ na hladině
     spray.upd(xw-6,yJ,26+70*I,drowned?I*0.6:I,time,drowned?8:10+26*I); } }; }
 function buildDetail(){
   if (detId==='pve') return buildPveDetail(); if (String(detId).startsWith('obec:')) return buildPlaceDetail(detId.slice(5));
@@ -72,14 +89,19 @@ function buildDetail(){
     el('line',{x1:0,x2:U,y1:y,y2:y,stroke:css(c),'stroke-dasharray':'7 5','stroke-width':1.4},zl);
     el('text',{x:8,y:y-5,fill:css(c),'font-weight':600,style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':4},zl).textContent=`${l} ${fmt(d.d[k],2)}`; }
   // těleso hráze
-  el('path',{d:`M${U},${yC} L${U+cw},${yC} L${T},${yDB} L${U},${yUB} Z`,fill:'url(#dC)',stroke:css('--conc-2'),'stroke-width':1.2},svg);
-  el('text',{x:U+cw+6,y:yC+4,'font-size':11.5,fill:css('--text-2'),class:'m'},svg).textContent=`koruna ${fmt(d.d.hCrown,2)}`;
-  // přeliv: přelivná hrana + uzávěr + paprsek
+  // Řez je veden PŘELIVNÝM POLEM: těleso jen po přelivnou hranu (přelivná plocha navazuje na vzdušní líc),
+  // nad ní je pilíř a most na koruně – ty leží za rovinou řezu, proto jsou kresleny světleji a čárkovaně.
   const yCr=Yz(d.d.hCrest), gateTop=Yz(Math.max(d.d.hRet+0.3,d.d.hCrest+0.5));
-  el('rect',{x:U-2,y:gateTop-6,width:cw+4,height:Math.max(4,yCr-gateTop+6),fill:css('--surface-3'),opacity:.55},svg);
+  const xF=U+cw+(T-U-cw)*clamp01((yCr-yC)/Math.max(1,yDB-yC)); // vzdušní líc ve výšce přelivné hrany
+  el('path',{d:`M${U},${yC} L${U+cw},${yC} L${xF},${yCr} L${U},${yCr} Z`,fill:css('--conc-2'),opacity:.32,stroke:css('--conc-2'),'stroke-dasharray':'4 3'},svg); // pilíř za řezem
+  el('text',{x:(U+cw+xF)/2+4,y:(yC+yCr)/2+4,'font-size':10,fill:css('--text-2'),opacity:.8},svg).textContent='pilíř (za řezem)';
+  el('path',{d:`M${U},${yUB} L${U},${yCr+5} Q${U},${yCr} ${U+6},${yCr} L${xF-8},${yCr} Q${xF},${yCr} ${xF+4},${yCr+5} L${T},${yDB} Z`,fill:'url(#dC)',stroke:css('--conc-2'),'stroke-width':1.2},svg);
+  el('rect',{x:U-6,y:yC-6,width:cw+12,height:6,fill:css('--conc-2'),stroke:css('--border-2')},svg); // most na koruně
+  el('text',{x:U+cw+10,y:yC+4,'font-size':11.5,fill:css('--text-2'),class:'m'},svg).textContent=`koruna ${fmt(d.d.hCrown,2)}`;
+  // přeliv: přelivná hrana + uzávěr + paprsek
   dref.nappe=el('path',{d:`M${U+cw*0.6},${yCr} C ${U+cw+30},${yCr+10} ${U+cw+base*0.55},${(yCr+yDB)/2} ${T-6},${yDB-4}`,fill:'none',stroke:'#fff','stroke-linecap':'round','stroke-dasharray':'10 8',class:'flowing',opacity:0},svg);
   dref.nappeB=el('path',{d:`M${U+cw*0.6},${yCr} C ${U+cw+30},${yCr+10} ${U+cw+base*0.55},${(yCr+yDB)/2} ${T-6},${yDB-4}`,fill:'none',stroke:css('--water-1'),'stroke-linecap':'round',opacity:0},svg);
-  dref.face={x0:U+cw,y0:yC,x1:T,y1:yDB}; dref.sheet=makeSheet(svg);
+  dref.face={x0:xF,y0:yCr,x1:T,y1:yDB}; dref.sheet=makeSheet(svg);
   dref.gate=el('rect',{x:U+3,width:cw-6,fill:css('--dam-2')||css('--conc-2'),stroke:css('--text'),'stroke-opacity':.4,rx:2},svg);
   dref.gH=Math.max(10,yCr-gateTop); dref.yCr=yCr; dref.down=detId==='vrane';
   if (dref.down){ // klapkový/poklopový uzávěr – při otevírání zajíždí dolů do přelivné plochy
@@ -88,11 +110,11 @@ function buildDetail(){
   el('text',{x:U-6,y:yCr+4,'font-size':11.5,'text-anchor':'end',fill:css('--text-2'),class:'m'},svg).textContent=`přeliv ${fmt(d.d.hCrest,2)} ▸`;
   if (detId==='vrane') el('text',{x:U+cw/2,y:gateTop-12,'font-size':11,'text-anchor':'middle',fill:css('--text-2')},svg).textContent='klapka ↓';
   // spodní výpusti
-  dref.outl=null; dref.outSpray=null;
-  if (d.d.outK>0){ const yo=Math.min(Yz(d.d.outZ0)-5,Yz(bedU)-6); el('rect',{x:U-6,y:yo-5,width:T-U+6,height:10,fill:css('--surface-3'),stroke:css('--border-2')},svg);
+  dref.outl=null; dref.outSpray=null; dref.spillTail=null;
+  if (d.d.outK>0){ const yo=Math.min(Yz(d.d.outZ0)-5,Yz(bedU)-6), xo=U+cw+(T-U-cw)*clamp01((yo-yC)/Math.max(1,yDB-yC)); /* výpust končí na vzdušním líci */ el('rect',{x:U-6,y:yo-5,width:xo-U+6,height:10,fill:css('--surface-3'),stroke:css('--border-2')},svg);
     dref.valve=el('circle',{cx:U+(T-U)*0.45,cy:yo,r:8,fill:css('--surface'),stroke:css('--text-2'),'stroke-width':2},svg);
-    dref.outl=el('path',{d:`M${U-6},${yo} L${T+4},${yo} Q ${T+60},${yo+4} ${T+90},${yDB+4}`,fill:'none',stroke:css('--water-line'),'stroke-width':4,'stroke-dasharray':'8 7',class:'flowing',opacity:0},svg);
-    dref.outEnd=[T+90,yDB+4]; dref.outSpray=makeSpray(svg,10,9);
+    dref.outl=el('path',{d:`M${U-6},${yo} L${xo},${yo} Q ${xo+40},${yo+2} ${xo+70},${Math.max(yo+8,yDB-2)}`,fill:'none',stroke:css('--water-line'),'stroke-width':4,'stroke-dasharray':'8 7',class:'flowing',opacity:0},svg);
+    dref.outEnd=[xo+70,Math.max(yo+8,yDB-2)]; dref.outSpray=makeSpray(svg,10,9);
     el('text',{x:U+(T-U)*0.45,y:yo+24,'font-size':11.5,'text-anchor':'middle',fill:css('--text-2')},svg).textContent='spodní výpusti'; }
   // přivaděč a strojovna
   const n=d.units.length, zi=Math.max(d.d.hIntake-2,bedU+2), yi=Yz(zi), uy=yDB-24, ux0=T+30, gap=Math.min(78,(W-ux0-40)/Math.max(1,n));
@@ -104,6 +126,10 @@ function buildDetail(){
   const bx=ux0-26, bw=gap*n+24, by=uy-118; el('rect',{x:bx,y:by,width:bw,height:132,rx:6,fill:css('--conc-2'),opacity:.55,stroke:css('--border-2')},svg);
   el('path',{d:`M${bx-6},${by} L${bx+bw/2},${by-22} L${bx+bw+6},${by} Z`,fill:css('--conc-2'),opacity:.8},svg);
   el('text',{x:bx+bw/2,y:by-28,'font-size':12,'text-anchor':'middle','font-weight':700,fill:css('--text')},svg).textContent='strojovna';
+  if (detId==='slapy'){ // přelévaná elektrárna: strojovna leží přímo pod přelivy, přelivná plocha pokračuje po její střeše a končí odskokem
+    const yR=by-4, xr=xF+(T-xF)*clamp01((yR-yCr)/Math.max(1,yDB-yCr)), xe2=bx+bw+10;
+    el('path',{d:`M${xr},${yR} L${xe2-8},${yR+12} Q${xe2},${yR+14} ${xe2+4},${yR+4} L${xe2+4},${yR+26} L${bx},${yR+26} L${bx},${yDB} L${T},${yDB} Z`,fill:'url(#dC)',stroke:css('--conc-2'),'stroke-width':1.2,opacity:.9},svg);
+    dref.face={pts:[[xF,yCr],[xr,yR],[xe2-8,yR+12],[xe2+4,yR+4]]}; }
   dref.inset=drawTurbineInset(svg,W-310,Math.max(4,Math.min(34,by-62-284)),d.units.some(x=>x.rev)&&false?'RF':(d.d.units.type||'K'),d.units[0]);
   const sc=Math.min(1,gap/80); dref.units=d.units.map((x,i)=>drawTurbine(svg,x,ux0+gap*i+gap/2-14,uy-14*sc,x.rev?'RF':(d.d.units.type||'K'),sc,i));
   // popisky hladin
@@ -130,6 +156,7 @@ function buildDside(d){
     <button class="bigbtn" id="dEmpty" style="border-color:var(--critical)">⬇ Vypustit nádrž (výpusti + přeliv naplno, turbíny stop)</button>
     <p class="note">Turbíny se samy odstaví, jakmile hladina klesne pod vtok (${fmt(d.d.hIntake,1)} m n.m.); dál vodu odvádějí jen spodní výpusti – nejníž na úroveň jejich prahu (${fmt(d.d.outZ0,1)} m n.m.), a to jen dokud je hladina dolní vody níž (gravitačně nejde vypustit pod dolní vodu)${d.d.outEst?', parametry výpustí tohoto díla jsou orientační':''}.</p>
     <p class="note">Posunem kteréhokoli ovladače se dílo přepne do ručního režimu; ostatní soustrojí drží aktuální výkon. Zpět na automatiku tlačítkem nahoře.</p></div>
+   <button class="bigbtn" id="dSync">⚡ Ukázka: fázování generátoru k síti</button>
    <div class="sect"><div class="h">Typ soustrojí</div>${[...new Set(d.units.map(x=>x.rev?'RF':(d.d.units.type||'K')))].map(k=>`<div style="display:flex;gap:10px;align-items:flex-start;margin:6px 0"><span class="chip" style="flex:none;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border-2)">${k==='K'?'K':k==='F'?'F':'F↺'}</span><div><b>${KINDNAME[k]}</b> · ${d.units.filter(x=>(x.rev?'RF':(d.d.units.type||'K'))===k).length}×<div class="note" style="margin:2px 0 0">${KINDTXT[k]}</div></div></div>`).join('')}</div>
    <div class="sect"><div class="h">Kapacity při aktuální hladině</div><div class="kv" id="dsK"></div></div>
    ${['stechovice','vrane'].includes(d.id)?'<button class="bigbtn" id="dPve">🔍 PVE Štěchovice II – přečerpávací elektrárna (Homole ↔ Vrané)</button>':''}
@@ -138,6 +165,7 @@ function buildDside(d){
   d.units.forEach((x,i)=>{ const r=$('#dU'+i); r.oninput=()=>{ toMan(); x.man=+r.value; $('#dU'+i+'V').textContent=fmt(x.man,1)+' MW'; if (!running) sim.applyManual(d); }; r.onpointerdown=()=>r._drag=true; r.onpointerup=()=>r._drag=false;
     $(`[data-ua="${i}"]`).onchange=e=>{ x.avail=e.target.checked; }; });
   if ($('#dPve')) $('#dPve').onclick=()=>openDetail('pve');
+  $('#dSync').onclick=()=>openSync(`${d.name} ${d.units[0].rev?'RTG':'TG'}1`,d.units[0].Pmax||d.d.units.Pmax,d.d.units.ramp);
   $('#dEmpty').onclick=()=>{ d.mode='manual'; for (const x of d.units) x.man=0; d.manGate=100; d.manOut=100; buildCtrl(); buildDside(d); toast(`${d.name}: vypouštění nádrže`,'warn'); };
   $$('#dPm button').forEach(b=>{ b.classList.toggle('on',b.dataset.m===sim.opump.mode); b.onclick=()=>{ sim.opump.mode=b.dataset.m; $$('#dPm button').forEach(z=>z.classList.toggle('on',z.dataset.m===sim.opump.mode)); buildCtrl(); }; });
   bindSl('dPn',v=>v+' × 87 MW',v=>{ sim.opump.mode='manual'; sim.opump.man=v; $$('#dPm button').forEach(z=>z.classList.toggle('on',z.dataset.m==='manual')); });
@@ -162,11 +190,11 @@ function animDetail(dt){
   if (dref.flap){ const ang=g*72, top=dref.yCr-dref.gH*Math.cos(ang*Math.PI/180); dref.gate.setAttribute('y',dref.yCr-dref.gH); dref.gate.setAttribute('height',dref.gH); dref.gate.setAttribute('transform',`rotate(${ang.toFixed(1)} ${dref.flap.x} ${dref.yCr})`);
     xs=dref.U+2; xe=dref.flap.x+dref.gH*Math.sin(ang*Math.PI/180); crestY=top; t0=top-yh; } // sklopná klapka: voda přepadá přes její hranu
   else if (dref.down){ const top=dref.yCr-dref.gH+lift; dref.gate.setAttribute('y',top); dref.gate.setAttribute('height',dref.gH); crestY=top; t0=top-yh; } // spouštěný uzávěr: přepad přes horní hranu
-  else { dref.gate.setAttribute('y',dref.yCr-dref.gH-lift); dref.gate.setAttribute('height',dref.gH); t0=Math.min(dref.yCr-yh,lift); } // zdvižný: výtok pod uzávěrem, výška = otevření
-  if (dref.face && !dref.flap) xe=dref.face.x0-3;
+  else { const lv=Math.min(lift,Math.max(0,dref.yCr-Math.min(yh,yt)+10)); /* uzávěr vyjede jen nad hladinu */ dref.gate.setAttribute('y',dref.yCr-dref.gH-lv); dref.gate.setAttribute('height',dref.gH); t0=Math.min(dref.yCr-yh,lift); } // zdvižný: výtok pod uzávěrem, výška = otevření
+  if (dref.face && !dref.flap && !dref.down) xe=(dref.face.pts?dref.face.pts[0][0]:dref.face.x0)-3; // zdvižný uzávěr: voda dál po přelivné ploše až k líci
   dref.nappe.setAttribute('opacity',0); dref.nappeB.setAttribute('opacity',0);
   const tnow=performance.now()/1000;
-  if (dref.sheet) dref.sheet.upd(xs,xe,crestY,t0,yh,dref.face,yt,o.sp,tnow);
+  if (dref.sheet) dref.sheet.upd(xs,xe,crestY,t0,yh,dref.face,dref.spillTail!=null?dref.spillTail:yt,o.sp,tnow);
   if (dref.outSpray){ const I=o.ou>0.5?clamp01(Math.log10(1+o.ou)/3):0; dref.outSpray.upd(dref.outEnd[0]-12,Math.min(yt,dref.outEnd[1])-1,18+34*I,I,tnow,6+16*I); }
   if (dref.outl){ dref.outl.setAttribute('opacity',o.ou>0.5?1:0); dref.outl.setAttribute('stroke-width',o.ou>0.5?(2+Math.log10(1+o.ou)*2).toFixed(1):0); dref.valve.setAttribute('fill',o.ou>0.5?css('--water-1'):css('--surface')); }
   dref.penF.setAttribute('opacity',d.Qturb>0.5||(detId==='orlik'&&sim.opump.Q>1)?1:0); { const qt=Math.max(d.Qturb,detId==='orlik'?sim.opump.Q:0)/Math.max(1,d.d.units.Qmax*d.units.length); dref.penF.setAttribute('stroke-width',(1.5+7*clamp01(qt)).toFixed(1)); if (dref.tail) dref.tail.setAttribute('stroke-width',(1.5+7*clamp01(qt)).toFixed(1)); } if (dref.tail) dref.tail.setAttribute('opacity',d.Qturb>0.5?1:0);
@@ -233,7 +261,7 @@ function buildLipnoDetail(d){
   dref.gate.setAttribute('x',xs+cw-7); dref.gate.setAttribute('width',6);
   dref.nappe=el('path',{d:'',fill:'none',stroke:'#fff','stroke-linecap':'round','stroke-dasharray':'10 8',class:'flowing',opacity:0},svg);
   dref.nappeB=el('path',{d:'',fill:'none',stroke:css('--water-1'),'stroke-linecap':'round',opacity:0},svg);
-  dref.face={x0:xc,y0:yCrown,x1:xd,y1:yVal}; dref.sheet=makeSheet(svg);
+  dref.face={x0:xc,y0:yCrown,x1:xd,y1:yVal}; dref.sheet=makeSheet(svg); dref.spillTail=yVal+1; // přeliv Lipna ústí do starého koryta, ne do Lipna II
   el('text',{x:xs+cw/2,y:gTop-12,'font-size':10.5,'text-anchor':'middle',fill:css('--text-2'),style:'paint-order:stroke',stroke:css('--surface'),'stroke-width':3},svg).textContent='přeliv 2×10 m · sklopné klapky ↷';
   // spodní výpusti 2× Ø 2,5 m
   const yo=Yz(706.2); el('rect',{x:xa+6,y:yo-3,width:xd-xa+20,height:6,fill:css('--surface-3'),stroke:css('--border-2')},svg);

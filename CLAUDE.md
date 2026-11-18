@@ -29,6 +29,8 @@ budoucí Orlík 2033 (2×Francis 95 MW + 2×reverzní Francis 87 MW, čerpání 
 - Dispečer dle MŘ (zjednodušeně): akumulační (Orlík, Slapy, Lipno I) – cílové hladiny, neškodný odtok, ochrana Prahy, sucho
   (Orlík 334,60 → Slapy → Orlík do 329,60); vyrovnávací/udržované hladiny; Vrané MZP 40 m³/s.
   VŠECHNY přechody mezi režimy jsou plynulé (váhy w), aby odtok nepřeskakoval mezi kroky – NEVRACET skokové podmínky.
+- Rychlost simulace od reálného času (1 s/s) po 7 dní/s; krok dt se volí automaticky (dtFor: ~40 kroků/s, min 1 s, max maxDt
+  z „Model a export“). Zpoždění toků (routeStep) je časové [t,Q], takže změna dt za běhu nic nerozbije; skoky +1 h/den běží s maxDt.
 - Nasazení soustrojí s hysterezí (přifázovat hned, odstavit po 30 min) + hystereze nízkého spádu (lowHead 1,0/1,4 m).
 - Turbíny se odstaví pod kótou vtoku (hIntake); ruční režim: `x.man` [MW], `applyManual(dam)` při pauze.
 - Soustrojí mají stavový automat `x.state` stop → start (u.tStart s, roztáčení naprázdno 5 % Qmax) → run → stop
@@ -39,6 +41,12 @@ budoucí Orlík 2033 (2×Francis 95 MW + 2×reverzní Francis 87 MW, čerpání 
   bez hystereze nasazení; Vrané: MZP se plynule vzdává u stálého nadržení. Kamýk/Štěchovice se dopouštějí jen z přebytku
   nad potřebou MZP; Orlík/Slapy přidávají deficit vyrovnávacích nádrží pod sebou (Kamýk; Štěchovice + Vrané) /12 h.
   Ověřeno: všechny scénáře + Q20/Q100 + poruchy → nikde pod stálým nadržením, MZP splněno.
+- Řez detailu je veden PŘELIVNÝM POLEM: těleso jen po přelivnou hranu (xF = líc ve výšce hrany), pilíř a most nad ní jsou za
+  řezem (světle, čárkovaně). Výpusti končí na vzdušním líci. Slapy = přelévaná elektrárna (líc → střecha strojovny → odskok,
+  face.pts). Zatopený přepad (dolní voda nad hranou) = vodorovné proudění polem. Lipno I: přeliv ústí do starého koryta (dref.spillTail).
+  Zdvižný uzávěr vyjede jen nad hladinu. Snímky ke kontrole: Edge headless (viz scratchpad shot.ps1 – kopie index.html + nastavovací skript).
+- Ukázka fázování generátoru (ui.html `openSync`, tlačítko v detailu): roztáčení → nabuzení → dorovnání (synchronoskop, průběhy
+  napětí, podmínky Δf/ΔU/Δφ) → sepnutí → zatěžování; volitelně chybné fázování. Soustrojí ve stavu start ukazuje roztáčí se/budí se/fázuje.
 - Přepady (detail.js `makeSheet`/`makeSpray`): paprsek s tloušťkou = přepadová výška (zdvižný uzávěr: min(výška, otevření);
   klapka/spouštěný: přes hranu), provzdušnění po líci, ponoření na hladině dolní vody, vodní skok s pěnou a tříští.
 - Obce: PLACES_DEF s orientačními prahy rozlivu/škod (průtok nebo hladina; Týn i vzdutí Orlíku).

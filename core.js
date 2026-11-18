@@ -262,12 +262,15 @@ class Sim {
     if (cond) { if (!f.on && this.t - f.last > 6 * 3600) this.emit('stav', msg, sev, key); f.on = true; f.last = this.t; } else if (f.on && this.t - f.last > 600) f.on = false; }
 
   // ----- tok s dopravním zpožděním a lineární nádrží -----
+  // zpoždění je časové (záznam [t, Q]), ne počtem kroků – krok dt se smí měnit za běhu (pomalé rychlosti → dt až 1 s)
   routeStep(r, qin, dt) {
-    r.buf.push(qin); const nLag = Math.max(1, Math.round(r.lag / dt)); while (r.buf.length > nLag) r.buf.shift();
-    const q = r.buf[0]; if (r.s === 0 && r.init !== true) { r.s = q * r.k; r.init = true; }
+    r.buf.push([this.t, qin]); r.i = r.i || 0; const tc = this.t - r.lag;
+    while (r.i < r.buf.length - 1 && r.buf[r.i + 1][0] <= tc) r.i++;
+    if (r.i > 4096) { r.buf.splice(0, r.i); r.i = 0; }
+    const q = r.buf[r.i][1]; if (r.s === 0 && r.init !== true) { r.s = q * r.k; r.init = true; }
     r.s += (q - r.s / r.k) * dt; return r.s / r.k;
   }
-  primeRoutes() { for (const k in this.route) { const r = this.route[k]; r.buf = []; r.s = 0; r.init = false; } }
+  primeRoutes() { for (const k in this.route) { const r = this.route[k]; r.buf = []; r.i = 0; r.s = 0; r.init = false; } }
   lagged(node, tH) { return node.value(Math.max(0, tH - node.def.lag)); }
 
   tailwater(dam, Q) { const tw = dam.d.tw; let z = tw.z0 + (tw.a ? tw.a * Math.pow(Math.max(Q, 0), tw.b) : 0); if (tw.ref) z = Math.max(z, this.D[tw.ref].h); return z; }
@@ -498,7 +501,7 @@ class Sim {
       const rate = u.ramp * dt; const capU = x.Pmax ? Math.min(x.Pmax, PmaxU * x.Pmax / u.Pmax) : PmaxU;
       const ok = x.avail && !x.pump && !x.fault && !dam.trip, want = ok && Math.min(x.Pset, capU) > 0.01;
       if (!x.state) x.state = x.P > 0.01 ? 'run' : 'stop';
-      if (x.state === 'stop') { if (want && !(x.lock > t)) { x.state = 'start'; x.tS = t; } }
+      if (x.state === 'stop') { if (want && !(x.lock > t)) { x.state = 'start'; x.tS = t; x.tLen = tStart; } }
       else if (x.state === 'start') { if (!want) { x.state = 'stop'; x.lock = t + tReady; } else if (t - x.tS >= tStart) x.state = 'run'; }
       else if (x.state === 'run') { if (!ok) { x.state = 'stop'; x.lock = t + tReady; x.P = 0; } else if (!want && x.P <= 0.01) { x.state = 'stop'; x.lock = t + tReady; } }
       if (x.state === 'run') { x.P = x.P + clamp(Math.min(x.Pset, capU) - x.P, -rate * 1.5, rate); x.P = clamp(x.P, 0, capU); } else x.P = 0;
