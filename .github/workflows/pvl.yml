@@ -62,8 +62,9 @@ jobs:
             echo "Beze změny (tMs $new)"; rm live/pvl.new.json; exit 0
           fi
           mv live/pvl.new.json live/pvl.json
+          node fetch_pvl.mjs --archive live/pvl.json live/nadrze-archiv.csv
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add live/pvl.json
+          git add live/pvl.json live/nadrze-archiv.csv
           git commit -m "Data PVL $(node -e "console.log(require('./live/pvl.json').measured)")"
           git push

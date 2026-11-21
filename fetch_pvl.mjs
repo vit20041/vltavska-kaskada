@@ -60,11 +60,37 @@ async function get(path) {
   throw new Error('Nelze stáhnout ' + path);
 }
 
+// Portál občas vrátí HTTP 200 se stránkou bez tabulky – proto se platnost ověřuje v opakovaných pokusech.
+async function getDams() {
+  const ids = Object.values(DAM_MAP); let why = '';
+  for (let i = 0; i < 6; i++) {
+    const html = await get('/portal/nadrze/cz/pc/Prehled.aspx');
+    const { dams, ts } = parseDams(html);
+    const missing = ids.filter(id => !dams[id] || !isFinite(dams[id].h));
+    if (!missing.length && /^\d+\.\d+\.\d{4} \d+:\d+$/.test(ts)) return { dams, ts };
+    const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
+    why = `chybí: ${missing.join(', ') || '-'}, čas: "${ts}", délka ${html.length}, titulek "${text(title).slice(0, 60)}"`;
+    console.error(`Pokus ${i + 1}: neplatná data nádrží (${why})`);
+    if (i < 5) await new Promise(res => setTimeout(res, 15000 * (i + 1)));
+  }
+  throw new Error(`Neplatná data nádrží (${why})`);
+}
+
+// Trvalý archiv skutečně naměřených stavů nádrží: jeden řádek za měření, bez duplicit.
+async function archive(jsonFile, csvFile) {
+  const fs = await import('node:fs');
+  const L = JSON.parse(fs.readFileSync(jsonFile, 'utf8')), ids = Object.values(DAM_MAP);
+  const head = 'cas_mereni,tMs,' + ids.flatMap(id => ['h', 'V', 'qin', 'qout'].map(k => `${id}_${k}`)).join(',');
+  const old = fs.existsSync(csvFile) ? fs.readFileSync(csvFile, 'utf8') : head + '\n';
+  if (old.includes(`,${L.tMs},`)) { console.log('Archiv: měření už je zapsané'); return; }
+  const row = [L.measured, L.tMs, ...ids.flatMap(id => ['h', 'V', 'qin', 'qout'].map(k => L.dams[id]?.[k] ?? ''))].join(',');
+  fs.writeFileSync(csvFile, old + row + '\n');
+  console.log(`Archiv: přidáno měření ${L.measured}`);
+}
+
 async function main() {
-  const { dams, ts } = parseDams(await get('/portal/nadrze/cz/pc/Prehled.aspx'));
-  const ids = Object.values(DAM_MAP);
-  const missing = ids.filter(id => !dams[id] || !isFinite(dams[id].h));
-  if (missing.length || !/^\d+\.\d+\.\d{4} \d+:\d+$/.test(ts)) throw new Error(`Neplatná data nádrží (chybí: ${missing.join(', ') || '-'}, čas: "${ts}")`);
+  if (process.argv[2] === '--archive') return archive(process.argv[3], process.argv[4]);
+  const { dams, ts } = await getDams();
   const q = {};
   for (const id in STATIONS) {
     try { q[id] = parseStation(await get(`/portal/sap/cz/pc/Mereni.aspx?id=${id}&oid=${STATIONS[id]}`)); }

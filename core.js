@@ -10,7 +10,10 @@ const G = 9.81, RHO = 1000;
 function clamp(x, a, b) { return x < a ? a : (x > b ? b : x); }
 function lerp(a, b, t) { return a + (b - a) * t; }
 // deterministický RNG (mulberry32)
-function rng(seed) { let a = seed >>> 0; return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function rng(seed) { let a = seed >>> 0; const f = function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; f.getState = () => a; f.setState = v => { a = v; }; return f; }
+// hluboká kopie proměnného stavu (pole, typovaná pole, prosté objekty); definice `def` zůstává sdílená
+function cloneState(v) { if (v === null || typeof v !== 'object') return v; if (ArrayBuffer.isView(v)) return v.slice(); if (Array.isArray(v)) return v.map(cloneState); const o = {}; for (const k of Object.keys(v)) o[k] = k === 'def' ? v[k] : cloneState(v[k]); return o; }
+function overlayState(target, src) { for (const k of Object.keys(target)) if (!(k in src)) delete target[k]; Object.assign(target, cloneState(src)); return target; }
 function gauss(r) { let u = 0, v = 0; while (u === 0) u = r(); while (v === 0) v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
 
 // monotónní kubická interpolace (Fritsch–Carlson)
@@ -738,6 +741,27 @@ class Sim {
   }
 
   totalStorage() { let v = 0; for (const d of this.dams) v += d.V; return v; }
+
+  // ----- uložení a obnovení stavu (posun zpět v čase) -----
+  snapshot() {
+    const route = {}; for (const k in this.route) { const r = this.route[k], i = r.i || 0; route[k] = Object.assign({}, r, { buf: r.buf.slice(i).map(x => x.slice()), i: 0 }); }
+    return { t: this.t, t0: this.t0, scenarioKey: this.scenarioKey, scenarioName: this.scenarioName, orlik2033: this.orlik2033, spaState: this.spaState, praha: this.praha, Ptot: this.Ptot, rng: this.r.getState(),
+      q: cloneState(this.q), pve: cloneState(this.pve), opump: cloneState(this.opump), glob: cloneState(this.glob), pps: cloneState(this.pps), flags: cloneState(this.flags), drought: cloneState(this.drought), route, log: this.log.slice(),
+      places: this.places.map(p => Object.assign({}, p)),
+      dams: this.dams.map(d => { const o = {}; for (const k of Object.keys(d)) { if (k === 'curve' || k === 'd0') continue; o[k] = k === 'd' ? Object.assign({}, d.d) : cloneState(d[k]); } return o; }),
+      nodes: this.nodes.map(n => ({ mode: n.mode, manual: n.manual, mult: n.mult, base: n.base, pulses: cloneState(n.pulses), lagBuf: cloneState(n.lagBuf) })) };
+  }
+  restore(s) {
+    for (const k of ['t', 't0', 'scenarioKey', 'scenarioName', 'orlik2033', 'spaState', 'praha', 'Ptot']) this[k] = s[k];
+    this.r.setState(s.rng); this.q = cloneState(s.q); overlayState(this.pve, s.pve); overlayState(this.opump, s.opump); overlayState(this.pps, s.pps);
+    // předvolby aplikace nejsou součástí děje simulace, návrat v čase je nemění
+    const g = this.glob, keep = { faults: g.faults, faultRate: g.faultRate, unitReady: g.unitReady }; overlayState(g, s.glob); Object.assign(g, keep);
+    this.flags = cloneState(s.flags); this.drought = cloneState(s.drought); this.log = s.log.slice(); this.places = s.places.map(p => Object.assign({}, p));
+    for (const k in s.route) { const r = s.route[k]; Object.assign(this.route[k], r, { buf: r.buf.map(x => x.slice()), i: 0 }); }
+    this.dams.forEach((d, i) => { const o = s.dams[i]; for (const k of Object.keys(o)) { if (k === 'units') o.units.forEach((u, j) => overlayState(d.units[j], u)); else if (k === 'd') d.d = Object.assign({}, o.d); else d[k] = cloneState(o[k]); } });
+    this.nodes.forEach((n, i) => { const o = s.nodes[i]; n.mode = o.mode; n.manual = o.manual; n.mult = o.mult; n.base = o.base; n.pulses = cloneState(o.pulses); n.lagBuf = cloneState(o.lagBuf); });
+    this.hist.rewindTo(this.t);
+  }
 }
 
 /* ---------- historie (záznam po 10 min) ---------- */
@@ -759,6 +783,7 @@ class History {
     put('spot', s.spot(s.hourOfDay));
   }
   get(k, i) { const c = this.ch[k]; return c ? c[(this.start + i) % this.cap] : NaN; }
+  rewindTo(t) { const tH = t / 3600 + 1e-3; while (this.n > 1 && this.get('t', this.n - 1) > tH) this.n--; this.next = t; }
 }
 
 /* ===================================================================

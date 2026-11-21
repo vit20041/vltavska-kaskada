@@ -50,10 +50,25 @@ header{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 8
 .play:hover{filter:brightness(1.08)}
 select.scen{appearance:none;border:0;background:transparent;font-weight:600;padding:6px 26px 6px 12px;cursor:pointer;max-width:290px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' fill='none' stroke-width='1.6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
 select.scen option{background:var(--surface);color:var(--text)}
-.speedw{display:flex;align-items:center;gap:8px;padding:0 8px}
-.speedw input{width:110px}
-.speedw span{font-family:var(--mono);font-size:12.5px;min-width:62px;color:var(--text-2)}
-.clock{display:flex;flex-direction:column;line-height:1.1;padding:0 12px 0 6px}
+.speedw{display:flex;align-items:center;gap:2px;padding:0 4px;background:var(--surface-2);border-radius:999px;margin:0 2px}
+.speedw select{appearance:none;border:0;background:transparent;font-family:var(--mono);font-size:12.5px;font-weight:600;text-align:center;text-align-last:center;width:86px;padding:5px 0;cursor:pointer}
+.speedw option{background:var(--surface);color:var(--text)}
+.spb{width:24px;height:24px;border:0;border-radius:50%;background:transparent;color:var(--text-2);font-size:16px;line-height:1;cursor:pointer}
+.spb:hover:not(:disabled){background:var(--surface-3);color:var(--text)} .spb:disabled{opacity:.3;cursor:default}
+.ib.tj{padding:6px 8px;font-family:var(--mono);font-size:12px}
+.ib:disabled,.btn:disabled{opacity:.45;cursor:default}
+.tline{display:flex;align-items:center;gap:10px;padding:0 20px 8px}
+.tlx{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.tltrack{position:relative;flex:1;height:20px;cursor:pointer;min-width:0;touch-action:none;border-radius:4px}
+.tltrack:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.tltrack canvas{width:100%;height:100%;display:block}
+.tltip{display:none;position:absolute;bottom:23px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:7px;padding:2px 8px;font:11.5px var(--mono);white-space:nowrap;pointer-events:none;z-index:50}
+.gopop{display:none;position:fixed;z-index:60;width:280px;background:var(--surface);border:1px solid var(--border-2);border-radius:12px;padding:12px;box-shadow:var(--shadow)}
+.gopop.on{display:block} .gopop label{display:grid;gap:6px;font-size:12.5px;font-weight:600}
+.gopop input{background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:6px 8px;font-family:var(--mono)}
+.gopop .note{min-height:34px;margin:6px 0} .gobtns{display:flex;justify-content:space-between;gap:8px}
+.clock{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1;padding:2px 12px 2px 6px;border:0;background:transparent;cursor:pointer;border-radius:10px;white-space:nowrap}
+.clock:hover{background:var(--surface-3)}
 .clock b{font-family:var(--mono);font-size:16px;font-weight:600}
 .clock small{font-size:11.5px;color:var(--muted)}
 .sp{flex:1}
@@ -81,7 +96,7 @@ main{padding:0 20px 40px;display:grid;gap:14px}
 .tabs{display:flex;gap:2px;flex-wrap:wrap;background:var(--surface-2);border:1px solid var(--border);padding:3px;border-radius:11px}
 .tab{border:0;background:transparent;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-2);white-space:nowrap}
 .tab:hover{color:var(--text)} .tab.on{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.18)}
-.side{position:sticky;top:150px;max-height:calc(100vh - 162px);overflow:auto;scrollbar-width:thin}
+.side{position:sticky;top:calc(var(--hh,150px) + 8px);max-height:calc(100vh - var(--hh,150px) - 16px);overflow:auto;scrollbar-width:thin}
 /* charts */
 .chartbox{position:relative}
 .chartbox+.chartbox{margin-top:18px}
@@ -196,7 +211,7 @@ td input[type=number]{width:62px;padding:3px 6px;font-size:12.5px}
 .toast .crit{border-left-color:var(--critical)} .toast .warn{border-left-color:var(--serious)}
 @keyframes tin{from{transform:translateY(10px);opacity:0}}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60;display:none;place-items:center;padding:20px}
-.modal.on{display:grid}
+.modal.on{display:grid;grid-template-columns:minmax(0,1fr);justify-items:center}
 .modal .box{background:var(--surface);border:1px solid var(--border-2);border-radius:16px;max-width:760px;width:100%;padding:22px 24px;box-shadow:var(--shadow);max-height:88vh;overflow:auto}
 .modal h3{margin:0 0 10px;font-size:18px}
 kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);border-bottom-width:2px;border-radius:5px;padding:0 6px;background:var(--surface-2)}
@@ -289,8 +304,50 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
   input[type=range]{height:28px}
   .seg button,.tab,.ib{padding:8px 11px}
 }
-@media (max-width:1300px){ .kpis{grid-template-columns:repeat(3,1fr)} .speedw input{width:80px} }
+@media (max-width:1300px){ .kpis{grid-template-columns:repeat(3,1fr)} }
 @media (max-width:1100px){ .work{grid-template-columns:1fr} .side{position:static;max-height:none} .two{grid-template-columns:1fr} .srcs{columns:1} .bar{flex-wrap:wrap} }
+@media (max-width:760px){ .speedw{flex:1;justify-content:space-between} .speedw select{flex:1;width:auto} .tline{padding:0 10px 8px} .tlx{display:none} #tlStop{flex:none} }
+/* běžné monitory (notebook, Full HD i se zvětšením Windows): schéma a řízení díla na jedné obrazovce */
+@media (min-width:1101px) and (max-width:1919px), (min-width:1101px) and (max-height:1000px){
+  .bar{gap:8px;padding:6px 12px;flex-wrap:nowrap}
+  .brand{flex:none}
+  .pillbox{padding:2px}
+  #pScen{flex:1 1 170px;min-width:150px}
+  select.scen{flex:1;min-width:0;max-width:none;width:100%;font-size:13px;text-overflow:ellipsis;padding:5px 22px 5px 10px}
+  #pTime,#pTools{flex:none}
+  .sp{display:none}
+  .ib{padding:5px 8px}
+  .play{width:30px;height:30px}
+  .clock b{font-size:14px} .clock small{font-size:10.5px}
+  .tline{padding:0 12px 3px}
+  .tltrack{height:18px}
+  .kpis{grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding:0 12px 6px}
+  .kpi{padding:4px 9px;border-radius:10px}
+  .kpi .l{font-size:11px}
+  .kpi .v{font-size:17px;line-height:1.2}
+  .kpi .v small{font-size:10.5px;margin-left:2px}
+  .kpi .s{font-size:10.5px;line-height:1.25}
+  .kpi canvas{height:22px}
+  main{grid-template-columns:minmax(0,1fr) 344px;padding:0 12px 20px;gap:10px;align-items:start}
+  .work{display:contents}
+  .hero{grid-column:1;grid-row:1;border-radius:12px}
+  .hero svg{max-height:calc(100vh - var(--hh,130px) - 48px)}
+  .hero .cap{padding:5px 12px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hero .cap span{overflow:hidden;text-overflow:ellipsis}
+  .work > .col:first-child{grid-column:1;grid-row:2}
+  .side{grid-column:2;grid-row:1 / span 2;gap:10px;top:calc(var(--hh,130px) + 4px);max-height:calc(100vh - var(--hh,130px) - 10px)}
+  .card{padding:12px}
+  .evc{max-height:calc(100% - 16px);overflow:auto}
+  .det{padding:8px}
+  .dbox{width:calc(100vw - 16px);max-height:calc(100vh - 16px)}
+  .dbody{grid-template-columns:minmax(0,1fr) 280px}
+  .dbody > svg{max-height:calc(100vh - 90px)}
+  .dside{max-height:calc(100vh - 90px);overflow:auto;padding:10px 12px}
+  .modal{padding:8px}
+  .modal .box{max-height:calc(100vh - 16px);padding:16px 18px}
+}
+@media (min-width:1101px) and (max-width:1560px){ .brand b,.lbl{display:none} .speedw select{width:74px} }
+@media (min-width:1101px) and (max-width:1280px){ .ib.tj{padding:5px 5px;font-size:11px} #tlA,#tlB{display:none} }
 </style>
 </head>
 <body>
@@ -302,17 +359,21 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
     </div>
     <div class="pillbox" id="pScen"><select class="scen" id="scen" title="Scénář"></select><button class="ib" id="load">Načíst</button></div>
     <div class="pillbox" id="pTime">
+      <button class="ib tj" data-back="86400" title="Zpět o 1 den (Shift+D)" aria-label="Zpět o 1 den">−1 d</button><button class="ib tj" data-back="3600" title="Zpět o 1 hodinu (Shift+H)" aria-label="Zpět o 1 hodinu">−1 h</button>
       <button class="play" id="play" title="Spustit / pozastavit (mezerník)" aria-label="Spustit"></button>
-      <div class="speedw" title="Rychlost simulace"><input type="range" id="speed" min="0" max="11" step="1" value="7"><span id="speedL">1 h/s</span></div>
-      <button class="ib" data-adv="3600" title="H">+1 h</button><button class="ib" data-adv="86400" title="D">+1 den</button><button class="ib" data-adv="604800" title="W">+7 dní</button>
-      <div class="clock"><b id="clockT">—</b><small id="clockD">—</small></div>
+      <button class="ib tj" data-adv="3600" title="Vpřed o 1 hodinu (H)" aria-label="Vpřed o 1 hodinu">+1 h</button><button class="ib tj" data-adv="86400" title="Vpřed o 1 den (D)" aria-label="Vpřed o 1 den">+1 d</button><button class="ib tj" data-adv="604800" title="Vpřed o 7 dní (W)" aria-label="Vpřed o 7 dní">+7 d</button>
+      <div class="speedw" title="Rychlost simulace (šipky vlevo a vpravo)"><button class="spb" id="spDn" aria-label="Pomaleji">−</button><select id="speed" aria-label="Rychlost simulace"></select><button class="spb" id="spUp" aria-label="Rychleji">+</button></div>
+      <button class="clock" id="clockBtn" title="Přejít na konkrétní datum a čas" aria-haspopup="dialog"><b id="clockT">—</b><small id="clockD">—</small></button>
     </div>
     <div class="sp"></div>
-    <div class="pillbox">
-      <button class="ib" id="theme" title="Světlý / tmavý režim (T)"><svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-3px"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
-      <button class="ib" id="liveB" title="Aktuální data z portálu Povodí Vltavy – klikni pro načtení" style="display:none"></button><button class="ib" id="setBtn" title="Nastavení (klávesa ,)">⚙ Nastavení</button><button class="ib" id="tourBtn" title="Interaktivní průvodce">▶ Průvodce</button><button class="ib" id="help" title="Manuál (?)">Manuál</button>
+    <div class="pillbox" id="pTools">
+      <button class="ib" id="recB" style="display:none"></button>
+      <button class="ib" id="theme" title="Světlý / tmavý režim (T)" aria-label="Světlý nebo tmavý režim"><svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-3px"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
+      <button class="ib" id="liveB" title="Aktuální data z portálu Povodí Vltavy – klikni pro načtení" style="display:none"></button><button class="ib" id="setBtn" title="Nastavení (klávesa ,)" aria-label="Nastavení">⚙<span class="lbl"> Nastavení</span></button><button class="ib" id="tourBtn" title="Interaktivní průvodce" aria-label="Průvodce">▶<span class="lbl"> Průvodce</span></button><button class="ib" id="help" title="Manuál (?)" aria-label="Manuál">?<span class="lbl"> Manuál</span></button>
     </div>
   </div>
+  <div class="tline" id="tline"><span class="tlx" id="tlA"></span><div class="tltrack" id="tlTrack" role="slider" tabindex="0" aria-label="Časová osa simulace"><canvas id="tlC"></canvas><div class="tltip" id="tlTip"></div></div><span class="tlx" id="tlB"></span><button class="btn sm" id="tlStop" style="display:none">Zrušit (Esc)</button></div>
+  <div class="gopop" id="goPop" role="dialog" aria-label="Přejít na datum a čas"><label>Přejít na datum a čas (SEČ)<input type="datetime-local" id="goT"></label><div class="note" id="goN"></div><div class="gobtns"><button class="btn sm" id="goStart">Začátek scénáře</button><button class="btn sm acc" id="goGo">Přejít</button></div></div>
   <div class="kpis">
     <div class="kpi" id="kPraha"><div class="l"><i></i>Praha – Chuchle</div><div class="v">—</div><div class="s">—</div><canvas></canvas></div>
     <div class="kpi" id="kPow" style="--kc:var(--s4)"><div class="l"><i></i>Výkon kaskády</div><div class="v">—</div><div class="s">—</div><canvas></canvas></div>
@@ -408,7 +469,7 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
     <li>V záložce Podpůrné služby nastavíš nabídky FCR, aFRR, mFRR5 (MZ5) a mFRR15 (MZ15). Tlačítko „Výpadek bloku“ nasimuluje výpadek 1 000 MW v soustavě.</li></ul></details>
   <details><summary>6. Orlík 2033 – přečerpávání</summary><p>Podle plánu ČEZ budou na Orlíku 2 klasické Francisovy turbíny 95 MW a 2 reverzní Francisovy turbíny 87 MW, které umí čerpat vodu z Kamýku zpět do Orlíku. Zapneš to v řízení Orlíku nebo scénářem „Orlík 2033“. Automatika čerpá v levných hodinách (poledne, noc) a vyrábí ve špičce; čerpání omezuje malý objem Kamýku.</p></details>
   <details><summary>7. Model a jeho omezení</summary><p>Hladiny se počítají z bilance přítok − odtok a z čar objemů proložených známými body Povodí Vltavy. Řízení je zjednodušená interpretace manipulačních řádů. Některé parametry (neškodné odtoky Orlíku a Slap, kapacity přelivů mimo Lipno/Štěchovice/Orlík, mezipovodí) jsou odhady – přehled je v záložce Parametry a zdroje.</p></details>
-  <div class="keys"><kbd>Mezerník</kbd><span>spustit / pozastavit</span><kbd>H D W</kbd><span>+1 h / +1 den / +7 dní</span><kbd>← →</kbd><span>rychlost</span><kbd>1–9</kbd><span>vybrat dílo, <kbd>0</kbd> PVE</span><kbd>Enter</kbd><span>detail vybraného díla</span><kbd>T</kbd><span>světlý / tmavý režim</span></div>
+  <div class="keys"><kbd>Mezerník</kbd><span>spustit / pozastavit</span><kbd>H D W</kbd><span>vpřed o 1 h / 1 den / 7 dní</span><kbd>Shift+H, Shift+D</kbd><span>zpět o 1 h / 1 den</span><kbd>Esc</kbd><span>zrušit přetáčení</span><kbd>← →</kbd><span>rychlost</span><kbd>1–9</kbd><span>vybrat dílo, <kbd>0</kbd> PVE</span><kbd>Enter</kbd><span>detail vybraného díla</span><kbd>T</kbd><span>světlý / tmavý režim</span></div>
   <div style="text-align:right"><button class="btn acc" id="manTour">Spustit interaktivního průvodce</button></div>
 </div></div>
 <div class="det" id="det"><div class="dbox">
@@ -461,35 +522,79 @@ function toast(msg,sev){ const b=$('#toast'); while (b.children.length>1) b.firs
 
 /* ---------- scénáře a běh ---------- */
 for (const k in SCENARIOS){ const o=document.createElement('option'); o.value=k; o.textContent=SCENARIOS[k].name; $('#scen').appendChild(o); }
-function doLoad(){ evQueue.length=0; evCur=null; if (typeof story!=='undefined') story.length=0; $('#evc').classList.remove('on'); const k=$('#scen').value; loadScenario(sim,k,{N:+($('#qnN')?.value||100)}); zoom=null; setCap(k); buildProfile(); buildCtrl(); buildBottom(); buildCharts(); sim.step(); renderAll(); }
+function doLoad(){ if (job) jobEnd(false); evQueue.length=0; evCur=null; if (typeof story!=='undefined') story.length=0; $('#evc').classList.remove('on'); const k=$('#scen').value; loadScenario(sim,k,{N:+($('#qnN')?.value||100)}); tsReset(); zoom=null; setCap(k); buildProfile(); buildCtrl(); buildBottom(); buildCharts(); sim.step(); renderAll(); }
 function setCap(k){ $('#capT').textContent=SCENARIOS[k].name; $('#capD').textContent=SCENARIOS[k].desc; }
 $('#load').onclick=doLoad;
 const PLAY='<svg width="16" height="16" viewBox="0 0 16 16"><path d="M4.5 2.5l9 5.5-9 5.5z" fill="#fff"/></svg>', PAUSE='<svg width="16" height="16" viewBox="0 0 16 16"><rect x="3.5" y="2.5" width="3.2" height="11" rx="1" fill="#fff"/><rect x="9.3" y="2.5" width="3.2" height="11" rx="1" fill="#fff"/></svg>';
 function setRun(r){ running=r; $('#play').innerHTML=r?PAUSE:PLAY; $('#hero').classList.toggle('paused',!r); last=performance.now(); }
 $('#play').onclick=()=>setRun(!running);
-function setSpeed(i){ i=Math.max(0,Math.min(SPEEDS.length-1,i)); $('#speed').value=i; speed=SPEEDS[i][0]; $('#speedL').textContent=SPEEDS[i][1]; applyDt(); }
+$('#speed').innerHTML=SPEEDS.map(([,l],i)=>`<option value="${i}">${l}</option>`).join('');
+function setSpeed(i){ i=Math.max(0,Math.min(SPEEDS.length-1,i)); $('#speed').value=i; speed=SPEEDS[i][0]; $('#spDn').disabled=i===0; $('#spUp').disabled=i===SPEEDS.length-1; applyDt(); }
+$('#spDn').onclick=()=>setSpeed(+$('#speed').value-1); $('#spUp').onclick=()=>setSpeed(+$('#speed').value+1);
 // krok výpočtu podle rychlosti: ~40+ kroků za reálnou sekundu, aby se plynule projevily rozběhy, rampy výkonu a signály PpS;
 // nejvýš maxDt (volba v Model a export). Zpoždění toků je časové, změna kroku za běhu je bezpečná.
 let maxDt=60; const SPEED_I0=7;
 function dtFor(s){ if (s>=1e9) return maxDt; for (const c of [1,2,5,10,30,60,300]) if (c>=s/40) return Math.min(c,maxDt); return maxDt; }
 function applyDt(){ sim.dt=dtFor(speed); sim.hist.every=speed<=60?5:speed<=600?20:60; }
-$('#speed').oninput=e=>setSpeed(+e.target.value);
+$('#speed').onchange=e=>{ setSpeed(+e.target.value); e.target.blur(); };
 $$('[data-adv]').forEach(b=>b.onclick=()=>advance(+b.dataset.adv));
-function advance(sec){ const keep=sim.dt; sim.dt=maxDt; const n=Math.round(sec/sim.dt), t0=performance.now(); for (let i=0;i<n;i++){ if (typeof storyDue==='function'&&storyDue()){ const s=story.shift(); evQueue.push(s.inf); if (!evCur) showEv(); break; } sim.step(); if (performance.now()-t0>5000) break; } sim.dt=keep; renderAll(); }
+$$('[data-back]').forEach(b=>b.onclick=()=>seekTo(sim.t-(+b.dataset.back)));
+/* ---------- posun času: body návratu, přetáčení po snímcích bez zamrznutí, časová osa ---------- */
+const TS={list:[],next:0,end:72*3600,key:null}, TS_MAX=160;
+function tsReset(){ TS.list.length=0; TS.key=sim.scenarioKey; TS.end=72*3600; TS.next=sim.t; tsSave(); }
+function tsSave(){ TS.list.push(sim.snapshot()); TS.next=sim.t+Math.max(60,Math.min(3600,speed*30));
+  // nedávná minulost zůstává hustá, starší body se postupně prořeďují
+  if (TS.list.length>TS_MAX){ const cut=Math.floor(TS_MAX*2/3), keep=TS.list.slice(0,cut).filter((_,i)=>i===0||i%2===0); TS.list.splice(0,cut,...keep); } }
+const stepCore=sim.step.bind(sim);
+sim.step=()=>{ const L=TS.list; if (TS.key!==sim.scenarioKey||(L.length&&sim.t<L[L.length-1].t)) tsReset(); stepCore(); if (sim.t>=TS.next) tsSave(); if (sim.t>TS.end) TS.end=sim.t*1.5; };
+let job=null;
+function advance(sec){ if (job){ job.end+=sec; return; } job={from:sim.t,end:sim.t+sec,resume:running,dt:sim.dt}; if (running) setRun(false); sim.dt=maxDt; $('#tlStop').style.display=''; $('#tline').classList.add('busy'); }
+const runRaw=setRun;
+// zastavující zpráva přetáčení jen podrží; po „Pokračovat“ doběhne na cílový čas
+function jobStep(){ if (evCur) return; if (running) runRaw(false); const t0=performance.now(); while (sim.t<job.end&&performance.now()-t0<22){ if (storyDue()){ const s=story.shift(); evQueue.push(s.inf); if (!evCur) showEv(); return; } sim.step(); if (evCur) return; } if (sim.t>=job.end) jobEnd(job.resume); }
+function jobEnd(resume){ if (!job) return; sim.dt=job.dt; job=null; acc=0; $('#tlStop').style.display='none'; $('#tline').classList.remove('busy'); renderAll(); drawTl(); if (resume) setRun(true); }
+$('#tlStop').onclick=()=>jobEnd(false);
+function seekTo(t){ t=Math.max(0,t); if (t>sim.t+1) return advance(t-sim.t); if (job) jobEnd(false); const L=TS.list; if (!L.length) return; let i=L.length-1; while (i>0&&L[i].t>t) i--; const s=L[i]; if (s.t>=sim.t) return;
+  setRun(false); acc=0; evQueue.length=0; evCur=null; story.length=0; $('#evc').classList.remove('on'); clearRing(); sim.restore(s); L.length=i+1; TS.next=sim.t+Math.max(60,Math.min(3600,speed*30)); for (let k=evSeen.length-1;k>=0;k--) if (evSeen[k].e.t>sim.t) evSeen.splice(k,1);
+  lastHistN=-1; buildCtrl(); buildBottom(); renderAll(); drawTl(); toast(`Vráceno na ${tStr(sim.t,true)}. Co bylo potom, se zahodilo.`,'info'); }
+function drawTl(hover){ const c=$('#tlC'), W=c.clientWidth, H=c.clientHeight; if (!W||!H) return; const dpr=devicePixelRatio||1; if (c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){ c.width=Math.round(W*dpr); c.height=Math.round(H*dpr); }
+  const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H); const E=Math.max(TS.end,sim.t,1), X=t=>t/E*W, m=H/2;
+  g.fillStyle=css('--surface-3'); g.fillRect(0,m-2,W,4); g.fillStyle=css('--accent'); g.fillRect(0,m-2,X(sim.t),4);
+  const days=E/86400, st=[1,2,7,14,30,60,90,180].find(k=>days/k<=W/46)||365; g.fillStyle=css('--muted'); for (let d=st;d*86400<E;d+=st) g.fillRect(Math.round(X(d*86400)),m+4,1,3);
+  for (const e of sim.log){ if (e.sev!=='warn'&&e.sev!=='crit') continue; g.fillStyle=css(e.sev==='crit'?'--critical':'--warning'); g.fillRect(Math.round(X(e.t))-1,m-7,2,5); }
+  if (job){ g.fillStyle=css('--accent-weak'); g.fillRect(X(sim.t),0,X(job.end)-X(sim.t),H); g.fillStyle=css('--accent'); g.fillRect(X(job.end)-1,1,2,H-2); }
+  if (hover!=null){ g.fillStyle=css('--text-2'); g.fillRect(Math.round(hover),1,1,H-2); }
+  const x=X(sim.t); g.fillStyle=css('--text'); g.beginPath(); g.arc(Math.max(5,Math.min(W-5,x)),m,5,0,7); g.fill(); g.strokeStyle=css('--accent'); g.lineWidth=2; g.stroke();
+  $('#tlA').textContent=tStr(0,true); $('#tlB').textContent=job?`přetáčím ${Math.round(100*(sim.t-job.from)/Math.max(1,job.end-job.from))} %`:tStr(E,true); }
+{ const tr=$('#tlTrack'), tip=$('#tlTip'); let drag=false; const at=e=>{ const r=tr.getBoundingClientRect(), x=Math.max(0,Math.min(r.width,e.clientX-r.left)); return {x,t:x/r.width*Math.max(TS.end,sim.t,1)}; };
+  const show=e=>{ const a=at(e); tip.textContent=tStr(a.t,true)+(a.t<sim.t?' · návrat':' · přetočit'); tip.style.display='block'; tip.style.left=Math.max(0,Math.min(tr.clientWidth-tip.offsetWidth,a.x-tip.offsetWidth/2))+'px'; drawTl(a.x); };
+  tr.onpointerdown=e=>{ drag=true; tr.setPointerCapture(e.pointerId); show(e); }; tr.onpointermove=show;
+  tr.onpointerup=e=>{ if (!drag) return; drag=false; tip.style.display='none'; seekTo(at(e).t); }; tr.onpointerleave=()=>{ if (!drag){ tip.style.display='none'; drawTl(); } };
+  tr.onkeydown=e=>{ if (e.key==='ArrowLeft'){ e.preventDefault(); e.stopPropagation(); seekTo(sim.t-3600); } else if (e.key==='ArrowRight'){ e.preventDefault(); e.stopPropagation(); advance(3600); } }; }
+{ const pop=$('#goPop'), iso=t=>{ const d=dateOf(t); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; }, MAXF=366*86400;
+  const val=()=>{ const m=/^(\d+)-(\d+)-(\d+)T(\d+):(\d+)/.exec($('#goT').value); return m?(Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5])-dateOf(0).getTime())/1000:NaN; };
+  const note=()=>{ const t=val(), n=$('#goN'), b=$('#goGo'); b.disabled=false; if (!isFinite(t)){ n.textContent='Zadej datum a čas.'; b.disabled=true; } else if (t<0){ n.textContent='Tento čas je před začátkem scénáře.'; b.disabled=true; } else if (t-sim.t>MAXF){ n.textContent='Najednou lze přetočit nejvýš o 366 dní.'; b.disabled=true; } else n.textContent=t<sim.t?'Návrat zpět zahodí vše, co se stalo potom.':'Simulace se přepočítá až do tohoto času.'; };
+  const close=()=>pop.classList.remove('on');
+  $('#clockBtn').onclick=e=>{ e.stopPropagation(); if (pop.classList.toggle('on')){ const r=$('#clockBtn').getBoundingClientRect(); pop.style.top=r.bottom+6+'px'; pop.style.left=Math.max(8,Math.min(innerWidth-290,r.left-120))+'px'; $('#goT').value=iso(sim.t); note(); $('#goT').focus(); } };
+  $('#goT').oninput=note; $('#goGo').onclick=()=>{ const t=val(); if (isFinite(t)&&t>=0&&t-sim.t<=MAXF){ close(); seekTo(t); } }; $('#goStart').onclick=()=>{ close(); seekTo(0); };
+  $('#goT').onkeydown=e=>{ if (e.key==='Enter') $('#goGo').click(); else if (e.key==='Escape') close(); }; document.addEventListener('pointerdown',e=>{ if (pop.classList.contains('on')&&!pop.contains(e.target)&&!$('#clockBtn').contains(e.target)) close(); }); }
+{ const syncH=()=>root.style.setProperty('--hh',$('header').offsetHeight+'px'); if (window.ResizeObserver) new ResizeObserver(()=>{ syncH(); drawTl(); }).observe($('header')); syncH(); }
 let last=performance.now(), acc=0, lu=0, lc=0, ls=0, lg=0, lastHistN=-1, smoothMode='hi';
 try{ smoothMode=localStorage.getItem('vk-smooth')||'hi'; }catch(e){}
 function loop(now){
   const dtr=Math.min(0.25,(now-last)/1000); last=now;
-  if (running){ acc+=speed*dtr; const t0=performance.now(), budget=smoothMode==='hi'?9:6; while (acc>=sim.dt && performance.now()-t0<budget && !storyDue()){ sim.step(); acc-=sim.dt; } if (storyDue()){ acc=0; const s=story.shift(); evQueue.push(s.inf); if (!evCur) showEv(); } acc=speed>=1e9?0:Math.min(acc,sim.dt*2000); }
+  if (job) jobStep(); else if (running){ acc+=speed*dtr; const t0=performance.now(), budget=smoothMode==='hi'?9:6; while (acc>=sim.dt && performance.now()-t0<budget && !storyDue()){ sim.step(); acc-=sim.dt; } if (storyDue()){ acc=0; const s=story.shift(); evQueue.push(s.inf); if (!evCur) showEv(); } acc=speed>=1e9?0:Math.min(acc,sim.dt*2000); }
   const hi=smoothMode==='hi';
   if (now-lg>=(hi?0:60)){ const dg=(now-lg)/1000; lg=now; animProfile(Math.min(.25,dg)); if (detId) animDetail(Math.min(.25,dg)); }
-  if (now-lu>(hi?220:500)){ lu=now; renderLive(); }
+  if (now-lu>(hi?220:500)){ lu=now; renderLive(); if (!$('#tlTip').style.display||$('#tlTip').style.display==='none') drawTl(); }
   if (now-lc>(hi?1000:2500) && sim.hist.n!==lastHistN){ lc=now; lastHistN=sim.hist.n; drawCharts(); }
   if (now-ls>(hi?2000:5000)){ ls=now; drawSparks(); }
   requestAnimationFrame(loop);
 }
 document.addEventListener('keydown',e=>{
   if (e.target.matches('input,select,textarea')) return; const k=e.key.toLowerCase();
+  if (k==='escape'&&job){ jobEnd(false); return; }
+  if (e.shiftKey&&(k==='h'||k==='d')){ seekTo(sim.t-(k==='h'?3600:86400)); return; }
   if (detId){ if (k==='arrowright'){ stepDetail(1); return; } if (k==='arrowleft'){ stepDetail(-1); return; } if (k==='escape'){ closeDetail(); return; } }
   if (tourOn){ if (k==='arrowright'||k==='enter'){ tourGo(1); return; } if (k==='arrowleft'){ tourGo(-1); return; } }
   if (k===' '){ e.preventDefault(); if (evCur){ evContinue(); return; } setRun(!running); } else if (k==='h') advance(3600); else if (k==='d') advance(86400); else if (k==='w') advance(604800);
@@ -940,9 +1045,9 @@ function drawChart(c){
 }
 
 /* ===================== SPODNÍ PANEL ===================== */
-const BT=[['dams','Vodní díla'],['places','Obce a záplavy'],['nodes','Přítoky'],['pps','Podpůrné služby'],['log','Události'],['set','Model a export'],['par','Parametry a zdroje']];
+const BT=[['dams','Vodní díla'],['places','Obce a záplavy'],['nodes','Přítoky'],['hist','Historie od 1985'],['pps','Podpůrné služby'],['log','Události'],['set','Model a export'],['par','Parametry a zdroje']];
 function buildBottom(){ const t=$('#btabs'); t.innerHTML=BT.map(([k,l])=>`<button class="tab ${k===botTab?'on':''}" data-t="${k}">${l}${k==='log'?' <span class="badge" id="logN" style="margin-left:4px">0</span>':''}${k==='places'?' <span class="badge crit" id="plN" style="margin-left:4px">0</span>':''}</button>`).join(''); t.querySelectorAll('.tab').forEach(e=>e.onclick=()=>{ botTab=e.dataset.t; buildBottom(); renderAll(); });
-  const p=$('#bpanel'); ({places:buildPlaces,dams:buildCards,nodes:buildNodes,pps:buildPps,log:p=>{ p.innerHTML='<div class="log" id="log"></div>'; logN=-1; renderLog(); },set:buildSet,par:buildParams})[botTab](p); }
+  const p=$('#bpanel'); ({places:buildPlaces,dams:buildCards,nodes:buildNodes,hist:buildHist,pps:buildPps,log:p=>{ p.innerHTML='<div class="log" id="log"></div>'; logN=-1; renderLog(); },set:buildSet,par:buildParams})[botTab](p); }
 function buildCards(p){
   p.innerHTML='<div class="dams" id="dams"></div>'; const box=$('#dams');
   sim.dams.forEach((d,i)=>{ const c=document.createElement('div'); c.className='dam'; c.id='card-'+d.id; c.onclick=()=>select(d.id); c.ondblclick=()=>openDetail(d.id); c.title=`klávesa ${i+1} · dvojklik = detail`;
@@ -1480,7 +1585,7 @@ function animPlace(dt){ const P=dref.pl; if (!P) return; const p=sim.places.find
 const TOUR=[
   {sel:null,t:'Vítej v simulátoru Vltavské kaskády 👋',p:'Za pár kroků ti ukážu, jak to celé funguje. Kdykoli můžeš průvodce zavřít a spustit znovu tlačítkem „Průvodce“ nahoře.'},
   {sel:'#scen',up:2,t:'1. Vyber scénář',p:'Tady zvolíš situaci – dnešní stav (sucho), povodně 2002 a 2013, N-letou povodeň, průměrný rok, sucho, podpůrné služby nebo Orlík 2033. Pak klikni „Načíst“.'},
-  {sel:'#play',up:1,t:'2. Spusť čas',p:'Tlačítko ▶ (nebo mezerník) rozběhne simulaci. Posuvníkem vedle nastavíš rychlost, tlačítky +1 h / +1 den / +7 dní skočíš dopředu.'},
+  {sel:'#play',up:1,t:'2. Spusť čas',p:'Tlačítko ▶ (nebo mezerník) rozběhne simulaci. Vedle nastavíš rychlost, tlačítky −1 d až +7 d skočíš zpět nebo vpřed. Na časové ose pod lištou klikneš na libovolný okamžik, kliknutím na hodiny zadáš přesné datum.'},
   {sel:'.kpis',t:'3. Klíčová čísla',p:'Průtok v Praze se stupněm povodňové aktivity, výkon celé kaskády, zásoba vody, hladiny Orlíku a Slap a odtok z kaskády oproti povinnému minimu.'},
   {sel:'#hero',t:'4. Podélný profil',p:'Živý obraz celé kaskády od Lipna po Prahu. Svítící okénka = elektrárna vyrábí, bílá pěna = voda teče přes přeliv, tloušťka řek = průtok. Klikni na přehradu pro řízení, dvojklik otevře detail.'},
   {sel:'#ctrl',t:'5. Řízení vybraného díla',p:'Přepínáš automatiku podle manipulačního řádu, ruční řízení a plán výkonu. Posuvníky nastavíš cílové hladiny, neškodný odtok nebo předpouštění. Kliknutím na soustrojí ho odstavíš.'},
@@ -1573,7 +1678,7 @@ function showEv(){
   if (inf.id==='praha'){ tb=prof.prBox; } else if (inf.id&&prof.res[inf.id]){ const r=prof.res[inf.id]; tb=r.box; r.ring.classList.add('on'); r.ring.setAttribute('opacity',1); }
   if (inf.id&&inf.id!=='praha') select(inf.id);
   c.classList.add('on'); const hero=$('#hero').getBoundingClientRect();
-  if (tb){ const b=tb.getBoundingClientRect(); let left=b.left-hero.left, top=b.bottom-hero.top+10; if (left+350>hero.width) left=hero.width-352; if (left<8) left=8; if (top+190>hero.height-40) top=Math.max(8,b.top-hero.top-200); c.style.left=left+'px'; c.style.top=top+'px'; }
+  if (tb){ const b=tb.getBoundingClientRect(), ch=c.offsetHeight; let left=b.left-hero.left, top=b.bottom-hero.top+10; if (left+350>hero.width) left=hero.width-352; if (left<8) left=8; if (top+ch>hero.height-8) top=Math.max(8,Math.min(hero.height-ch-8,b.top-hero.top-ch-10)); c.style.left=left+'px'; c.style.top=top+'px'; }
   else { c.style.left='20px'; c.style.top='20px'; }
   $('#hero').scrollIntoView({block:'nearest',behavior:'smooth'});
 }
@@ -1857,7 +1962,7 @@ function unitFrame(now){ if (!UV.on) return; const dt=UV.last?Math.min(0.1,(now-
   while (B.length>2&&B[0][0]<sim.t-win) B.shift(); if (B.length>2000) B.splice(0,B.length-2000);
   const X=t=>30+640*(1-(sim.t-t)/win), Y=v=>486-100*clamp01(v/1.2), pth=k=>B.map((p,j)=>(j?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[k]).toFixed(1)).join('');
   UV.trP.setAttribute('d',pth(1)); UV.trN.setAttribute('d',pth(2)); UV.trG.setAttribute('d',pth(3));
-  UV.trT.textContent=`posledních ${win>=3600?fmt(win/3600,1)+' h':Math.round(win/60)+' min'} simulace · rychlost ${$('#speedL').textContent}`;
+  UV.trT.textContent=`posledních ${win>=3600?fmt(win/3600,1)+' h':Math.round(win/60)+' min'} simulace · rychlost ${SPEEDS[+$('#speed').value][1]}`;
   requestAnimationFrame(unitFrame); }
 /* ===================== ŽIVÁ DATA PVL (artifact db, plní je naplánovaná úloha) ===================== */
 let liveData=null;
@@ -1887,6 +1992,79 @@ if (/^https?:$/.test(location.protocol) && !/(^|\.)claude(usercontent)?\.(ai|com
   pull(); setInterval(pull,10*60e3);
 }
 setInterval(()=>liveBadge(),60000);
+/* ===================== HISTORIE (skutečná měření ČHMÚ, vkládá build.ps1 z live/history.json) ===================== */
+const VK_HISTORY=/*HISTORY*/null, VK_LIVE=/*LIVE*/null;
+const HS={st:-1,k:'q',log:false,lo:0,hi:0,cache:{},drag:null};
+const hT0=VK_HISTORY?Date.parse(VK_HISTORY.start+'T00:00:00Z'):0, hDate=i=>new Date(hT0+i*864e5);
+const hDay=i=>{ const d=hDate(i); return `${d.getUTCDate()}. ${d.getUTCMonth()+1}. ${d.getUTCFullYear()}`; };
+const hUnit=()=>HS.k==='q'?'m³/s':'cm', hFmt=v=>HS.k==='q'?fmtQ(v):fmt(v,0);
+function histSeries(){ const s=VK_HISTORY.stations[HS.st], key=s.id+HS.k;
+  if (!HS.cache[key]){ const p=s[HS.k].split(','), a=new Float32Array(VK_HISTORY.days); for (let i=0;i<a.length;i++) a[i]=(p[i]===''||p[i]==null)?NaN:+p[i]; HS.cache[key]=a; }
+  return HS.cache[key]; }
+function histRange(y){ const n=VK_HISTORY.days; HS.hi=n-1; HS.lo=y?Math.max(0,n-Math.round(y*365.25)):0; }
+function buildHist(p){
+  if (!VK_HISTORY){ p.innerHTML='<p class="note">Historická data nejsou v tomto sestavení k dispozici.</p>'; return; }
+  if (HS.st<0){ HS.st=VK_HISTORY.stations.findIndex(s=>s.id==='200100'); histRange(0); }
+  p.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+    <select id="hSt" aria-label="Stanice">${VK_HISTORY.stations.map((s,i)=>`<option value="${i}" ${i===HS.st?'selected':''}>${s.name} (${s.river}) – ${s.note}</option>`).join('')}</select>
+    <div class="tabs" id="hK"><button class="tab ${HS.k==='q'?'on':''}" data-k="q">Průtok</button><button class="tab ${HS.k==='h'?'on':''}" data-k="h">Vodní stav</button></div>
+    <div class="tabs" id="hR">${[[1,'1 rok'],[5,'5 let'],[10,'10 let'],[20,'20 let'],[0,'vše']].map(([y,l])=>`<button class="tab" data-y="${y}">${l}</button>`).join('')}</div>
+    <label style="font-size:12.5px;display:flex;gap:5px;align-items:center"><input type="checkbox" id="hLog" ${HS.log?'checked':''}> logaritmická osa</label></div>
+   <div id="hStats" class="mono" style="font-size:12.5px;color:var(--text-2);margin-bottom:6px"></div>
+   <div style="position:relative;height:300px"><canvas id="hC" style="width:100%;height:300px;display:block;cursor:crosshair" role="img" aria-label="Graf denních hodnot vybrané stanice"></canvas>
+   <div id="hTip" style="display:none;position:absolute;top:8px;pointer-events:none;background:var(--surface-3);border:1px solid var(--border-2);border-radius:8px;padding:5px 9px;font-size:12px;white-space:nowrap;z-index:3"></div></div>
+   <div class="muted" style="font-size:11.5px;margin:3px 0 10px">Tažením v grafu přiblížíš období, dvojklikem vrátíš celou řadu.</div>
+   <div style="overflow-x:auto"><table id="hTab"></table></div>
+   <p class="note"><b>Co tato data jsou:</b> skutečné denní průměry z říčních stanic ČHMÚ (otevřená data, CC BY 4.0), ${hDay(0)} až ${hDay(VK_HISTORY.days-1)}. Rok ${VK_HISTORY.provisionalFrom.slice(0,4)} je z provozních, zatím neověřených měření. Vodní stav je výška na vodočtu v cm, ČHMÚ ho v denní řadě zveřejňuje přibližně od roku 1994 a kvůli změnám koryta nemusí být mezi desetiletími přímo srovnatelný.</p>
+   <p class="note"><b>Hladiny v nádržích:</b> čtyřicetiletá denní řada není veřejně dostupná (ČHMÚ ji v otevřených datech nemá, Povodí Vltavy zveřejňuje jen poslední měsíc), proto zde není a ani se nedopočítává. Naměřené hladiny všech devíti nádrží se od listopadu 2026 ukládají do archivu <span class="mono">live/nadrze-archiv.csv</span>.</p>`;
+  $('#hSt').onchange=e=>{ HS.st=+e.target.value; drawHist(); };
+  $('#hK').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{ HS.k=b.dataset.k; $('#hK').querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b)); drawHist(); });
+  $('#hR').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{ histRange(+b.dataset.y); drawHist(); });
+  $('#hLog').onchange=e=>{ HS.log=e.target.checked; drawHist(); };
+  const c=$('#hC'), px=e=>e.clientX-c.getBoundingClientRect().left;
+  c.onmousedown=e=>{ HS.drag={a:px(e),b:px(e)}; };
+  c.onmousemove=e=>{ if (HS.drag){ HS.drag.b=px(e); drawHist(); } histHover(px(e)); };
+  c.onmouseleave=()=>{ $('#hTip').style.display='none'; if (!HS.drag) drawHist(); };
+  window.addEventListener('mouseup',histUp);
+  c.ondblclick=()=>{ histRange(0); drawHist(); };
+  drawHist(); }
+function histUp(){ const g=HS.drag; if (!g) return; HS.drag=null; if (botTab==='hist'&&HS.geo&&Math.abs(g.a-g.b)>6){ const a=HS.geo.day(Math.min(g.a,g.b)), b=HS.geo.day(Math.max(g.a,g.b)); if (b-a>=14){ HS.lo=a; HS.hi=b; } } if (botTab==='hist'&&$('#hC')) drawHist(); }
+function histHover(x){ const G=HS.geo, tip=$('#hTip'); if (!G||x<G.L||x>G.R){ tip.style.display='none'; return; } const i=G.day(x), v=histSeries()[i];
+  drawHist(x); tip.innerHTML=`<div class="muted">${hDay(i)}</div><b class="mono">${isNaN(v)?'bez dat':hFmt(v)+' '+hUnit()}</b>`; tip.style.display='block'; const w=tip.offsetWidth; tip.style.left=(x+14+w>G.W?x-w-14:x+14)+'px'; }
+function histTicks(lo,hi,log){ if (log){ const r=[]; for (let e=Math.floor(Math.log10(lo));e<=Math.ceil(Math.log10(hi));e++) for (const m of [1,2,5]){ const v=m*10**e; if (v>=lo&&v<=hi) r.push(v); } return r; }
+  const raw=(hi-lo)/5, m=10**Math.floor(Math.log10(raw)), st=[1,2,5,10].find(k=>k*m>=raw)*m, r=[]; for (let v=Math.ceil(lo/st)*st;v<=hi+1e-9;v+=st) r.push(v); return r; }
+function drawHist(hx){ const c=$('#hC'); if (!c||!VK_HISTORY) return; const A=histSeries(), W=c.clientWidth, Ht=300, dpr=devicePixelRatio||1; if (!W) return;
+  if (c.width!==Math.round(W*dpr)||c.height!==Math.round(Ht*dpr)){ c.width=Math.round(W*dpr); c.height=Math.round(Ht*dpr); }
+  const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,Ht);
+  const L=58,R=W-12,T=12,B=Ht-26, lo=HS.lo, hi=HS.hi, log=HS.log&&HS.k==='q';
+  let mn=Infinity,mx=-Infinity,sum=0,cnt=0,iMx=-1,iMn=-1; for (let i=lo;i<=hi;i++){ const v=A[i]; if (isNaN(v)) continue; cnt++; sum+=v; if (v>mx){mx=v;iMx=i;} if (v<mn){mn=v;iMn=i;} }
+  const span=Math.max(1,hi-lo), X=i=>L+(R-L)*(i-lo)/span; HS.geo={L,R,W,day:x=>Math.max(lo,Math.min(hi,Math.round(lo+(x-L)/(R-L)*span)))};
+  $('#hR').querySelectorAll('.tab').forEach(b=>{ const y=+b.dataset.y, n=VK_HISTORY.days; b.classList.toggle('on',hi===n-1&&lo===(y?Math.max(0,n-Math.round(y*365.25)):0)); });
+  g.font='11px '+css('--mono'); g.textBaseline='middle';
+  if (!cnt){ g.fillStyle=css('--muted'); g.textAlign='center'; g.fillText('V tomto období stanice tuto veličinu nezveřejňuje',(L+R)/2,(T+B)/2); $('#hStats').textContent=''; $('#hTab').innerHTML=''; return; }
+  let y0=log?Math.max(.01,mn*.85):Math.min(0,mn), y1=log?mx*1.2:mx*1.06; if (!log&&HS.k==='h') y0=Math.max(0,mn-(mx-mn)*.06); if (y1<=y0) y1=y0+1;
+  const Y=v=>log?B-(B-T)*(Math.log(Math.max(v,y0))-Math.log(y0))/(Math.log(y1)-Math.log(y0)):B-(B-T)*(v-y0)/(y1-y0);
+  g.strokeStyle=css('--grid'); g.lineWidth=1; g.fillStyle=css('--muted'); g.textAlign='right';
+  for (const v of histTicks(y0,y1,log)){ const y=Math.round(Y(v))+.5; g.beginPath(); g.moveTo(L,y); g.lineTo(R,y); g.stroke(); g.fillText(fmt(v,v<1?2:v<10&&log?0:0),L-7,y); }
+  g.textAlign='left'; g.fillText(hUnit(),4,T); g.textAlign='center';
+  const yA=hDate(lo).getUTCFullYear(), yB=hDate(hi).getUTCFullYear(), ys=yB-yA, step=[1,2,5,10].find(k=>ys/k<=Math.max(3,(R-L)/62))||10;
+  for (let y=Math.ceil(yA/step)*step;y<=yB;y+=step){ const i=(Date.UTC(y,0,1)-hT0)/864e5; if (i<lo||i>hi) continue; const x=X(i); g.strokeStyle=css('--grid'); g.beginPath(); g.moveTo(x,T); g.lineTo(x,B); g.stroke(); g.fillText(y,x,B+14); }
+  if (!ys) g.fillText(yA,(L+R)/2,B+14);
+  // po sloupcích pixelů min–max: ani nejkratší povodňová špička se při 40 letech neztratí
+  g.strokeStyle=css('--s1'); g.lineWidth=span>(R-L)?1:2; g.lineJoin='round'; g.beginPath(); let pen=false;
+  if (span>(R-L)){ const cols=Math.ceil(R-L); for (let k=0;k<=cols;k++){ const a=Math.round(lo+span*k/(cols+1)), b=Math.round(lo+span*(k+1)/(cols+1)); let m0=Infinity,m1=-Infinity; for (let i=a;i<=b;i++){ const v=A[i]; if (!isNaN(v)){ if (v<m0)m0=v; if (v>m1)m1=v; } } if (m1<m0){ pen=false; continue; } const x=L+k; if (pen) g.lineTo(x,Y(m0)); else g.moveTo(x,Y(m0)); g.lineTo(x,Y(m1)-.5); pen=true; } }
+  else for (let i=lo;i<=hi;i++){ const v=A[i]; if (isNaN(v)){ pen=false; continue; } if (pen) g.lineTo(X(i),Y(v)); else g.moveTo(X(i),Y(v)); pen=true; }
+  g.stroke();
+  // popisek jen u maxima
+  const mxX=X(iMx), mxY=Y(mx); g.fillStyle=css('--s1'); g.strokeStyle=css('--surface'); g.lineWidth=2; g.beginPath(); g.arc(mxX,mxY,4,0,7); g.fill(); g.stroke();
+  g.fillStyle=css('--text'); g.textAlign=mxX>(L+R)/2?'right':'left'; g.fillText(`max ${hFmt(mx)} ${hUnit()} · ${hDay(iMx)}`,mxX+(mxX>(L+R)/2?-9:9),Math.max(T+5,mxY));
+  if (HS.drag){ g.fillStyle=css('--accent-weak'); const a=Math.min(HS.drag.a,HS.drag.b), b=Math.max(HS.drag.a,HS.drag.b); g.fillRect(a,T,b-a,B-T); }
+  if (hx!=null&&!HS.drag){ const i=HS.geo.day(hx), v=A[i], x=X(i); g.strokeStyle=css('--muted'); g.lineWidth=1; g.beginPath(); g.moveTo(x,T); g.lineTo(x,B); g.stroke(); if (!isNaN(v)){ g.fillStyle=css('--s1'); g.strokeStyle=css('--surface'); g.lineWidth=2; g.beginPath(); g.arc(x,Y(v),4.5,0,7); g.fill(); g.stroke(); } return; }
+  const s=VK_HISTORY.stations[HS.st];
+  $('#hStats').innerHTML=`${s.name} · ${hDay(lo)} – ${hDay(hi)} · průměr <b>${hFmt(sum/cnt)} ${hUnit()}</b> · minimum <b>${hFmt(mn)}</b> (${hDay(iMn)}) · maximum <b>${hFmt(mx)}</b> (${hDay(iMx)}) · pokrytí ${fmt(100*cnt/(hi-lo+1),1)} %`;
+  const yr={}; for (let i=lo;i<=hi;i++){ const v=A[i]; if (isNaN(v)) continue; const q=hDate(i).getUTCFullYear(), o=yr[q]||(yr[q]={mx:-Infinity,mn:Infinity}); if (v>o.mx){o.mx=v;o.iX=i;} if (v<o.mn){o.mn=v;o.iN=i;} }
+  const list=Object.values(yr), hiL=[...list].sort((a,b)=>b.mx-a.mx).slice(0,5), loL=[...list].sort((a,b)=>a.mn-b.mn).slice(0,5);
+  $('#hTab').innerHTML=`<tr><th>#</th><th>Nejvyšší roční maxima</th><th>datum</th><th>Nejnižší roční minima</th><th>datum</th></tr>`+hiL.map((o,j)=>`<tr><td>${j+1}</td><td class="mono">${hFmt(o.mx)} ${hUnit()}</td><td class="mono">${hDay(o.iX)}</td><td class="mono">${loL[j]?hFmt(loL[j].mn)+' '+hUnit():'—'}</td><td class="mono">${loL[j]?hDay(loL[j].iN):'—'}</td></tr>`).join(''); }
 /* ===================== OBCE ===================== */
 function buildPlaces(p){
   p.innerHTML=`<p class="note" style="margin:0 0 10px">Cílem řízení kaskády je, aby se obce pod nádržemi i na jejich březích nezatopily. Prahy jsou orientační – odvozené z N-letých průtoků, stupňů povodňové aktivity a neškodných odtoků podle manipulačních řádů.</p>
@@ -1899,19 +2077,74 @@ function renderPlaces(force){
   const worst=sim.places.reduce((m,p)=>Math.max(m,p.maxSt),0);
   const head=`<tr><td colspan="7" style="padding:8px 6px;background:var(--surface-2);border-radius:8px;font-size:12.5px">${cnt+cw?`<b style="color:var(--critical)">Právě teď: ${cnt} obcí pod vodou, ${cw} s rozlivem.</b>`:`<b style="color:var(--good)">Právě teď nikde nevylévá.</b>`} ${worst?`Nejhorší stav od začátku scénáře: <b>${worst===2?'záplava':'rozliv'}</b> (sloupec maximum).`:'Od začátku scénáře zatím bez rozlivu – u povodňových scénářů vlna teprve přichází (2002: 1. vlna ~3. den, kulminace v Praze ~8. den; 2013: kulminace ~3. den).'}</td></tr>`;
   t.innerHTML=head+h; const b=$('#plN'); if (b) b.textContent=cnt+cw; }
+/* ===================== ZÁZNAM TESTOVÁNÍ (jen s kódem v odkazu ?t=KOD a po souhlasu testera) ===================== */
+function recInit(){
+  if (!/^https?:$/.test(location.protocol)) return; let code=null, fromUrl=false;
+  try{ const q=new URLSearchParams(location.search).get('t'); if (q){ code=q.trim().toUpperCase(); fromUrl=true; } else code=localStorage.getItem('vk-rec-code'); }catch(e){ return; }
+  if (!code||!/^[A-Z0-9-]{4,20}$/.test(code)) return;
+  if (fromUrl) try{ history.replaceState(null,'',location.pathname); }catch(e){}
+  const s=document.createElement('script'); s.src='telemetry.js?v='+Math.floor(Date.now()/3600e3);
+  s.onload=()=>{ const c=window.VK_TELEMETRY; if (!c||!c.url||!c.key) return; let v=null; try{ v=localStorage.getItem('vk-rec:'+code); }catch(e){} if (v==='yes') recStart(code,c); else if (v!=='no') recAsk(code,c); };
+  document.head.appendChild(s); }
+function recModal(html){ let m=$('#recM'); if (!m){ m=document.createElement('div'); m.className='modal'; m.id='recM'; m.style.zIndex=120; document.body.appendChild(m); } m.innerHTML=`<div class="box" style="max-width:520px">${html}</div>`; m.classList.add('on'); return m; }
+const REC_INFO=`<ul style="margin:8px 0;padding-left:18px;color:var(--text-2);font-size:13.5px;line-height:1.6"><li><b>Co se ukládá:</b> co v simulátoru děláš (tlačítka, scénáře, nastavení, posun času), stav simulace, chyby aplikace, velikost okna, typ prohlížeče a systému.</li><li><b>Co se neukládá:</b> jméno, e-mail, IP adresa, obsah obrazovky ani nic mimo tuto stránku.</li><li><b>Kdo to vidí:</b> jen organizátor testování, pod tvým kódem.</li><li><b>Kdykoli můžeš</b> záznam ukončit a smazat tlačítkem ● nahoře.</li></ul>`;
+function recAsk(code,cfg){ const m=recModal(`<h3 style="margin:0 0 4px">Souhlas se záznamem testování</h3><p class="note" style="margin:0">Dostal(a) jsi odkaz pro testování simulátoru (kód <b class="mono">${code}</b>). Záznam pomůže zjistit, co je nejasné nebo nefunguje.</p>${REC_INFO}<p class="note">Bez souhlasu můžeš simulátor normálně používat, jen se nic nezaznamená.</p><div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn" id="recNo">Nesouhlasím</button><button class="btn acc" id="recYes">Souhlasím se záznamem</button></div>`);
+  $('#recNo').onclick=()=>{ try{ localStorage.setItem('vk-rec:'+code,'no'); localStorage.removeItem('vk-rec-code'); }catch(e){} m.classList.remove('on'); };
+  $('#recYes').onclick=()=>{ try{ localStorage.setItem('vk-rec:'+code,'yes'); localStorage.setItem('vk-rec-code',code); }catch(e){} m.classList.remove('on'); recStart(code,cfg,true); }; }
+function recStart(code,cfg,fresh){
+  let sid, seq=0; try{ sid=sessionStorage.getItem('vk-rec-sid'); seq=+sessionStorage.getItem('vk-rec-seq')||0; }catch(e){}
+  if (!sid){ sid=crypto.randomUUID(); seq=0; try{ sessionStorage.setItem('vk-rec-sid',sid); }catch(e){} }
+  const ua=navigator.userAgent, br=/Edg\//.test(ua)?'Edge':/OPR\//.test(ua)?'Opera':/Firefox\//.test(ua)?'Firefox':/Chrome\//.test(ua)?'Chrome':/Safari\//.test(ua)?'Safari':'jiný', os=/Windows/.test(ua)?'Windows':/Android/.test(ua)?'Android':/iPhone|iPad/.test(ua)?'iOS':/Mac OS/.test(ua)?'macOS':/Linux/.test(ua)?'Linux':'jiný';
+  const meta=()=>({w:innerWidth,h:innerHeight,dpr:devicePixelRatio||1,br,os,lang:navigator.language,ver:'2026-11-21'});
+  const Q=[]; let on=true, busy=false, wait=8000, tm=0, lastIn=Date.now();
+  const log=(k,d)=>{ if (!on) return; Q.push({s:++seq,at:Date.now(),k,h:Math.round(sim.t/36)/100,d:d||{}}); if (Q.length>3000) Q.splice(0,Q.length-3000); try{ sessionStorage.setItem('vk-rec-seq',seq); }catch(e){} };
+  const send=(keep)=>{ if (!on||busy||!Q.length) return; const batch=Q.slice(0,keep?60:150); busy=true;
+    fetch(cfg.url.replace(/\/$/,'')+'/rest/v1/rpc/vk_ingest',{method:'POST',keepalive:!!keep,headers:{apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify({p_code:code,p_session:sid,p_meta:meta(),p_events:batch})})
+     .then(async r=>{ busy=false; if (r.ok){ Q.splice(0,batch.length); wait=8000; const j=await r.json().catch(()=>null); if (j&&j.full) stop(); return; } if (r.status>=400&&r.status<500&&r.status!==408&&r.status!==429){ stop(); return; } wait=Math.min(120000,wait*2); }).catch(()=>{ busy=false; wait=Math.min(120000,wait*2); }); };
+  const tick=()=>{ send(); tm=setTimeout(tick,wait); };
+  const stop=()=>{ on=false; clearTimeout(tm); $('#recB').style.display='none'; };
+  const b=$('#recB'); b.style.display=''; b.innerHTML=`<span style="color:var(--critical)">●</span> <span class="mono">${code}</span>`; b.title='Probíhá záznam testování. Klikni pro ukončení nebo smazání.';
+  b.onclick=()=>{ const m=recModal(`<h3 style="margin:0 0 4px">Záznam testování běží</h3><p class="note" style="margin:0">Kód <b class="mono">${code}</b>.</p>${REC_INFO}<div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn" id="recBack">Pokračovat</button><button class="btn" id="recEnd">Ukončit záznam</button><button class="btn danger" id="recDel">Ukončit a smazat tuto relaci</button></div>`);
+    const off=()=>{ try{ localStorage.setItem('vk-rec:'+code,'no'); localStorage.removeItem('vk-rec-code'); sessionStorage.removeItem('vk-rec-sid'); sessionStorage.removeItem('vk-rec-seq'); }catch(e){} m.classList.remove('on'); };
+    $('#recBack').onclick=()=>m.classList.remove('on');
+    $('#recEnd').onclick=()=>{ log('end',{why:'tester'}); send(true); setTimeout(stop,400); off(); toast('Záznam ukončen','info'); };
+    $('#recDel').onclick=()=>{ Q.length=0; stop(); off(); fetch(cfg.url.replace(/\/$/,'')+'/rest/v1/rpc/vk_forget',{method:'POST',headers:{apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify({p_code:code,p_session:sid})}).then(r=>toast(r.ok?'Záznam této relace je smazaný':'Smazání se nepovedlo, napiš organizátorovi','info')).catch(()=>toast('Smazání se nepovedlo, napiš organizátorovi','warn')); }; };
+  // významné akce včetně ovládání klávesnicí
+  const wrap=(fn,k,args)=>function(...a){ const before=args.pre&&args.pre(); const r=fn.apply(this,a); const d=args.d(a,before); if (d) log(k,d); return r; };
+  setRun=wrap(setRun,'run',{pre:()=>running,d:(a,b)=>b!==running?{on:running}:null});
+  setSpeed=wrap(setSpeed,'speed',{pre:()=>speed,d:(a,b)=>b!==speed?{v:SPEEDS[+$('#speed').value][1]}:null});
+  doLoad=wrap(doLoad,'scenario',{d:()=>({id:sim.scenarioKey})}); $('#load').onclick=doLoad;
+  advance=wrap(advance,'jump',{d:a=>({sec:a[0]})});
+  seekTo=wrap(seekTo,'seek',{pre:()=>sim.t,d:(a,b)=>b!==sim.t||a[0]>b?{from:Math.round(b/36)/100,to:Math.round(a[0]/36)/100}:null});
+  select=wrap(select,'select',{pre:()=>selected,d:(a,b)=>b!==selected?{id:selected}:null});
+  openDetail=wrap(openDetail,'detail',{d:a=>({id:a[0]})}); openUnit=wrap(openUnit,'unit',{d:a=>({id:a[0],i:a[1]})});
+  startTour=wrap(startTour,'tour',{d:()=>({})}); openSettings=wrap(openSettings,'settings',{d:()=>({})});
+  const SKIP='#play,#load,[data-adv],[data-back],#spDn,#spUp,#recB,#recM,#clockBtn,#tourBtn,#setBtn';
+  document.addEventListener('click',e=>{ lastIn=Date.now(); const el=e.target.closest&&e.target.closest('button,summary,[data-qa]'); if (!el||el.closest(SKIP)) return; const id=el.dataset.qa||el.dataset.t||el.dataset.k||el.id||el.getAttribute('aria-label')||(el.textContent||'').trim().slice(0,40); log(el.dataset.qa?'action':el.dataset.t?'tab':'click',{id}); },true);
+  document.addEventListener('change',e=>{ const el=e.target; if (!el.matches||!el.matches('input,select')||el.closest('#recM,#goPop')||el.id==='speed'||el.id==='scen') return; const ty=el.type; if (!['range','number','checkbox','radio','select-one'].includes(ty)) return; const id=el.id||el.name||el.getAttribute('aria-label')||(el.closest('label')?.textContent||'').trim().slice(0,40)||ty; log('set',{id,v:ty==='checkbox'||ty==='radio'?el.checked:String(el.value).slice(0,24)}); },true);
+  for (const t of ['keydown','pointermove','wheel']) document.addEventListener(t,()=>{ lastIn=Date.now(); },{passive:true,capture:true});
+  sim.listeners.push(ev=>{ if (ev.sev==='warn'||ev.sev==='crit') log('simevent',{sev:ev.sev,key:ev.key,msg:String(ev.msg).slice(0,140)}); });
+  window.addEventListener('error',ev=>log('error',{msg:String(ev.message).slice(0,200),line:ev.lineno}));
+  window.addEventListener('unhandledrejection',ev=>log('error',{msg:String(ev.reason&&ev.reason.message||ev.reason).slice(0,200)}));
+  document.addEventListener('visibilitychange',()=>{ log('focus',{on:!document.hidden}); if (document.hidden) send(true); });
+  window.addEventListener('pagehide',()=>send(true));
+  setInterval(()=>{ if (document.hidden) return; log('state',{sc:sim.scenarioKey,run:running,spd:SPEEDS[+$('#speed').value][1],praha:Math.round(sim.praha),P:Math.round(sim.Ptot||0),orlik:+sim.D.orlik.h.toFixed(2),slapy:+sim.D.slapy.h.toFixed(2),vrane:Math.round(sim.D.vrane.Qout),bad:sim.places.filter(p=>p.st>=2).length,idle:Date.now()-lastIn>120000}); },30000);
+  log('start',{fresh:!!fresh,sc:sim.scenarioKey}); tick(); window.__vkRec={flush:()=>send(),queued:()=>Q.length,log}; }
 /* ===================== render ===================== */
 function renderLive(){ renderPlaces(); renderKpi(); renderProfile(); renderCtrl(); renderCards(); renderNodes(); renderPps(); renderLog(); renderDside(); }
 function renderAll(){ renderLive(); drawCharts(); drawSparks(); }
-let rT; window.addEventListener('resize',()=>{ clearTimeout(rT); rT=setTimeout(()=>{ drawCharts(); drawSparks(); },120); });
-$('#scen').value='aktualni'; loadScenario(sim,'aktualni'); setCap('aktualni');
+let rT; window.addEventListener('resize',()=>{ clearTimeout(rT); rT=setTimeout(()=>{ drawCharts(); drawSparks(); if (botTab==='hist') drawHist(); },120); });
+$('#scen').value='aktualni'; loadScenario(sim,'aktualni'); tsReset(); setCap('aktualni');
 buildProfile(); buildCtrl(); buildChartTabs(); buildCharts(); buildBottom(); setRun(false); setSpeed(SPEED_I0);
 sim.step(); renderAll(); requestAnimationFrame(loop);
 if (document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ buildProfile(); renderAll(); });
-window.__sim=sim; window.__vk={openDetail,endTour,select,openUnit}; window.openDetail=openDetail;
+window.__sim=sim; window.__vk={openDetail,endTour,select,openUnit,advance,seekTo,timeState:()=>({job:!!job,points:TS.list.length,end:TS.end})}; window.openDetail=openDetail;
+if (VK_LIVE) onLive(VK_LIVE); // poslední měření vložené při sestavení (offline soubor, artefakt); novější data ho přepíší
 let showW=true; try{ showW=localStorage.getItem('vk-welcome')!=='0'; }catch(e){}
 const wClose=()=>{ $('#welcome').classList.remove('on'); try{ if ($('#wNo').checked) localStorage.setItem('vk-welcome','0'); }catch(e){} };
 $('#wTour').onclick=()=>{ wClose(); startTour(); }; $('#wMan').onclick=()=>{ wClose(); $('#modal').classList.add('on'); }; $('#wGo').onclick=wClose;
 if (showW) $('#welcome').classList.add('on');
+recInit();
 })();
 </script>
 </body>

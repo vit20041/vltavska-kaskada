@@ -64,6 +64,13 @@ Po dokončení úpravy: pečlivě otestovat (regrese + ostré snímky) a rovnou 
 - Události/ukázkový režim; ⚙ Nastavení (klávesa `,`, localStorage vk-prefs): Zastavit/Jen upozornit/Vypnuto, kategorie,
   náhodné poruchy + četnost, doba připravenosti, motiv, plynulost, úvodní obrazovka, reset.
 
+## Čas, rozvržení, testování (21. 11. 2026)
+- Posun času: `sim.snapshot()/restore()` (core), body návratu TS v ui.html (nedávné husté, starší prořeďované), přetáčení po snímcích
+  (`advance`/`jobStep`, zastavující zpráva ho jen podrží), `seekTo`, časová osa `#tlTrack`, přechod na datum přes hodiny.
+- Běžné monitory: blok `@media` „běžné monitory“ (šířka 1101–1919 px nebo výška do 1000 px): profil a řízení díla na jedné obrazovce.
+- Testování: záznam běží JEN s odkazem `?t=KOD` a po souhlasu testera (`recInit/recStart` v ui.html). `telemetry.js` = URL a veřejný
+  klíč Supabase (nikdy service_role). `tools/supabase-kontrola.sql` = schéma a RLS. `kontrola.html` = kontrolní okno pro správce.
+
 ## Ověřené zdroje (pro realismus)
 - ČEZ: Slapy – strojovna přímo pod přelivy (přelévaná elektrárna), kapacita přelivů 2400 m³/s.
 - Orlík: stávající přeliv + 2 spodní výpusti ≈ 3150 m³/s; nový boční bezpečnostní přeliv (3 pole se segmentovými uzávěry,
