@@ -235,7 +235,7 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
 .tour{position:fixed;inset:0;z-index:80;display:none}
 .tour.on{display:block}
 .tour .spot{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(4,8,15,.62);transition:all .3s ease;pointer-events:none;border:2px solid var(--accent)}
-.tour .tc{position:fixed;width:400px;border:2px solid var(--accent)!important;background:var(--surface);border:1px solid var(--border-2);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);transition:top .3s,left .3s}
+.tour .tc{position:fixed;width:min(400px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;border:2px solid var(--accent)!important;background:var(--surface);border:1px solid var(--border-2);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);transition:top .3s,left .3s}
 .tour .tc h4{margin:0 0 8px;font-size:18px}
 .tour .tc p{margin:0;color:var(--text-2);font-size:14.5px;line-height:1.6}
 .tour .tc .nav{display:flex;gap:8px;margin-top:14px;align-items:center}
@@ -338,6 +338,10 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
   .side{grid-column:2;grid-row:1 / span 2;gap:10px;top:calc(var(--hh,130px) + 4px);max-height:calc(100vh - var(--hh,130px) - 10px)}
   .card{padding:12px}
   .evc{max-height:calc(100% - 16px);overflow:auto}
+  .tour .tc{width:336px;padding:13px 15px}
+  .tour .tc h4{font-size:16px;margin-bottom:5px}
+  .tour .tc p{font-size:13.5px;line-height:1.5}
+  .tour .tc .nav{margin-top:10px}
   .det{padding:8px}
   .dbox{width:calc(100vw - 16px);max-height:calc(100vh - 16px)}
   .dbody{grid-template-columns:minmax(0,1fr) 280px}
@@ -2841,30 +2845,44 @@ function animPlace(dt){ const P=dref.pl; if (!P||!P.gY) return; const p=sim.plac
 const TOUR=[
   {sel:null,t:'Vítej v simulátoru Vltavské kaskády 👋',p:'Za pár kroků ti ukážu, jak to celé funguje. Kdykoli můžeš průvodce zavřít a spustit znovu tlačítkem „Průvodce“ nahoře.'},
   {sel:'#scen',up:2,t:'1. Vyber scénář',p:'Tady zvolíš situaci – dnešní stav (sucho), povodně 2002 a 2013, N-letou povodeň, průměrný rok, sucho, podpůrné služby nebo Orlík 2033. Pak klikni „Načíst“.'},
-  {sel:'#play',up:1,t:'2. Spusť čas',p:'Tlačítko ▶ (nebo mezerník) rozběhne simulaci. Vedle nastavíš rychlost, tlačítky −1 d až +7 d skočíš zpět nebo vpřed. Na časové ose pod lištou klikneš na libovolný okamžik, kliknutím na hodiny zadáš přesné datum.'},
-  {sel:'.kpis',t:'3. Klíčová čísla',p:'Průtok v Praze se stupněm povodňové aktivity, výkon celé kaskády, zásoba vody, hladiny Orlíku a Slap a odtok z kaskády oproti povinnému minimu.'},
-  {sel:'#hero',t:'4. Podélný profil',p:'Živý obraz celé kaskády od Lipna po Prahu. Svítící okénka = elektrárna vyrábí, bílá pěna = voda teče přes přeliv, tloušťka řek = průtok. Klikni na přehradu pro řízení, dvojklik otevře detail.'},
-  {sel:'#ctrl',t:'5. Řízení vybraného díla',p:'Přepínáš automatiku podle manipulačního řádu, ruční řízení a plán výkonu. Posuvníky nastavíš cílové hladiny, neškodný odtok nebo předpouštění. Kliknutím na soustrojí ho odstavíš.'},
-  {sel:'#openDet',t:'6. Detail elektrárny',p:'Tohle tlačítko (nebo Enter) otevře řez vodním dílem: přeliv s uzávěry, spodní výpusti, přivaděč a točící se turbíny. Přeliv a výpusti tam můžeš otevírat ručně.'},
-  {sel:'#charts',up:1,t:'7. Grafy',p:'Záložky nahoře přepínají hladiny, průtoky, výkon, Prahu, podpůrné služby… Tažením myší úsek přiblížíš, dvojklikem vrátíš. Klikem na legendu řadu skryješ.'},
-  {sel:'#btabs',up:1,t:'8. Přítoky, služby a události',p:'Nastav přítoky (tlačítka Q355 … Q100), přidej povodňovou vlnu, nabídni podpůrné služby ČEPS nebo si přečti, co se v simulaci stalo.'},
-  {sel:'.qa',t:'9. Rychlé akce',p:'Jedním klikem spustíš povodeň, sucho, předpouštění Orlíku nebo výpadek bloku v soustavě. Zkus teď třeba „Povodeň Q100“ a pak ▶.'},
+  {sel:'#play',up:1,t:'2. Spusť čas',p:'Tlačítko ▶ (nebo mezerník) rozběhne simulaci. Vedle nastavíš rychlost, tlačítky −1 d až +7 d skočíš zpět nebo vpřed. Kliknutím na hodiny zadáš přesné datum.'},
+  {sel:'#tline',t:'3. Časová osa',p:'Klikni na libovolný okamžik: dopředu se simulace dopočítá, dozadu se vrátí do uloženého stavu a můžeš zkusit jiný postup. Co se stalo po návratu, se zahodí. Značky na ose jsou důležité události.'},
+  {sel:'.kpis',t:'4. Klíčová čísla',p:'Průtok v Praze se stupněm povodňové aktivity, výkon celé kaskády, zásoba vody, hladiny Orlíku a Slap a odtok z kaskády oproti povinnému minimu.'},
+  {sel:'#hero',t:'5. Podélný profil',p:'Živý obraz celé kaskády od Lipna po Prahu. Svítící okénka = elektrárna vyrábí, bílá pěna = voda teče přes přeliv, tloušťka řek = průtok. Klikni na přehradu pro řízení, dvojklik otevře detail.'},
+  {sel:'#ctrl',t:'6. Řízení vybraného díla',p:'Přepínáš automatiku podle manipulačního řádu, ruční řízení a plán výkonu. Posuvníky nastavíš cílové hladiny, neškodný odtok nebo předpouštění. Kliknutím na soustrojí ho odstavíš.'},
+  {sel:'#openDet',t:'7. Detail elektrárny',p:'Tohle tlačítko (nebo Enter) otevře řez vodním dílem: přeliv s uzávěry, spodní výpusti, přivaděč a točící se turbíny. Přeliv a výpusti tam můžeš otevírat ručně.'},
+  {sel:'#charts',up:1,t:'8. Grafy',p:'Záložky nahoře přepínají hladiny, průtoky, výkon, Prahu, podpůrné služby… Tažením myší úsek přiblížíš, dvojklikem vrátíš. Klikem na legendu řadu skryješ.'},
+  {sel:'#btabs',up:1,t:'9. Přítoky, služby a události',p:'Nastav přítoky (tlačítka Q355 … Q100), přidej povodňovou vlnu, nabídni podpůrné služby ČEPS, prohlédni si historii nebo si přečti, co se v simulaci stalo.'},
+  {sel:'#ecP',tab:'econ',t:'10. Cena elektřiny',p:'Zadej cenu pro každou hodinu. Orlík, Slapy a Lipno I přesunou denní objem vody do nejdražších hodin. Pod cenou vidíš plánovaný průtok. Při povodni a v suchu má přednost manipulační řád.'},
+  {sel:'#ecT',tab:'econ',t:'11. Tabulka soustrojí',p:'Pro každé dílo můžeš přepsat průtok, účinnost nebo výkon. Výchozí křivky jsou modelové, nejde o výrobní data. Zvýrazněný řádek je provoz s nejlepší účinností.'},
+  {sel:'#ecBal',up:1,tab:'econ',t:'12. Dorovnání výkonu',p:'Když na jednom díle ručně nastavíš výkon, rozdíl převezmou ostatní díla v automatice, pokud jim to dovolí voda a hladiny. Zadáš tu i orientační cenu jednoho startu soustrojí.'},
+  {sel:'.qa',t:'13. Rychlé akce',p:'Jedním klikem spustíš povodeň, sucho, předpouštění Orlíku nebo výpadek bloku v soustavě. Zkus teď třeba „Povodeň Q100“ a pak ▶.'},
   {sel:null,t:'Hotovo! 🎉',p:'Podrobnosti najdeš v Manuálu. Tip na začátek: načti „Povodeň srpen 2002“, nastav rychlost 6 h/s a sleduj, jak kaskáda chrání Prahu.'}];
 let tourOn=false, tourI=0;
-function startTour(){ tourOn=true; tourI=0; $('#tour').classList.add('on'); showTour(); }
-function endTour(){ if (!tourOn) return; tourOn=false; $('#tour').classList.remove('on'); try{ localStorage.setItem('vk-toured','1'); }catch(e){} }
+let tourBase='dams';
+const tourTab=t=>{ if (botTab===t) return; botTab=t; buildBottom(); renderAll(); };
+function startTour(){ tourOn=true; tourI=0; tourBase=botTab; $('#tour').classList.add('on'); showTour(); }
+function endTour(){ if (!tourOn) return; tourOn=false; $('#tour').classList.remove('on'); tourTab(tourBase); try{ localStorage.setItem('vk-toured','1'); }catch(e){} }
 function tourGo(k){ tourI+=k; if (tourI<0) tourI=0; if (tourI>=TOUR.length) return endTour(); showTour(); }
 function showTour(){
-  const s=TOUR[tourI], sp=$('#tSpot'), c=$('#tCard'); $('#tT').textContent=s.t; $('#tP').textContent=s.p; $('#tN').textContent=`${tourI+1} / ${TOUR.length}`;
+  const s=TOUR[tourI]; tourTab(s.tab||tourBase); $('#tT').textContent=s.t; $('#tP').textContent=s.p; $('#tN').textContent=`${tourI+1} / ${TOUR.length}`;
   $('#tNext').textContent=tourI===TOUR.length-1?'Začít':'Další'; $('#tBack').style.visibility=tourI?'visible':'hidden';
-  let e=s.sel?$(s.sel):null; for (let i=0;e&&i<(s.up||0);i++) e=e.parentElement;
-  if (e){ e.scrollIntoView({block:'nearest',behavior:'smooth'}); setTimeout(()=>{ const r=e.getBoundingClientRect(), pad=8; Object.assign(sp.style,{display:'block',left:r.left-pad+'px',top:r.top-pad+'px',width:r.width+pad*2+'px',height:r.height+pad*2+'px'});
-      let top=r.bottom+16, left=Math.min(window.innerWidth-380,Math.max(12,r.left)); if (top+190>window.innerHeight) top=Math.max(12,r.top-200); if (r.height>window.innerHeight*0.55){ top=Math.min(window.innerHeight-210,r.top+30); left=r.left>window.innerWidth/2?r.left-380:Math.min(window.innerWidth-380,r.right-380); }
-      c.style.top=top+'px'; c.style.left=left+'px'; },e.getBoundingClientRect().top<0||e.getBoundingClientRect().bottom>window.innerHeight?350:0); }
-  else { sp.style.display='none'; c.style.top=(window.innerHeight/2-100)+'px'; c.style.left=(window.innerWidth/2-180)+'px'; }
+  const e=tourTarget();
+  if (e&&!e.closest('header')){ const hh=$('header').offsetHeight, r=e.getBoundingClientRect(), room=innerHeight-(getComputedStyle($('header')).position==='sticky'?hh:0)-16; e.style.scrollMarginTop=hh+10+'px'; if (r.top<hh+4||r.bottom>innerHeight-4) e.scrollIntoView({block:r.height>room?'start':'center',behavior:'auto'}); }
+  placeTour();
 }
+function tourTarget(){ const s=TOUR[tourI]; let e=s.sel?$(s.sel):null; for (let i=0;e&&i<(s.up||0);i++) e=e.parentElement; return e&&e.getClientRects().length?e:null; }
+// karta se hledá mimo zvýrazněné místo a vždy zůstává celá na obrazovce; zvýraznění se ořízne na viditelnou část
+function placeTour(){ if (!tourOn) return; const sp=$('#tSpot'), c=$('#tCard'), e=tourTarget(), W=innerWidth, H=innerHeight, cw=c.offsetWidth, ch=c.offsetHeight, m=12, cX=x=>Math.max(m,Math.min(W-cw-m,x)), cY=y=>Math.max(m,Math.min(H-ch-m,y));
+  if (!e){ sp.style.display='none'; c.style.left=cX((W-cw)/2)+'px'; c.style.top=cY((H-ch)/2)+'px'; return; }
+  const r=e.getBoundingClientRect(), pad=6, head=$('header'), minT=!e.closest('header')&&getComputedStyle(head).position==='sticky'?head.offsetHeight+2:3, L=Math.max(3,r.left-pad), T=Math.max(minT,r.top-pad), R=Math.min(W-3,r.right+pad), B=Math.max(T+8,Math.min(H-3,r.bottom+pad));
+  Object.assign(sp.style,{display:'block',left:L+'px',top:T+'px',width:R-L+'px',height:B-T+'px'});
+  const opts=[[L,B+m],[L,T-ch-m],[R+m,T],[L-cw-m,T],[R-cw,B+m],[R-cw,T-ch-m],[R+m,B-ch],[L-cw-m,B-ch],[W-cw-m,H-ch-m],[m,H-ch-m],[W-cw-m,minT+m],[m,minT+m]].map(([x,y])=>[cX(x),cY(y)]);
+  let best=opts[0], bo=Infinity; for (const [x,y] of opts){ const o=Math.max(0,Math.min(x+cw,R)-Math.max(x,L))*Math.max(0,Math.min(y+ch,B)-Math.max(y,T)); if (o<bo-1){ bo=o; best=[x,y]; } }
+  c.style.left=best[0]+'px'; c.style.top=best[1]+'px'; }
 $('#tNext').onclick=()=>tourGo(1); $('#tBack').onclick=()=>tourGo(-1); $('#tSkip').onclick=endTour;
 window.addEventListener('resize',()=>{ if (tourOn) showTour(); });
+{ let tq=0; window.addEventListener('scroll',()=>{ if (!tourOn||tq) return; tq=requestAnimationFrame(()=>{ tq=0; placeTour(); }); },{passive:true,capture:true}); }
 
 /* ===================== UKÁZKOVÝ REŽIM – zastavení a vysvětlení událostí ===================== */
 /* Předvolby aplikace (localStorage 'vk-prefs'): zastavující zprávy, kategorie, ztlumené typy */
