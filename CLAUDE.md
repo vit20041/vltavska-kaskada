@@ -71,6 +71,13 @@ Po dokončení úpravy: pečlivě otestovat (regrese + ostré snímky) a rovnou 
 - Testování: záznam běží JEN s odkazem `?t=KOD` a po souhlasu testera (`recInit/recStart` v ui.html). `telemetry.js` = URL a veřejný
   klíč Supabase (nikdy service_role). `tools/supabase-kontrola.sql` = schéma a RLS. `kontrola.html` = kontrolní okno pro správce.
 
+## Cena a účinnost (21. 11. 2026)
+- `sim.econ {on, balance}`, `priceShape` (24 h), `etaTabs` (vlastní tabulky Q–η na soustrojí): předvolby v localStorage `vk-econ`, návrat v čase je nemění.
+  Výchozí křivky jsou modelové, ne výrobní data.
+- `econPlan`: denní objem z MŘ se nemění, jen se přesouvá do hodin s nejvyšší hodnotou (cena × účinnost). Min. 5 h provozu (Lipno I 7 h), ranní i večerní okno,
+  stálý základ mimo špičky, když se objem do špiček nevejde. `econHold`: při povodni, doznívání, suchu a nízkých vyrovnávacích nádržích platí rozvrh MŘ.
+- `balanceStep`: odchylka ručního díla od jeho automatického plánu (`Pref`) se rozloží na Orlík, Slapy, Lipno I, případně PVE; nikdy proti ochraně hladin.
+
 ## Ověřené zdroje (pro realismus)
 - ČEZ: Slapy – strojovna přímo pod přelivy (přelévaná elektrárna), kapacita přelivů 2400 m³/s.
 - Orlík: stávající přeliv + 2 spodní výpusti ≈ 3150 m³/s; nový boční bezpečnostní přeliv (3 pole se segmentovými uzávěry,

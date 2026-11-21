@@ -411,6 +411,7 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
     </div>
     <aside class="col side">
       <section class="card insp" id="ctrl"></section>
+      <section class="card" id="balCard" style="display:none"><div class="sect" style="margin-top:0"><div class="h">Dorovnání výkonu</div></div><div id="balNote" style="font-size:12.5px;color:var(--text-2)"></div></section>
       <section class="card">
         <div class="sect" style="margin-top:0"><div class="h">Rychlé akce</div></div>
         <div class="qa">
@@ -1045,9 +1046,9 @@ function drawChart(c){
 }
 
 /* ===================== SPODNÍ PANEL ===================== */
-const BT=[['dams','Vodní díla'],['places','Obce a záplavy'],['nodes','Přítoky'],['hist','Historie od 1985'],['pps','Podpůrné služby'],['log','Události'],['set','Model a export'],['par','Parametry a zdroje']];
+const BT=[['dams','Vodní díla'],['places','Obce a záplavy'],['nodes','Přítoky'],['hist','Historie od 1985'],['pps','Podpůrné služby'],['econ','Cena a účinnost'],['log','Události'],['set','Model a export'],['par','Parametry a zdroje']];
 function buildBottom(){ const t=$('#btabs'); t.innerHTML=BT.map(([k,l])=>`<button class="tab ${k===botTab?'on':''}" data-t="${k}">${l}${k==='log'?' <span class="badge" id="logN" style="margin-left:4px">0</span>':''}${k==='places'?' <span class="badge crit" id="plN" style="margin-left:4px">0</span>':''}</button>`).join(''); t.querySelectorAll('.tab').forEach(e=>e.onclick=()=>{ botTab=e.dataset.t; buildBottom(); renderAll(); });
-  const p=$('#bpanel'); ({places:buildPlaces,dams:buildCards,nodes:buildNodes,hist:buildHist,pps:buildPps,log:p=>{ p.innerHTML='<div class="log" id="log"></div>'; logN=-1; renderLog(); },set:buildSet,par:buildParams})[botTab](p); }
+  const p=$('#bpanel'); ({places:buildPlaces,dams:buildCards,nodes:buildNodes,hist:buildHist,pps:buildPps,econ:buildEcon,log:p=>{ p.innerHTML='<div class="log" id="log"></div>'; logN=-1; renderLog(); },set:buildSet,par:buildParams})[botTab](p); }
 function buildCards(p){
   p.innerHTML='<div class="dams" id="dams"></div>'; const box=$('#dams');
   sim.dams.forEach((d,i)=>{ const c=document.createElement('div'); c.className='dam'; c.id='card-'+d.id; c.onclick=()=>select(d.id); c.ondblclick=()=>openDetail(d.id); c.title=`klávesa ${i+1} · dvojklik = detail`;
@@ -1140,6 +1141,36 @@ function buildSet(p){
     let o='cas;'+keys.join(';')+'\n'; for (let i=0;i<H.n;i++) o+=tStr(H.get('t',i)*3600,true)+';'+keys.map(k=>{ const v=H.get(k,i); return isFinite(v)?v.toFixed(3).replace('.',','):''; }).join(';')+'\n';
     const ta=$('#csvOut'); ta.style.display='block'; ta.value=o; ta.select(); try{ await navigator.clipboard.writeText(o); toast('CSV zkopírováno','info'); }catch(e){ toast('Text je označený – zkopíruj Ctrl+C','info'); } };
 }
+/* ===================== CENA A ÚČINNOST ===================== */
+const EC={dam:'orlik'}, EC_PLANTS=()=>sim.dams.filter(d=>d.d.units.n>0);
+const ecSave=()=>{ try{ localStorage.setItem('vk-econ',JSON.stringify({on:sim.econ.on,balance:sim.econ.balance,shape:sim.priceShape,spot:sim.glob.spot,tabs:sim.etaTabs})); }catch(e){} };
+try{ const s=JSON.parse(localStorage.getItem('vk-econ')||'null'); if (s){ if (typeof s.on==='boolean') sim.econ.on=s.on; if (typeof s.balance==='boolean') sim.econ.balance=s.balance; if (Array.isArray(s.shape)&&s.shape.length===24&&s.shape.every(isFinite)) sim.priceShape=s.shape.map(Number); if (isFinite(s.spot)&&s.spot>0) sim.glob.spot=+s.spot; if (s.tabs&&typeof s.tabs==='object') for (const k in s.tabs){ const t=s.tabs[k]; if (Array.isArray(t)&&t.length>=2&&t.every(r=>Array.isArray(r)&&r[0]>0&&r[1]>0&&r[1]<1)) sim.etaTabs[k]=t.map(r=>[+r[0],+r[1]]); } sim.priceVer++; sim.etaVer++; } }catch(e){}
+const ecHead=d=>Math.max(.5,d.head||d.d.units.Hnom);
+function buildEcon(p){ const d=sim.D[EC.dam], custom=!!sim.etaTabs[sim.etaKey(d)];
+  p.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:10px"><label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="ecOn" ${sim.econ.on?'checked':''}> Rozdělovat vodu podle ceny a účinnosti</label><label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="ecBal" ${sim.econ.balance?'checked':''}> Ruční změnu výkonu dorovnat na ostatních dílech</label></div>
+  <div class="g3" id="ecK" style="grid-template-columns:repeat(auto-fit,minmax(135px,1fr))"></div><div id="ecBalBox" class="note" style="margin:0 0 12px"></div>
+  <div class="two"><div><div class="chead" style="margin-bottom:6px"><b>Cena elektřiny po hodinách [Kč/MWh]</b><button class="btn sm" id="ecPR">Výchozí tvar</button></div><div class="grid24" id="ecP">${sim.priceShape.map((_,i)=>`<div><small>${i} h</small><input type="number" step="10" min="-5000" max="30000" data-ph="${i}" aria-label="Cena v ${i} hodin" value="${Math.round(sim.spot(i))}"><small class="mono" data-pq="${i}" style="display:block;min-height:15px"></small></div>`).join('')}</div><p class="note">Pod cenou je plánovaný průtok turbínami vybraného díla [m³/s]. Ceny jsou orientační, přepiš je podle denního trhu.</p></div>
+  <div><div class="chead" style="margin-bottom:6px"><select class="f" id="ecD" style="width:auto" aria-label="Vodní dílo">${EC_PLANTS().map(x=>`<option value="${x.id}" ${x.id===EC.dam?'selected':''}>${x.name}</option>`).join('')}</select><b>Tabulka soustrojí</b><span class="badge ${custom?'acc':''}">${custom?'vlastní':'modelová'}</span><button class="btn sm" id="ecAdd">+ řádek</button><button class="btn sm" id="ecTR">Obnovit</button></div><div style="overflow-x:auto"><table id="ecT"></table></div><p class="note" id="ecTN"></p></div></div>`;
+  $('#ecOn').onchange=e=>{ sim.econ.on=e.target.checked; for (const x of sim.dams) x.econC=null; ecSave(); renderEcon(true); }; $('#ecBal').onchange=e=>{ sim.econ.balance=e.target.checked; ecSave(); renderEcon(true); };
+  $('#ecD').onchange=e=>{ EC.dam=e.target.value; buildEcon(p); };
+  p.querySelectorAll('[data-ph]').forEach(i=>i.onchange=()=>{ const v=+i.value; if (!isFinite(v)) return; sim.priceShape[+i.dataset.ph]=Math.max(-5000,Math.min(30000,v))/sim.glob.spot; sim.priceVer++; ecSave(); renderEcon(true); });
+  $('#ecPR').onclick=()=>{ sim.priceShape=VK.PRICE_SHAPE.slice(); sim.priceVer++; ecSave(); buildEcon(p); };
+  $('#ecTR').onclick=()=>{ delete sim.etaTabs[sim.etaKey(d)]; sim.etaVer++; ecSave(); buildEcon(p); };
+  $('#ecAdd').onclick=()=>{ const t=sim.etaTable(d), a=t[t.length-2], b=t[t.length-1]; t.splice(t.length-1,0,[Math.round((a[0]+b[0])*5)/10,Math.round((a[1]+b[1])*500)/1000]); ecTab(d,t,p); };
+  ecDrawT(d,p); renderEcon(true); }
+function ecTab(d,t,p){ t=t.filter(r=>r[0]>0&&r[1]>0).sort((a,b)=>a[0]-b[0]).filter((r,i,a)=>!i||r[0]>a[i-1][0]); if (t.length<2){ toast('Tabulka musí mít aspoň dva různé průtoky','warn'); return buildEcon(p); } sim.etaTabs[sim.etaKey(d)]=t; sim.etaVer++; ecSave(); buildEcon(p); }
+function ecDrawT(d,p){ const t=sim.etaTable(d), u=d.d.units, H=ecHead(d), price=sim.spot(sim.hourOfDay), Qm=Math.min(u.Qmax,sim.unitQforP(d,u.Pmax,H)||u.Qmax), Qb=sim.bestQ(d,H,Qm); let bi=0,bd=1e9; t.forEach((r,i)=>{ const x=Math.abs(r[0]-Qb); if (x<bd){ bd=x; bi=i; } });
+  $('#ecT').innerHTML=`<tr><th>Q [m³/s]</th><th>η [%]</th><th>P při ${fmt(u.Hnom,1)} m [MW]</th><th>P teď [MW]</th><th>Kč/1000 m³</th><th></th></tr>`+t.map((r,i)=>{ const Pn=9.81*r[0]*u.Hnom*r[1]/1000, Pt=sim.unitP(d,r[0],H); return `<tr ${i===bi?'style="background:var(--accent-weak)"':''}><td><input class="f mono" style="width:72px" type="number" step="0.1" min="0.1" data-c="q" data-r="${i}" aria-label="Průtok, řádek ${i+1}" value="${r[0]}"></td><td><input class="f mono" style="width:66px" type="number" step="0.1" min="30" max="97" data-c="e" data-r="${i}" aria-label="Účinnost, řádek ${i+1}" value="${(r[1]*100).toFixed(1)}"></td><td><input class="f mono" style="width:76px" type="number" step="0.1" min="0" data-c="p" data-r="${i}" aria-label="Výkon, řádek ${i+1}" value="${Pn.toFixed(2)}"></td><td class="mono">${fmt(Pt,2)}</td><td class="mono">${fmt(Pt/r[0]/3.6*price,0)}</td><td>${t.length>2?`<button class="btn sm" data-x="${i}" aria-label="Smazat řádek ${i+1}">×</button>`:''}</td></tr>`; }).join('');
+  $('#ecTN').innerHTML=`Na jedno soustrojí. Spád teď ${fmt(H,1)} m, nejlepší účinnost kolem ${fmt(Qb,1)} m³/s (zvýrazněno). ${sim.etaTabs[sim.etaKey(d)]?'Hodnoty jsou tvoje.':'Modelová křivka podle typu turbíny, nejde o výrobní data. Přepiš ji z technického listu.'} Změna výkonu přepočítá účinnost při uvedeném spádu.`;
+  p.querySelectorAll('#ecT [data-r]').forEach(i=>i.onchange=()=>{ const T=sim.etaTable(d), r=T[+i.dataset.r], v=+i.value; if (!isFinite(v)||v<=0){ toast('Zadej kladné číslo','warn'); return buildEcon(p); } if (i.dataset.c==='q') r[0]=v; else if (i.dataset.c==='e') r[1]=Math.max(.3,Math.min(.97,v/100)); else r[1]=Math.max(.3,Math.min(.97,v*1000/(9.81*r[0]*u.Hnom))); ecTab(d,T,p); });
+  p.querySelectorAll('#ecT [data-x]').forEach(b=>b.onclick=()=>{ const T=sim.etaTable(d); T.splice(+b.dataset.x,1); ecTab(d,T,p); }); }
+let ecL=0;
+function renderEcon(force){ const b=sim.bal, card=$('#balCard'), NM={orlik:'Orlík',slapy:'Slapy',lipno1:'Lipno I'}, on=sim.econ.balance&&b.nMan>0, list=Object.entries(b.share).filter(([,v])=>Math.abs(v)>.05).map(([k,v])=>`${NM[k]} ${v>0?'+':'−'}${fmt(Math.abs(v),1)} MW`); if (Math.abs(b.pve)>.05) list.push(`PVE ${b.pve>0?'+':'−'}${fmt(Math.abs(b.pve),1)} MW`);
+  const txt=on?`Ruční odchylka <b class="mono">${b.dev>0?'+':'−'}${fmt(Math.abs(b.dev),1)} MW</b>. ${list.length?'Dorovnává: '+list.join(', ')+'.':'Ostatní díla teď nemají kam dorovnat.'}${Math.abs(b.rest)>.5?` <span style="color:var(--warning)">Nedorovnáno ${fmt(Math.abs(b.rest),1)} MW (limit vody, hladiny nebo výkonu).</span>`:''}`:''; card.style.display=on?'':'none'; if (on) $('#balNote').innerHTML=txt;
+  if (botTab!=='econ'||!$('#ecK')) return; const now=performance.now(); if (!force&&now-ecL<900) return; ecL=now; const r=sim.pps.rev, mkt=r.mktT>0?r.mkt/r.mktT:sim.glob.spot, real=r.mwh>.01?r.spot/r.mwh:NaN, prem=real/mkt-1, d=sim.D[EC.dam];
+  $('#ecK').innerHTML=[['cena teď',fmt(sim.spot(sim.hourOfDay),0)+' Kč/MWh'],['průměr trhu',fmt(mkt,0)+' Kč/MWh'],['dosažená cena',fmt(real,0)+' Kč/MWh'],['přínos k průměru',isFinite(prem)?(prem>=0?'+':'')+fmt(prem*100,1)+' %':'—'],['vyrobeno',fmt(r.mwh,0)+' MWh'],['prodej',fmt(r.spot/1e6,2)+' mil. Kč']].map(([l,v])=>`<div class="kpi" style="padding:6px 10px"><div class="l">${l}</div><div class="mono" style="font-weight:650">${v}</div></div>`).join('');
+  $('#ecBalBox').innerHTML=sim.econ.balance?(on?txt:'Všechna díla jedou v automatice, není co dorovnávat. Při ručním výkonu převezmou rozdíl Orlík, Slapy a Lipno I, případně PVE.'):'Dorovnání je vypnuté, ruční změna se projeví v celkovém výkonu kaskády.';
+  let pl=null; if (d.par.peak&&sim.econ.on){ const H=ecHead(d), av=d.units.filter(x=>x.avail&&!x.fault).length, Qm=Math.min(d.d.units.Qmax,sim.unitQforP(d,d.d.units.Pmax,H)||d.d.units.Qmax), Qb=Math.max(0,d.ema24||d.Qin); if (av&&Qb<av*Qm) pl=(d.econC||sim.econPlan(d,Qb,av*Qm,H)).q; } const hNow=Math.floor(sim.hourOfDay)%24; $$('[data-pq]').forEach(e=>{ const i=+e.dataset.pq; e.textContent=pl?(pl[i]>.05?fmt(pl[i],0):'·'):''; e.style.color=i===hNow?'var(--accent)':''; }); }
 function buildParams(p){
   let h='<div style="overflow-x:auto"><table><tr><th>Vodní dílo</th><th>ř. km</th><th>stálé nadr.</th><th>max. zásobní</th><th>max. retenční</th><th>koruna</th><th>V celk.</th><th>V zásobní</th><th>V retenční</th><th>turbíny</th><th>P [MW]</th><th>Qt [m³/s]</th><th>přeliv</th><th>min. turbíny</th><th>výpusti</th></tr>';
   for (const d of sim.dams){ const D=d.d0,u=D.units,a=d.Vat(D.hStale)/1e6,z=d.Vat(D.hZas)/1e6,r=d.Vat(D.hRet)/1e6;
@@ -2131,7 +2162,7 @@ function recStart(code,cfg,fresh){
   setInterval(()=>{ if (document.hidden) return; log('state',{sc:sim.scenarioKey,run:running,spd:SPEEDS[+$('#speed').value][1],praha:Math.round(sim.praha),P:Math.round(sim.Ptot||0),orlik:+sim.D.orlik.h.toFixed(2),slapy:+sim.D.slapy.h.toFixed(2),vrane:Math.round(sim.D.vrane.Qout),bad:sim.places.filter(p=>p.st>=2).length,idle:Date.now()-lastIn>120000}); },30000);
   log('start',{fresh:!!fresh,sc:sim.scenarioKey}); tick(); window.__vkRec={flush:()=>send(),queued:()=>Q.length,log}; }
 /* ===================== render ===================== */
-function renderLive(){ renderPlaces(); renderKpi(); renderProfile(); renderCtrl(); renderCards(); renderNodes(); renderPps(); renderLog(); renderDside(); }
+function renderLive(){ renderPlaces(); renderKpi(); renderProfile(); renderCtrl(); renderCards(); renderNodes(); renderPps(); renderEcon(); renderLog(); renderDside(); }
 function renderAll(){ renderLive(); drawCharts(); drawSparks(); }
 let rT; window.addEventListener('resize',()=>{ clearTimeout(rT); rT=setTimeout(()=>{ drawCharts(); drawSparks(); if (botTab==='hist') drawHist(); },120); });
 $('#scen').value='aktualni'; loadScenario(sim,'aktualni'); tsReset(); setCap('aktualni');

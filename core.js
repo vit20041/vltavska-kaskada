@@ -158,6 +158,8 @@ const PPS_DEF = [
   { id: 'mfrr15m', name: 'mFRR15− (MZ15−)', desc: 'manuální záloha záporná, plná aktivace do 15 min', spin: false, price: 90 }
 ];
 const PPS_PLANTS = ['lipno1', 'orlik', 'slapy', 'stechovice', 'kamyk', 'pve'];
+// orientační denní tvar ceny (násobek průměrné ceny po hodinách); uživatel ho přepisuje v záložce Cena a účinnost
+const PRICE_SHAPE = [0.78, 0.74, 0.72, 0.72, 0.76, 0.88, 1.18, 1.38, 1.30, 1.02, 0.78, 0.62, 0.55, 0.55, 0.64, 0.82, 1.08, 1.45, 1.70, 1.62, 1.35, 1.15, 0.98, 0.86];
 
 /* ===================================================================
    Hydrologie – generátor přítoků
@@ -208,7 +210,7 @@ class Dam {
     this.h = h; this.V = this.curve.V(h); this.Qin = 0; this.Qout = 0; this.Qturb = 0; this.Qspill = 0; this.Qoutl = 0; this.P = 0; this.Pbase = 0; this.twS = null;
     this.ema24 = null; this.ema6 = null; this.ema1 = null; this.flood = false; this.drowned = false; this.phase = ''; this.trip = false;
     for (const u of this.units) { u.P = 0; u.Q = 0; u.state = 'stop'; u.lock = 0; u.fault = null; u.dir = null; u.pump = false; }
-    this.E = 0; this.reqDP = 0; this.actDP = 0; this.head = 0; this.tw = 0;
+    this.E = 0; this.reqDP = 0; this.actDP = 0; this.head = 0; this.tw = 0; this.Pref = 0; this.Pplan = 0; this.econC = null; this.econHoldOn = false; this.econHoldT = 0; this.QbE = null;
   }
   target(doy) { if (this.par.tgtOverride != null) return this.par.tgtOverride; const m = Math.floor(doy / 30.42); return (m >= 3 && m <= 9) ? this.par.tgtSummer : this.par.tgtWinter; } // dub–říj léto
   Vat(h) { return this.curve.V(h); }
@@ -245,6 +247,9 @@ class Sim {
     this.glob = { QminVrane: 40, prahaProt: true, QprahaLim: 1500, safety: true, spot: 2300, seed: 7, unitReady: 600, faults: false, faultRate: 0.5 };
     this.route = { lipno2: { buf: [], lag: 14 * 3600, k: 6 * 3600, s: 0 }, vrane: { buf: [], lag: 1.5 * 3600, k: 0.5 * 3600, s: 0 } };
     this.praha = 0; this.log = []; this.listeners = [];
+    // cena a účinnost: předvolby uživatele, návrat v čase ani změna scénáře je nemění
+    this.econ = { on: true, balance: true }; this.priceShape = PRICE_SHAPE.slice(); this.priceVer = 0; this.etaTabs = {}; this.etaVer = 0;
+    this.bal = { dev: 0, share: {}, pve: 0, rest: 0, nMan: 0 };
     // PpS
     this.pps = { on: false, offers: {}, sig: { f: 50, afrr: 0, m5: 0, m15: 0, m5t: 0, m15t: 0, ev: [] }, lam5: 0.3, lam15: 2, stats: {}, rev: { cap: 0, act: 0, spot: 0, pump: 0, pen: 0 } };
     for (const p of PPS_PLANTS) { this.pps.offers[p] = {}; for (const s of PPS_DEF) this.pps.offers[p][s.id] = 0; }
@@ -279,8 +284,14 @@ class Sim {
   tailwater(dam, Q) { const tw = dam.d.tw; let z = tw.z0 + (tw.a ? tw.a * Math.pow(Math.max(Q, 0), tw.b) : 0); if (tw.ref) z = Math.max(z, this.D[tw.ref].h); return z; }
 
   // výkon jednoho soustrojí
-  unitP(dam, Q, H) { const u = dam.d.units; if (Q <= 0 || H <= 0) return 0; return Math.min(u.Pmax * 1.02, RHO * G * Q * H * u.eta * eta(u.type, Q / u.Qmax) / 1e6); }
-  unitQforP(dam, P, H) { const u = dam.d.units; if (P <= 0 || H <= 0.5) return 0; let Q = u.Qmax * 0.7; for (let i = 0; i < 6; i++) Q = P * 1e6 / (RHO * G * H * u.eta * eta(u.type, Q / u.Qmax)); return Q; }
+  // celková účinnost soustrojí při průtoku Q: vlastní tabulka [[Q, η], …], jinak modelová křivka podle typu turbíny
+  etaKey(dam) { return dam.id === 'orlik' && this.orlik2033 ? 'orlik33' : dam.id; }
+  unitEta(dam, Q) { const u = dam.d.units, t = this.etaTabs[this.etaKey(dam)]; if (!t || !t.length) return u.eta * eta(u.type, Q / u.Qmax);
+    if (Q <= t[0][0]) return t[0][1]; const n = t.length; if (Q >= t[n - 1][0]) return t[n - 1][1];
+    for (let i = 1; i < n; i++) if (Q <= t[i][0]) return lerp(t[i - 1][1], t[i][1], (Q - t[i - 1][0]) / Math.max(1e-9, t[i][0] - t[i - 1][0])); return t[n - 1][1]; }
+  etaTable(dam, n) { const u = dam.d.units, t = this.etaTabs[this.etaKey(dam)]; if (t && t.length) return t.map(r => r.slice()); n = n || 8; const a = []; for (let i = 0; i < n; i++) { const Q = u.Qmin + (u.Qmax - u.Qmin) * i / (n - 1); a.push([Math.round(Q * 10) / 10, Math.round(this.unitEta(dam, Q) * 1000) / 1000]); } return a; }
+  unitP(dam, Q, H) { const u = dam.d.units; if (Q <= 0 || H <= 0) return 0; return Math.min(u.Pmax * 1.02, RHO * G * Q * H * this.unitEta(dam, Q) / 1e6); }
+  unitQforP(dam, P, H) { const u = dam.d.units; if (P <= 0 || H <= 0.5) return 0; let Q = u.Qmax * 0.7; for (let i = 0; i < 6; i++) Q = P * 1e6 / (RHO * G * H * Math.max(0.2, this.unitEta(dam, Q))); return Q; }
   unitPmaxAt(dam, H) { const u = dam.d.units; return Math.min(u.Pmax, this.unitP(dam, u.Qmax, H)); }
   netHead(dam, Qtot) { const u = dam.d.units; const tw = this.tailwater(dam, Qtot); const loss = 0.02 * u.Hnom * Math.pow(Math.min(1.2, dam.Qturb / (u.Qmax * u.n || 1)), 2); dam.tw = tw; dam.twS = (dam.twS == null || !isFinite(dam.twS)) ? tw : dam.twS + (tw - dam.twS) * Math.min(1, this.dt / 3600); return Math.max(0, dam.h - tw - loss); }
 
@@ -325,7 +336,8 @@ class Sim {
         { // doplnit vyrovnávací nádrže pod dílem (Kamýk pod Orlíkem, Štěchovice + Vrané pod Slapy) – kryjí odtok mezi špičkami;
           // bez toho po povodni zůstanou na dně pásma a v noci nestačí na minimální odtok z Vraného
           const bufs = dam.id === 'orlik' ? [this.D.kamyk] : [this.D.stechovice, this.D.vrane];
-          let def = 0; for (const b of bufs) def += Math.max(0, b.Vat(b.par.hSet) - b.V);
+          // při řízení podle ceny je denní rozkmit vyrovnávací nádrže normální: do poloviny pásma nad stálým nadržením se nedoplňuje ze zásoby
+          let def = 0; for (const b of bufs) { const Vs = b.Vat(b.par.hSet), ref = this.econ.on && !dam.econHoldOn ? Vs - 0.5 * Math.max(0, Vs - b.Vat(b.d.hStale + 0.3)) : Vs; def += Math.max(0, ref - b.V); }
           const allow = clamp((dam.h - (d.hStale + 0.3)) / 0.5, 0, 1) * (dam.id === 'orlik' && oDrought && !sEmpty ? 0 : 1);
           if (def > 0 && allow > 0) Qb += allow * def / (12 * 3600); }
         // povodňový režim
@@ -382,6 +394,7 @@ class Sim {
   turbineSchedule(dam, Qb, Qtmax) {
     const u = dam.d.units, hod = this.hourOfDay;
     if (!dam.par.peak) return Math.min(Qb, Qtmax);
+    if (this.econ.on && !this.econHold(dam, Qtmax)) return this.econSchedule(dam, Qb, Qtmax);
     const Hpk = this.peakHours(dam); const dayVol = Qb * 24;
     if (dayVol >= Qtmax * 24) return Qtmax;
     let Qpk = Math.min(Qtmax, dayVol / Hpk), Qoff = Math.max(0, (dayVol - Qtmax * Hpk) / (24 - Hpk));
@@ -392,6 +405,71 @@ class Sim {
       return 0;
     }
     return this.peakFrac(dam, hod) ? Qpk : 0;
+  }
+
+  /* ---------- ekonomické rozdělení vody: denní objem z MŘ se nemění, jen se přesouvá do hodin s nejvyšší hodnotou ---------- */
+  priceKey() { return this.glob.spot + ':' + this.priceVer; }
+  bestQ(dam, H, Qm) { const u = dam.d.units; let bq = Math.min(u.Qmin, Qm), bv = -1; for (let i = 0; i <= 24; i++) { const Q = u.Qmin + (Qm - u.Qmin) * i / 24, v = this.unitP(dam, Q, H) / Math.max(Q, 1e-6); if (v > bv + 1e-9) { bv = v; bq = Q; } } return bq; }
+  econPlan(dam, Qb, Qtmax, H) {
+    const u = dam.d.units, Qm = Math.min(u.Qmax, this.unitQforP(dam, u.Pmax, H) || u.Qmax), nU = Math.max(1, Math.round(Qtmax / Qm)), Qbest = Math.max(u.Qmin, this.bestQ(dam, H, Qm));
+    const price = []; for (let i = 0; i < 24; i++) price.push(this.spot(i));
+    const q = new Array(24).fill(0), f = new Array(24).fill(1); let vol = Qb * 24;
+    const e1 = this.unitP(dam, Qbest, H) / Math.max(Qbest, 1e-6), e2 = Qm > Qbest + 0.01 ? Math.min(e1, (this.unitP(dam, Qm, H) - this.unitP(dam, Qbest, H)) / (Qm - Qbest)) : 0;
+    // dvě provozní okna (ráno, večer): vyrovnávací nádrže pod dílem nesmějí mezi špičkami vyschnout
+    const best = (a, b) => { let m = a; for (let i = a; i <= b; i++) if (price[i] > price[m]) m = i; return m; }, forced = [best(5, 11), best(16, 22)], used = {};
+    if (vol < 2 * u.Qmin) { const h = price[forced[1]] >= price[forced[0]] ? forced[1] : forced[0]; q[h] = u.Qmin; f[h] = clamp(vol / u.Qmin, 0, 1); return { q, f, Qbest, Qm }; }
+    // nejmenší počet provozních hodin: malá vyrovnávací nádrž pod dílem (Lipno II, Kamýk, Štěchovice) nesnese vodu v příliš krátké špičce
+    const minH = dam.id === 'lipno1' ? 7 : 5, cap = Math.min(nU * Qm, Math.max(u.Qmin, Qb * 24 / minH));
+    // když se denní objem nevejde do špiček, běží mimo ně stálý základ (jako v MŘ) – dílo se nesmí na hodiny zavřít a odříznout minimální odtok
+    { const Qfl = (vol - nU * Qm * 7) / 17; if (Qfl > 0) { const base = Math.max(Qfl, u.Qmin); q.fill(base); vol = Math.max(0, vol - 24 * base); } }
+    forced.forEach((h, k) => { const take = Math.min(Qbest, Math.max(0, cap - q[h]), vol / (2 - k)); q[h] += take; vol -= take; used[h + ':0'] = 1; });
+    const seg = []; for (let h = 0; h < 24; h++) for (let k = 0; k < nU; k++) { if (!used[h + ':' + k]) seg.push({ h, s: Qbest, v: price[h] * e1, one: true }); if (e2 > 0) seg.push({ h, s: Qm - Qbest, v: price[h] * e2, one: false }); }
+    seg.sort((a, b) => b.v - a.v || a.h - b.h);
+    for (const s of seg) { if (vol <= 1e-6) break; if (s.one && vol < u.Qmin) continue; if (!s.one && q[s.h] < Math.min(Qbest, cap) - 1e-6) continue; const room = cap - q[s.h], take = Math.min(s.s, vol, room); if (take <= 1e-6 || (q[s.h] <= 0 && take < u.Qmin)) continue; q[s.h] += take; vol -= take; }
+    if (vol > 1e-6) for (const h of price.map((p, i) => i).sort((a, b) => price[b] - price[a])) { if (q[h] <= 0) continue; const take = Math.min(vol, cap - q[h]); if (take <= 0) continue; q[h] += take; vol -= take; if (vol <= 1e-6) break; }
+    if (vol > 1e-6) for (const h of price.map((p, i) => i).sort((a, b) => price[b] - price[a])) { const take = Math.min(vol, nU * Qm - q[h]); if (take <= 0 || (q[h] <= 0 && take < u.Qmin)) continue; q[h] += take; vol -= take; if (vol <= 1e-6) break; }
+    return { q, f, Qbest, Qm };
+  }
+  // povodeň, doznívání povodně a nízké vyrovnávací nádrže: bezpečnost má přednost před cenou, platí rozvrh podle MŘ (s hysterezí)
+  econHold(dam, Qtmax) { const d = dam.d, D = this.D, bufs = dam.id === 'orlik' ? [D.kamyk] : dam.id === 'slapy' ? [D.stechovice, D.vrane] : [D.lipno2], low = bufs.some(b => b.h < b.d.hStale + 0.25), q1 = dam.ema1 || 0, q24 = dam.ema24 || 0;
+    const O = D.orlik, dry = this.drought.o || this.drought.s || O.h < O.d.hDrought + 2; // v suchu rozhoduje MŘ, zásoba se nepřesouvá kvůli ceně
+    if (dam.h > d.hZas - 0.15 || q1 > 0.8 * Qtmax || low || dry) { dam.econHoldOn = true; dam.econHoldT = this.t; }
+    else if (dam.econHoldOn && dam.h < d.hZas - 0.4 && q24 < 0.5 * Qtmax && O.h > O.d.hDrought + 2.5 && !bufs.some(b => b.h < b.d.hStale + 0.5) && this.t - (dam.econHoldT || 0) > 12 * 3600) dam.econHoldOn = false;
+    return !!dam.econHoldOn; }
+  econSchedule(dam, Qb, Qtmax) {
+    if (Qtmax <= 0 || Qb <= 0) return 0; if (Qb >= Qtmax) return Qtmax;
+    // plán stojí na průměru potřeby za ~6 h: okamžitý požadavek kolísá s vyrovnávacími nádržemi a násobený ve špičce by odpouštěl zásobu navíc
+    dam.QbE = dam.QbE == null ? Qb : dam.QbE + (Qb - dam.QbE) * (1 - Math.exp(-this.dt / 21600)); Qb = dam.QbE;
+    const H = Math.max(0.5, dam.head || dam.d.units.Hnom), key = this.priceKey() + ':' + this.etaVer, c = dam.econC;
+    const hod = this.hourOfDay, h = Math.floor(hod) % 24, dQ = c ? Math.abs(c.Qb - Qb) / Math.max(1, c.Qb) : 1;
+    // plán se mění jen při nové denní situaci: běžné kolísání nesmí v průběhu hodiny zapínat a vypínat soustrojí
+    if (!c || c.key !== key || Math.abs(c.Qt - Qtmax) > 0.05 * Math.max(1, c.Qt) || dQ > 0.25 || (c.day !== Math.floor(this.t / 86400) && h === 0) || Math.abs(c.H - H) > 0.06 * c.H) dam.econC = Object.assign(this.econPlan(dam, Qb, Qtmax, H), { key, Qt: Qtmax, Qb, H, day: Math.floor(this.t / 86400) });
+    const p = dam.econC; if (p.f[h] < 1 && hod - Math.floor(hod) >= p.f[h]) return 0;
+    return p.q[h] > 0 ? Math.min(Qtmax, p.q[h]) : 0;
+  }
+  // nejdražší a nejlevnější hodiny pro přečerpávání; čerpá se jen, když rozdíl cen pokryje ztráty cyklu
+  econHours() { const k = this.priceKey(); if (this._eh && this._eh.k === k) return this._eh; const p = []; for (let i = 0; i < 24; i++) p.push(this.spot(i)); const idx = p.map((_, i) => i).sort((a, b) => p[b] - p[a]), top = idx.slice(0, 5), mean = top.reduce((s, i) => s + p[i], 0) / 5;
+    const low = n => idx.slice(-n).filter(i => !top.includes(i));
+    return this._eh = { k, gen: top, pump: low(6).filter(i => p[i] <= mean * PVE_DEF.etaT * PVE_DEF.etaP), cheap: low(9).filter(i => p[i] <= mean * 0.93 * 0.90) }; }
+
+  /* ---------- skupinové dorovnání výkonu: ruční odchylka díla se rozloží na díla v automatice ---------- */
+  balanceStep(dt) {
+    const b = this.bal, D = this.D; let dev = 0, nMan = 0;
+    if (this.econ.balance) { for (const d of this.dams) if (d.mode !== 'auto') { nMan++; dev += d.P - (d.id === 'lipno1' ? d.d.mzpP : 0) - (d.Pref || 0); }
+      if (this.pve.mode !== 'auto') { nMan++; dev += this.pve.P - this.pveAuto(); } }
+    b.nMan = nMan; b.dev += (dev - b.dev) * (1 - Math.exp(-dt / 60)); b.share = {}; b.pve = 0; b.rest = 0;
+    if (!nMan || Math.abs(b.dev) < 0.2) { b.dev = nMan ? b.dev : 0; return; }
+    const need = -b.dev, up = need > 0, parts = [];
+    for (const id of ['orlik', 'slapy', 'lipno1']) { const d = D[id]; if (d.mode !== 'auto' || d.trip || d.drowned) continue; const pl = d.Pplan || 0, H = Math.max(0.5, d.head || d.d.units.Hnom), Pm = this.unitP(d, d.d.units.Qmin, H);
+      if (up) { if (d.h < d.d.hStale + 0.5 || (id === 'orlik' && this.drought.o) || (id === 'slapy' && this.drought.s)) continue; const room = Math.max(0, (d.Pavail || 0) - pl); if (room > 0.05) parts.push({ id, room, idle: pl < 0.05, Pm }); }
+      else { const bufs = id === 'orlik' ? [D.kamyk] : id === 'slapy' ? [D.stechovice, D.vrane] : [D.lipno2]; if (d.h >= d.d.hZas - 0.05 || bufs.some(x => x.h >= x.d.hZas - 0.15)) continue; if (pl > 0.05) parts.push({ id, room: pl, soft: Math.max(0, pl - Pm), Pm }); } }
+    let left = Math.abs(need); const give = (x, v) => { b.share[x.id] = (b.share[x.id] || 0) + (up ? v : -v); left -= v; };
+    if (up) { const run = parts.filter(x => !x.idle), sum = run.reduce((s, x) => s + x.room, 0); if (sum > 0) { const tot = Math.min(left, sum); for (const x of run) give(x, tot * x.room / sum); }
+      for (const x of parts.filter(x => x.idle)) if (left >= x.Pm) give(x, Math.min(left, x.room)); }
+    else { const sum = parts.reduce((s, x) => s + x.soft, 0); if (sum > 0) { const tot = Math.min(left, sum); for (const x of parts) give(x, tot * x.soft / sum); }
+      for (const x of parts) if (left >= x.Pm && x.room - x.soft > 0) give(x, Math.min(left, x.room - x.soft)); }
+    if (left > 0.2 && this.pve.mode === 'auto') { const p = this.pve; if (up && p.V > PVE_DEF.Vmin + 0.03e6 && p.P >= -0.5 && left >= 8) { const v = Math.min(left, PVE_DEF.PtMax - Math.max(0, p.P)); b.pve = v; left -= v; } else if (!up && p.P > 0.5) { const v = Math.min(left, p.P); b.pve = -v; left -= v; } }
+    b.rest = up ? left : -left;
   }
 
   /* ---------- PpS: signály ---------- */
@@ -430,7 +508,7 @@ class Sim {
   }
   ppsTotals(pid) { const o = this.pps.offers[pid]; return { up: o.fcr + o.afrrp + o.mfrr5 + o.mfrr15p, dn: o.fcr + o.afrrm + o.mfrr15m, spin: o.fcr + o.afrrp + o.afrrm, spUp: o.fcr + o.afrrp, spDn: o.fcr + o.afrrm }; }
 
-  spot(h) { const sh = [0.78, 0.74, 0.72, 0.72, 0.76, 0.88, 1.18, 1.38, 1.30, 1.02, 0.78, 0.62, 0.55, 0.55, 0.64, 0.82, 1.08, 1.45, 1.70, 1.62, 1.35, 1.15, 0.98, 0.86]; return this.glob.spot * sh[Math.floor(h) % 24]; }
+  spot(h) { return this.glob.spot * this.priceShape[Math.floor(h) % 24]; }
 
   /* ---------- provoz elektrárny v jednom kroku ---------- */
   operatePlant(dam, Qb, ctx, dt) {
@@ -449,7 +527,10 @@ class Sim {
     let Qt_target, Pset = null;
     if (dam.mode === 'manual') { Pset = 0; for (const x of dam.units) x.Pset = x.avail ? x.man : 0; }
     else if (dam.mode === 'plan') { Pset = dam.plan[Math.floor(this.hourOfDay) % 24]; }
-    else { Qt_target = (ctx.peaking ? this.turbineSchedule(dam, Qb, Qtmax) : Math.min(Qb, Qtmax)); if (dam.id === 'orlik' && (this.opump.n > 0 || this.opump.want > 0) && dam.h < dam.d.hZas) Qt_target = 0; }
+    // co by dílo dělalo v automatice – reference pro dorovnání ruční odchylky na ostatních dílech
+    let Qref = ctx.peaking ? this.turbineSchedule(dam, Qb, Qtmax) : Math.min(Qb, Qtmax); if (dam.id === 'orlik' && (this.opump.n > 0 || this.opump.want > 0) && dam.h < dam.d.hZas) Qref = 0;
+    { const nr = Qref > 0 && availUnits.length ? clamp(Math.ceil(Qref / (QtUnit * 0.95)), 1, availUnits.length) : 0; dam.Pref = nr ? nr * this.unitP(dam, Math.max(Qref / nr, u.Qmin), Hest) : 0; }
+    if (dam.mode === 'auto') Qt_target = Qref;
     // podpůrné služby
     let req = { dp: 0, parts: null }; const pid = dam.id;
     if (PPS_PLANTS.includes(pid) && dam.mode !== 'manual') req = this.ppsRequest(pid);
@@ -462,7 +543,8 @@ class Sim {
       const q1 = n ? Qt_target / n : 0; Pb = n * this.unitP(dam, Math.max(q1, n ? u.Qmin : 0), Hest);
       // u stálého nadržení nesmí turbína kvůli svému min. průtoku pouštět víc vody, než se má – malý průtok převezmou výpusti
       if (nearStale && n && q1 < u.Qmin * 0.9) Pb = 0;
-    }
+      dam.Pplan = Pb; if (dam.mode === 'auto' && this.bal.share[dam.id]) Pb = Math.max(0, Pb + this.bal.share[dam.id]);
+    } else dam.Pplan = Pb;
     // točivé zálohy – drž v pásmu
     let nOn = 0;
     if (this.pps.on && tot.spin > 0 && availUnits.length && PmaxU > 0) {
@@ -533,7 +615,7 @@ class Sim {
     const q = {}; for (const n of this.nodes) q[n.id] = Math.max(0, this.lagged(n, tH));
     this.q = q;
     if (this.pps.sig.pend15 && this.t >= this.pps.sig.pend15) { this.callMfrr('m15', 1, 60, 1); this.pps.sig.pend15 = 0; }
-    this.ppsSignals(dt); this.faultsStep(dt);
+    this.ppsSignals(dt); this.faultsStep(dt); this.balanceStep(dt);
     const ctx0 = { sazava: q.sazava, berounka: q.berounka, mezis: q.mezis };
     const order = ['lipno1', 'lipno2', 'hnevkovice', 'korensko', 'orlik', 'kamyk', 'slapy', 'stechovice', 'vrane'];
     // přítok do jednotlivých nádrží
@@ -554,8 +636,7 @@ class Sim {
       const a24 = 1 - Math.exp(-dt / 86400), a6 = 1 - Math.exp(-dt / 21600), a1 = 1 - Math.exp(-dt / 3600);
       dam.ema24 = dam.ema24 == null ? Qin : dam.ema24 + a24 * (Qin - dam.ema24);
       dam.ema6 = dam.ema6 == null ? Qin : dam.ema6 + a6 * (Qin - dam.ema6);
-      dam.ema1 = dam.ema1 == null ? Qin : dam.ema1 + a1 * (Qin - dam.ema1);
-      if (dam.d.drownable) dam.drowned = D.orlik.h >= dam.h - 0.05 || D.orlik.h >= dam.par.hSet - 0.05;
+      dam.ema1 = dam.ema1 == null ? Qin : dam.ema1 + a1 * (Qin - dam.ema1);      if (dam.d.drownable) dam.drowned = D.orlik.h >= dam.h - 0.05 || D.orlik.h >= dam.par.hSet - 0.05;
       const ctx = Object.assign({ QinShort: dam.ema1, peaking: dam.d.role === 'storage' }, ctx0);
       const wr = this.waterRelease(dam, ctx);
       let Qb = wr.Qb;
@@ -602,7 +683,7 @@ class Sim {
     this.praha = this.routeStep(this.route.vrane, D.vrane.Qout, dt) + q.berounka;
     // výnosy
     const sp = this.spot(this.hourOfDay); let Ptot = 0; for (const d of this.dams) Ptot += d.P; Ptot += Math.max(0, this.pve.P); this.Ppump = Math.max(0, -this.pve.P) + this.opump.P;
-    this.pps.rev.spot += Ptot * dt / 3600 * sp; if (this.pve.P < 0) this.pps.rev.pump += -this.pve.P * dt / 3600 * sp; if (this.opump.P > 0) this.pps.rev.pump += this.opump.P * dt / 3600 * sp;
+    this.pps.rev.spot += Ptot * dt / 3600 * sp; this.pps.rev.mwh = (this.pps.rev.mwh || 0) + Ptot * dt / 3600; this.pps.rev.mkt = (this.pps.rev.mkt || 0) + sp * dt; this.pps.rev.mktT = (this.pps.rev.mktT || 0) + dt; if (this.pve.P < 0) this.pps.rev.pump += -this.pve.P * dt / 3600 * sp; if (this.opump.P > 0) this.pps.rev.pump += this.opump.P * dt / 3600 * sp;
     if (this.pps.on) for (const pid of PPS_PLANTS) { const o = this.pps.offers[pid]; for (const s of PPS_DEF) this.pps.rev.cap += o[s.id] * this.pps.prices[s.id] * dt / 3600; }
     this.Ptot = Ptot;
     this.checks();
@@ -615,14 +696,16 @@ class Sim {
     for (const x of dam.units) { x.Pset = x.avail ? x.man : 0; x.P = (dam.trip || dam.lowHead || dam.drowned || x.fault || x.state !== 'run') ? 0 : // stojící stroj musí nejdřív najet Math.max(0, Math.min(x.Pset, x.Pmax || dam.d.units.Pmax));
       x.Q = x.P > 0.01 ? Math.min(dam.d.units.Qmax, this.unitQforP(dam, x.P, H)) : 0; P += x.P; Q += x.Q; }
     dam.P = P; dam.Qturb = Q; dam.Qout = Q + (dam.Qspill || 0) + (dam.Qoutl || 0); }
+  pveAuto() { const p = this.pve, def = PVE_DEF, Vr = this.D.vrane, hod = this.hourOfDay; let gen = false, pump = false;
+    if (this.econ.on) { const e = this.econHours(), h = Math.floor(hod) % 24; gen = e.gen.includes(h); pump = e.pump.includes(h); }
+    else { for (const [a, b] of def.genH) if (hod >= a && hod < b) gen = true; for (const [a, b] of def.pumpH) if (hod >= a && hod < b) pump = true; }
+    if (gen && p.V > def.Vmin + 0.02e6) return def.PtMax; if (pump && p.V < def.Vmax - 0.01e6 && Vr.h > Vr.d.hStale + 0.15 && Vr.Qin < 400) return -def.PpMax; return 0; }
   pveStep(dt) {
     const p = this.pve, def = PVE_DEF, Vr = this.D.vrane, hod = this.hourOfDay;
     const hHom = 412 + 8 * (p.V / def.Vmax); const H = Math.max(0, hHom - Vr.h - 1.5); p.head = H;
     let Pset = 0;
-    if (p.mode === 'auto') {
-      let gen = false, pump = false; for (const [a, b] of def.genH) if (hod >= a && hod < b) gen = true; for (const [a, b] of def.pumpH) if (hod >= a && hod < b) pump = true;
-      if (gen && p.V > def.Vmin + 0.02e6) Pset = def.PtMax; else if (pump && p.V < def.Vmax - 0.01e6 && Vr.h > Vr.d.hStale + 0.15 && Vr.Qin < 400) Pset = -def.PpMax;
-    } else if (p.mode === 'manual') Pset = p.man;
+    if (p.mode === 'auto') { Pset = this.pveAuto(); if (this.bal.pve && Pset >= 0) Pset = clamp(Math.max(0, p.P) + this.bal.pve, 0, def.PtMax); }
+    else if (p.mode === 'manual') Pset = p.man;
     else Pset = 0;
     // PpS
     let req = this.ppsRequest('pve'); const tot = this.ppsTotals('pve');
@@ -665,7 +748,7 @@ class Sim {
     const revs = O.units.filter(x => x.rev && x.avail);
     let nWant = 0;
     if (p.mode === 'auto') {
-      const cheap = (hod >= 10 && hod < 15) || (hod >= 1 && hod < 5);
+      const cheap = this.econ.on ? this.econHours().cheap.includes(Math.floor(hod) % 24) : (hod >= 10 && hod < 15) || (hod >= 1 && hod < 5);
       const ok = K.h > K.d.hStale + 0.25 && O.h < O.d.hZas - 0.05 && !O.flood && O.Qin < 600 && !(this.pps.on && this.ppsTotals('orlik').spin > 0 && false);
       if (cheap && ok) nWant = revs.length;
     } else if (p.mode === 'manual') nWant = Math.min(revs.length, Math.round(p.man));
@@ -745,7 +828,7 @@ class Sim {
   // ----- uložení a obnovení stavu (posun zpět v čase) -----
   snapshot() {
     const route = {}; for (const k in this.route) { const r = this.route[k], i = r.i || 0; route[k] = Object.assign({}, r, { buf: r.buf.slice(i).map(x => x.slice()), i: 0 }); }
-    return { t: this.t, t0: this.t0, scenarioKey: this.scenarioKey, scenarioName: this.scenarioName, orlik2033: this.orlik2033, spaState: this.spaState, praha: this.praha, Ptot: this.Ptot, rng: this.r.getState(),
+    return { bal: cloneState(this.bal), t: this.t, t0: this.t0, scenarioKey: this.scenarioKey, scenarioName: this.scenarioName, orlik2033: this.orlik2033, spaState: this.spaState, praha: this.praha, Ptot: this.Ptot, rng: this.r.getState(),
       q: cloneState(this.q), pve: cloneState(this.pve), opump: cloneState(this.opump), glob: cloneState(this.glob), pps: cloneState(this.pps), flags: cloneState(this.flags), drought: cloneState(this.drought), route, log: this.log.slice(),
       places: this.places.map(p => Object.assign({}, p)),
       dams: this.dams.map(d => { const o = {}; for (const k of Object.keys(d)) { if (k === 'curve' || k === 'd0') continue; o[k] = k === 'd' ? Object.assign({}, d.d) : cloneState(d[k]); } return o; }),
@@ -755,7 +838,7 @@ class Sim {
     for (const k of ['t', 't0', 'scenarioKey', 'scenarioName', 'orlik2033', 'spaState', 'praha', 'Ptot']) this[k] = s[k];
     this.r.setState(s.rng); this.q = cloneState(s.q); overlayState(this.pve, s.pve); overlayState(this.opump, s.opump); overlayState(this.pps, s.pps);
     // předvolby aplikace nejsou součástí děje simulace, návrat v čase je nemění
-    const g = this.glob, keep = { faults: g.faults, faultRate: g.faultRate, unitReady: g.unitReady }; overlayState(g, s.glob); Object.assign(g, keep);
+    const g = this.glob, keep = { faults: g.faults, faultRate: g.faultRate, unitReady: g.unitReady, spot: g.spot }; overlayState(g, s.glob); Object.assign(g, keep); this.bal = cloneState(s.bal);
     this.flags = cloneState(s.flags); this.drought = cloneState(s.drought); this.log = s.log.slice(); this.places = s.places.map(p => Object.assign({}, p));
     for (const k in s.route) { const r = s.route[k]; Object.assign(this.route[k], r, { buf: r.buf.map(x => x.slice()), i: 0 }); }
     this.dams.forEach((d, i) => { const o = s.dams[i]; for (const k of Object.keys(o)) { if (k === 'units') o.units.forEach((u, j) => overlayState(d.units[j], u)); else if (k === 'd') d.d = Object.assign({}, o.d); else d[k] = cloneState(o[k]); } });
@@ -841,7 +924,7 @@ function loadScenario(sim, key, opt) {
   sim.t = 0; sim.t0 = sc.start; sim.log = []; sim.flags = {}; sim.spaState = 0; sim.drought = { o: false, s: false };
   sim.places = PLACES_DEF.map(p => ({ def: p, val: 0, st: 0, max: 0, maxSt: 0, hours: 0 }));
   sim.pps.on = false; for (const p of PPS_PLANTS) for (const s of PPS_DEF) sim.pps.offers[p][s.id] = 0;
-  for (const s of PPS_DEF) sim.pps.stats[s.id] = { req: 0, del: 0 }; sim.pps.rev = { cap: 0, act: 0, spot: 0, pump: 0, pen: 0 }; sim.pps.sig = { f: 50, afrr: 0, m5: 0, m15: 0, m5t: 0, m15t: 0, ev: [] };
+  for (const s of PPS_DEF) sim.pps.stats[s.id] = { req: 0, del: 0 }; sim.pps.rev = { cap: 0, act: 0, spot: 0, pump: 0, pen: 0, mwh: 0, mkt: 0, mktT: 0 }; sim.pps.sig = { f: 50, afrr: 0, m5: 0, m15: 0, m5t: 0, m15t: 0, ev: [] }; sim.bal = { dev: 0, share: {}, pve: 0, rest: 0, nMan: 0 };
   for (const d of sim.dams) { d.d = Object.assign({}, d.d0); d.mode = 'auto'; d.par.tgtOverride = null; const h = (sc.levels && sc.levels[d.id] != null) ? sc.levels[d.id] : d.d.h0; d.reset(h); d.par.Qn = d.d.Qn; for (const u of d.units) u.avail = true; }
   sim.opump.P = 0; sim.opump.Q = 0; sim.opump.Ep = 0; sim.opump.ema = 0; sim.opump.mode = 'auto'; const o33 = sim.orlik2033; sim.orlik2033 = false;
   sim.pve.V = 0.3e6; sim.pve.P = 0; sim.pve.E = 0; sim.pve.Ep = 0; sim.pve.mode = 'auto'; sim.pve.u = null;
@@ -861,6 +944,6 @@ function addEvent(sim, N, delayH, which) { // přidá povodňovou vlnu od aktuá
   sim.emit('hydro', `Přidána srážková událost: Q${N} na ${which ? which.length : 'všech'} přítocích, kulminace za ~${delayH}+ h`, 'warn');
 }
 
-const API = { PLACES_DEF, Sim, loadScenario, addEvent, SCENARIOS, DAMS_DEF, NODES_DEF, PVE_DEF, PPS_DEF, PPS_PLANTS, PRAHA, QN, N_YEARS, makeCurve };
+const API = { PRICE_SHAPE, PLACES_DEF, Sim, loadScenario, addEvent, SCENARIOS, DAMS_DEF, NODES_DEF, PVE_DEF, PPS_DEF, PPS_PLANTS, PRAHA, QN, N_YEARS, makeCurve };
 if (typeof module !== 'undefined') module.exports = API; else root.VK = API;
 })(this);
