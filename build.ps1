@@ -18,7 +18,7 @@ $ui = $ui.Substring(0, $a) + $detail + $ui.Substring($b)
 if ($ui.IndexOf('/*CORE*/') -lt 0) { throw 'V ui.html chybí značka /*CORE*/' }
 $out = $ui.Replace('/*CORE*/', $core)
 # skutečná historická měření a poslední živý stav se vkládají, aby fungovaly i offline a v artefaktu
-foreach ($x in @(@('/*HISTORY*/null', 'live\history.json'), @('/*LIVE*/null', 'live\pvl.json'))) {
+foreach ($x in @(@('/*HISTORY*/null', 'live\history.json'), @('/*LEVELS*/null', 'live\levels.json'), @('/*LIVE*/null', 'live\pvl.json'))) {
   if ($out.IndexOf($x[0]) -lt 0) { throw "V ui.html chybí značka $($x[0])" }
   if (Test-Path "$PWD\$($x[1])") { $out = $out.Replace($x[0], [IO.File]::ReadAllText("$PWD\$($x[1])", $utf8).Trim().Replace('</', '<\/')) }
 }

@@ -80,6 +80,11 @@ Po dokončení úpravy: pečlivě otestovat (regrese + ostré snímky) a rovnou 
   `econMerge` + `econ.startCost` (orientační Kč/start, odečítá se ve výnosech). Dílo s točivou zálohou PpS jede podle rozvrhu MŘ.
 - `balanceStep`: odchylka ručního díla od jeho automatického plánu (`Pref`) se rozloží na Orlík, Slapy, Lipno I, případně PVE; nikdy proti ochraně hladin.
 
+## Historie a hladiny nádrží (21. 11. 2026)
+- Záložka Historie: `live/history.json` (ČHMÚ, denní Q od 1985, H od ~1990, `tools/build_history.ps1`) a `live/levels.json` (`tools/build_levels.ps1`); build.ps1 je vkládá do HTML.
+- Souvislá 40letá řada hladin nádrží NENÍ veřejná. levels.json = jen doložené dny: kopie portálu PVL v Internet Archive (`tools/wayback_download.ps1`, od 2007), zprávy PVL o suchu, `live/nadrze-archiv.csv` (plní workflow). Nedopočítávat ani neinterpolovat.
+- Přednost má portál před zprávou (datum vydání nemusí být dnem měření); staré stránky mají slepené sloupce („723.8661“ = 723,86 + 61). Povodeň 2002: tabulka v příloze 3 má v PDF posunuté řádky.
+
 ## Ověřené zdroje (pro realismus)
 - ČEZ: Slapy – strojovna přímo pod přelivy (přelévaná elektrárna), kapacita přelivů 2400 m³/s.
 - Orlík: stávající přeliv + 2 spodní výpusti ≈ 3150 m³/s; nový boční bezpečnostní přeliv (3 pole se segmentovými uzávěry,

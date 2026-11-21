@@ -2025,12 +2025,16 @@ if (/^https?:$/.test(location.protocol) && !/(^|\.)claude(usercontent)?\.(ai|com
 }
 setInterval(()=>liveBadge(),60000);
 /* ===================== HISTORIE (skutečná měření ČHMÚ, vkládá build.ps1 z live/history.json) ===================== */
-const VK_HISTORY=/*HISTORY*/null, VK_LIVE=/*LIVE*/null;
-const HS={st:-1,k:'q',log:false,lo:0,hi:0,cache:{},drag:null};
-const hT0=VK_HISTORY?Date.parse(VK_HISTORY.start+'T00:00:00Z'):0, hDate=i=>new Date(hT0+i*864e5);
+const VK_HISTORY=/*HISTORY*/null, VK_LEVELS=/*LEVELS*/null, VK_LIVE=/*LIVE*/null;
+const HS={st:-1,r:null,k:'q',log:false,lo:0,hi:0,cache:{},drag:null};
+const H_DAMS={lipno1:'Lipno I',lipno2:'Lipno II',hnevkovice:'Hněvkovice',korensko:'Kořensko',orlik:'Orlík',kamyk:'Kamýk',slapy:'Slapy',stechovice:'Štěchovice',vrane:'Vrané'};
+const hT0=VK_HISTORY?Date.parse(VK_HISTORY.start+'T00:00:00Z'):0, hDate=i=>new Date(hT0+i*864e5), hChmiDays=VK_HISTORY?VK_HISTORY.days:0;
+if (VK_HISTORY&&VK_LEVELS) for (const k in VK_LEVELS.dams){ const raw=VK_LEVELS.dams[k]; if (raw) VK_HISTORY.days=Math.max(VK_HISTORY.days,+raw.slice(raw.lastIndexOf(',')+1).split(':')[0]+1); } // osa až do posledního měření nádrží
 const hDay=i=>{ const d=hDate(i); return `${d.getUTCDate()}. ${d.getUTCMonth()+1}. ${d.getUTCFullYear()}`; };
-const hUnit=()=>HS.k==='q'?'m³/s':'cm', hFmt=v=>HS.k==='q'?fmtQ(v):fmt(v,0);
-function histSeries(){ const s=VK_HISTORY.stations[HS.st], key=s.id+HS.k;
+const hUnit=()=>HS.r?'m n. m.':HS.k==='q'?'m³/s':'cm', hFmt=v=>HS.r?fmt(v,2):HS.k==='q'?fmtQ(v):fmt(v,0);
+function histSeries(){
+  if (HS.r){ const key='r:'+HS.r; if (!HS.cache[key]){ const a=new Float32Array(VK_HISTORY.days).fill(NaN), raw=VK_LEVELS.dams[HS.r]||''; if (raw) for (const x of raw.split(',')){ const p=x.split(':'), i=+p[0]; if (i>=0&&i<a.length) a[i]=+p[1]; } HS.cache[key]=a; } return HS.cache[key]; }
+  const s=VK_HISTORY.stations[HS.st], key=s.id+HS.k;
   if (!HS.cache[key]){ const p=s[HS.k].split(','), a=new Float32Array(VK_HISTORY.days); for (let i=0;i<a.length;i++) a[i]=(p[i]===''||p[i]==null)?NaN:+p[i]; HS.cache[key]=a; }
   return HS.cache[key]; }
 function histRange(y){ const n=VK_HISTORY.days; HS.hi=n-1; HS.lo=y?Math.max(0,n-Math.round(y*365.25)):0; }
@@ -2038,7 +2042,7 @@ function buildHist(p){
   if (!VK_HISTORY){ p.innerHTML='<p class="note">Historická data nejsou v tomto sestavení k dispozici.</p>'; return; }
   if (HS.st<0){ HS.st=VK_HISTORY.stations.findIndex(s=>s.id==='200100'); histRange(0); }
   p.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
-    <select id="hSt" aria-label="Stanice">${VK_HISTORY.stations.map((s,i)=>`<option value="${i}" ${i===HS.st?'selected':''}>${s.name} (${s.river}) – ${s.note}</option>`).join('')}</select>
+    <select id="hSt" aria-label="Stanice nebo nádrž">${VK_LEVELS?`<optgroup label="Hladiny nádrží (jen dny s dochovaným měřením)">${Object.keys(H_DAMS).filter(k=>VK_LEVELS.dams[k]).map(k=>`<option value="r:${k}" ${HS.r===k?'selected':''}>${H_DAMS[k]} – ${VK_LEVELS.dams[k].split(',').length} dní</option>`).join('')}</optgroup>`:''}<optgroup label="Říční stanice ČHMÚ (souvislá denní řada)">${VK_HISTORY.stations.map((s,i)=>`<option value="${i}" ${!HS.r&&i===HS.st?'selected':''}>${s.name} (${s.river}) – ${s.note}</option>`).join('')}</optgroup></select>
     <div class="tabs" id="hK"><button class="tab ${HS.k==='q'?'on':''}" data-k="q">Průtok</button><button class="tab ${HS.k==='h'?'on':''}" data-k="h">Vodní stav</button></div>
     <div class="tabs" id="hR">${[[1,'1 rok'],[5,'5 let'],[10,'10 let'],[20,'20 let'],[0,'vše']].map(([y,l])=>`<button class="tab" data-y="${y}">${l}</button>`).join('')}</div>
     <label style="font-size:12.5px;display:flex;gap:5px;align-items:center"><input type="checkbox" id="hLog" ${HS.log?'checked':''}> logaritmická osa</label></div>
@@ -2047,9 +2051,10 @@ function buildHist(p){
    <div id="hTip" style="display:none;position:absolute;top:8px;pointer-events:none;background:var(--surface-3);border:1px solid var(--border-2);border-radius:8px;padding:5px 9px;font-size:12px;white-space:nowrap;z-index:3"></div></div>
    <div class="muted" style="font-size:11.5px;margin:3px 0 10px">Tažením v grafu přiblížíš období, dvojklikem vrátíš celou řadu.</div>
    <div style="overflow-x:auto"><table id="hTab"></table></div>
-   <p class="note"><b>Co tato data jsou:</b> skutečné denní průměry z říčních stanic ČHMÚ (otevřená data, CC BY 4.0), ${hDay(0)} až ${hDay(VK_HISTORY.days-1)}. Rok ${VK_HISTORY.provisionalFrom.slice(0,4)} je z provozních, zatím neověřených měření. Vodní stav je výška na vodočtu v cm, ČHMÚ ho v denní řadě zveřejňuje přibližně od roku 1994 a kvůli změnám koryta nemusí být mezi desetiletími přímo srovnatelný.</p>
-   <p class="note"><b>Hladiny v nádržích:</b> čtyřicetiletá denní řada není veřejně dostupná (ČHMÚ ji v otevřených datech nemá, Povodí Vltavy zveřejňuje jen poslední měsíc), proto zde není a ani se nedopočítává. Naměřené hladiny všech devíti nádrží se od listopadu 2026 ukládají do archivu <span class="mono">live/nadrze-archiv.csv</span>.</p>`;
-  $('#hSt').onchange=e=>{ HS.st=+e.target.value; drawHist(); };
+   <p class="note"><b>Co tato data jsou:</b> skutečné denní průměry z říčních stanic ČHMÚ (otevřená data, CC BY 4.0), ${hDay(0)} až ${hDay(hChmiDays-1)}. Rok ${VK_HISTORY.provisionalFrom.slice(0,4)} je z provozních, zatím neověřených měření. Vodní stav je výška na vodočtu v cm, ČHMÚ ho v denní řadě zveřejňuje přibližně od roku 1994 a kvůli změnám koryta nemusí být mezi desetiletími přímo srovnatelný.</p>
+   <p class="note"><b>Hladiny v nádržích:</b> souvislá čtyřicetiletá řada není veřejně dostupná. Zobrazené body jsou skutečná měření dochovaná v archivních kopiích portálu Povodí Vltavy (Internet Archive, od roku 2007), v týdenních zprávách PVL o suchu a v průběžném archivu simulátoru. Mezi body se nic nedopočítává, proto nejsou spojené přes mezery a minima či maxima platí jen pro dochované dny.${VK_LEVELS?` Povodeň 2002 (příloha 3 zprávy PVL), maximum 1. / 2. vlny: ${VK_LEVELS.peaks2002.map(p=>`${H_DAMS[p[0]]} ${fmt(p[1],2)} / ${fmt(p[2],2)}`).join(', ')} m n. m.`:''}</p>`;
+  $('#hSt').onchange=e=>{ const v=e.target.value; if (v.startsWith('r:')){ HS.r=v.slice(2); } else { HS.r=null; HS.st=+v; } $('#hK').style.display=HS.r?'none':''; $('#hLog').disabled=!!HS.r; drawHist(); };
+  $('#hK').style.display=HS.r?'none':''; $('#hLog').disabled=!!HS.r;
   $('#hK').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{ HS.k=b.dataset.k; $('#hK').querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b)); drawHist(); });
   $('#hR').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{ histRange(+b.dataset.y); drawHist(); });
   $('#hLog').onchange=e=>{ HS.log=e.target.checked; drawHist(); };
@@ -2068,23 +2073,26 @@ function histTicks(lo,hi,log){ if (log){ const r=[]; for (let e=Math.floor(Math.
 function drawHist(hx){ const c=$('#hC'); if (!c||!VK_HISTORY) return; const A=histSeries(), W=c.clientWidth, Ht=300, dpr=devicePixelRatio||1; if (!W) return;
   if (c.width!==Math.round(W*dpr)||c.height!==Math.round(Ht*dpr)){ c.width=Math.round(W*dpr); c.height=Math.round(Ht*dpr); }
   const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,Ht);
-  const L=58,R=W-12,T=12,B=Ht-26, lo=HS.lo, hi=HS.hi, log=HS.log&&HS.k==='q';
+  const L=58,R=W-12,T=12,B=Ht-26, lo=HS.lo, hi=HS.hi, log=HS.log&&HS.k==='q'&&!HS.r;
   let mn=Infinity,mx=-Infinity,sum=0,cnt=0,iMx=-1,iMn=-1; for (let i=lo;i<=hi;i++){ const v=A[i]; if (isNaN(v)) continue; cnt++; sum+=v; if (v>mx){mx=v;iMx=i;} if (v<mn){mn=v;iMn=i;} }
   const span=Math.max(1,hi-lo), X=i=>L+(R-L)*(i-lo)/span; HS.geo={L,R,W,day:x=>Math.max(lo,Math.min(hi,Math.round(lo+(x-L)/(R-L)*span)))};
   $('#hR').querySelectorAll('.tab').forEach(b=>{ const y=+b.dataset.y, n=VK_HISTORY.days; b.classList.toggle('on',hi===n-1&&lo===(y?Math.max(0,n-Math.round(y*365.25)):0)); });
   g.font='11px '+css('--mono'); g.textBaseline='middle';
   if (!cnt){ g.fillStyle=css('--muted'); g.textAlign='center'; g.fillText('V tomto období stanice tuto veličinu nezveřejňuje',(L+R)/2,(T+B)/2); $('#hStats').textContent=''; $('#hTab').innerHTML=''; return; }
-  let y0=log?Math.max(.01,mn*.85):Math.min(0,mn), y1=log?mx*1.2:mx*1.06; if (!log&&HS.k==='h') y0=Math.max(0,mn-(mx-mn)*.06); if (y1<=y0) y1=y0+1;
+  let y0=log?Math.max(.01,mn*.85):Math.min(0,mn), y1=log?mx*1.2:mx*1.06; if (!log&&HS.k==='h') y0=Math.max(0,mn-(mx-mn)*.06); if (HS.r){ const pad=Math.max(.1,(mx-mn)*.08); y0=mn-pad; y1=mx+pad; } if (y1<=y0) y1=y0+1;
   const Y=v=>log?B-(B-T)*(Math.log(Math.max(v,y0))-Math.log(y0))/(Math.log(y1)-Math.log(y0)):B-(B-T)*(v-y0)/(y1-y0);
   g.strokeStyle=css('--grid'); g.lineWidth=1; g.fillStyle=css('--muted'); g.textAlign='right';
-  for (const v of histTicks(y0,y1,log)){ const y=Math.round(Y(v))+.5; g.beginPath(); g.moveTo(L,y); g.lineTo(R,y); g.stroke(); g.fillText(fmt(v,v<1?2:v<10&&log?0:0),L-7,y); }
+  for (const v of histTicks(y0,y1,log)){ const y=Math.round(Y(v))+.5; g.beginPath(); g.moveTo(L,y); g.lineTo(R,y); g.stroke(); g.fillText(HS.r?fmt(v,y1-y0<5?1:0):fmt(v,v<1?2:0),L-7,y); }
   g.textAlign='left'; g.fillText(hUnit(),4,T); g.textAlign='center';
   const yA=hDate(lo).getUTCFullYear(), yB=hDate(hi).getUTCFullYear(), ys=yB-yA, step=[1,2,5,10].find(k=>ys/k<=Math.max(3,(R-L)/62))||10;
   for (let y=Math.ceil(yA/step)*step;y<=yB;y+=step){ const i=(Date.UTC(y,0,1)-hT0)/864e5; if (i<lo||i>hi) continue; const x=X(i); g.strokeStyle=css('--grid'); g.beginPath(); g.moveTo(x,T); g.lineTo(x,B); g.stroke(); g.fillText(y,x,B+14); }
   if (!ys) g.fillText(yA,(L+R)/2,B+14);
   // po sloupcích pixelů min–max: ani nejkratší povodňová špička se při 40 letech neztratí
   g.strokeStyle=css('--s1'); g.lineWidth=span>(R-L)?1:2; g.lineJoin='round'; g.beginPath(); let pen=false;
-  if (span>(R-L)){ const cols=Math.ceil(R-L); for (let k=0;k<=cols;k++){ const a=Math.round(lo+span*k/(cols+1)), b=Math.round(lo+span*(k+1)/(cols+1)); let m0=Infinity,m1=-Infinity; for (let i=a;i<=b;i++){ const v=A[i]; if (!isNaN(v)){ if (v<m0)m0=v; if (v>m1)m1=v; } } if (m1<m0){ pen=false; continue; } const x=L+k; if (pen) g.lineTo(x,Y(m0)); else g.moveTo(x,Y(m0)); g.lineTo(x,Y(m1)-.5); pen=true; } }
+  if (HS.r){ // nádrže: jen skutečné body, čára pouze mezi bezprostředně sousedními dny
+    g.lineWidth=1.5; for (let i=lo;i<=hi;i++){ const v=A[i]; if (isNaN(v)){ pen=false; continue; } if (pen) g.lineTo(X(i),Y(v)); else g.moveTo(X(i),Y(v)); pen=true; } g.stroke();
+    g.fillStyle=css('--s1'); g.beginPath(); for (let i=lo;i<=hi;i++){ const v=A[i]; if (isNaN(v)) continue; const x=X(i), y=Y(v); g.moveTo(x+2,y); g.arc(x,y,2,0,7); } g.fill(); g.beginPath();
+  } else if (span>(R-L)){ const cols=Math.ceil(R-L); for (let k=0;k<=cols;k++){ const a=Math.round(lo+span*k/(cols+1)), b=Math.round(lo+span*(k+1)/(cols+1)); let m0=Infinity,m1=-Infinity; for (let i=a;i<=b;i++){ const v=A[i]; if (!isNaN(v)){ if (v<m0)m0=v; if (v>m1)m1=v; } } if (m1<m0){ pen=false; continue; } const x=L+k; if (pen) g.lineTo(x,Y(m0)); else g.moveTo(x,Y(m0)); g.lineTo(x,Y(m1)-.5); pen=true; } }
   else for (let i=lo;i<=hi;i++){ const v=A[i]; if (isNaN(v)){ pen=false; continue; } if (pen) g.lineTo(X(i),Y(v)); else g.moveTo(X(i),Y(v)); pen=true; }
   g.stroke();
   // popisek jen u maxima
@@ -2092,11 +2100,11 @@ function drawHist(hx){ const c=$('#hC'); if (!c||!VK_HISTORY) return; const A=hi
   g.fillStyle=css('--text'); g.textAlign=mxX>(L+R)/2?'right':'left'; g.fillText(`max ${hFmt(mx)} ${hUnit()} · ${hDay(iMx)}`,mxX+(mxX>(L+R)/2?-9:9),Math.max(T+5,mxY));
   if (HS.drag){ g.fillStyle=css('--accent-weak'); const a=Math.min(HS.drag.a,HS.drag.b), b=Math.max(HS.drag.a,HS.drag.b); g.fillRect(a,T,b-a,B-T); }
   if (hx!=null&&!HS.drag){ const i=HS.geo.day(hx), v=A[i], x=X(i); g.strokeStyle=css('--muted'); g.lineWidth=1; g.beginPath(); g.moveTo(x,T); g.lineTo(x,B); g.stroke(); if (!isNaN(v)){ g.fillStyle=css('--s1'); g.strokeStyle=css('--surface'); g.lineWidth=2; g.beginPath(); g.arc(x,Y(v),4.5,0,7); g.fill(); g.stroke(); } return; }
-  const s=VK_HISTORY.stations[HS.st];
-  $('#hStats').innerHTML=`${s.name} · ${hDay(lo)} – ${hDay(hi)} · průměr <b>${hFmt(sum/cnt)} ${hUnit()}</b> · minimum <b>${hFmt(mn)}</b> (${hDay(iMn)}) · maximum <b>${hFmt(mx)}</b> (${hDay(iMx)}) · pokrytí ${fmt(100*cnt/(hi-lo+1),1)} %`;
+  const hName=HS.r?'VD '+H_DAMS[HS.r]:VK_HISTORY.stations[HS.st].name;
+  $('#hStats').innerHTML=HS.r?`${hName} · ${hDay(lo)} – ${hDay(hi)} · <b>${fmt(cnt,0)}</b> dní s dochovaným měřením (${fmt(100*cnt/(hi-lo+1),1)} % období) · nejnižší dochovaná <b>${hFmt(mn)}</b> (${hDay(iMn)}) · nejvyšší dochovaná <b>${hFmt(mx)}</b> (${hDay(iMx)})`:`${hName} · ${hDay(lo)} – ${hDay(hi)} · průměr <b>${hFmt(sum/cnt)} ${hUnit()}</b> · minimum <b>${hFmt(mn)}</b> (${hDay(iMn)}) · maximum <b>${hFmt(mx)}</b> (${hDay(iMx)}) · pokrytí ${fmt(100*cnt/(hi-lo+1),1)} %`;
   const yr={}; for (let i=lo;i<=hi;i++){ const v=A[i]; if (isNaN(v)) continue; const q=hDate(i).getUTCFullYear(), o=yr[q]||(yr[q]={mx:-Infinity,mn:Infinity}); if (v>o.mx){o.mx=v;o.iX=i;} if (v<o.mn){o.mn=v;o.iN=i;} }
   const list=Object.values(yr), hiL=[...list].sort((a,b)=>b.mx-a.mx).slice(0,5), loL=[...list].sort((a,b)=>a.mn-b.mn).slice(0,5);
-  $('#hTab').innerHTML=`<tr><th>#</th><th>Nejvyšší roční maxima</th><th>datum</th><th>Nejnižší roční minima</th><th>datum</th></tr>`+hiL.map((o,j)=>`<tr><td>${j+1}</td><td class="mono">${hFmt(o.mx)} ${hUnit()}</td><td class="mono">${hDay(o.iX)}</td><td class="mono">${loL[j]?hFmt(loL[j].mn)+' '+hUnit():'—'}</td><td class="mono">${loL[j]?hDay(loL[j].iN):'—'}</td></tr>`).join(''); }
+  $('#hTab').innerHTML=`<tr><th>#</th><th>${HS.r?'Nejvyšší z dochovaných dní':'Nejvyšší roční maxima'}</th><th>datum</th><th>${HS.r?'Nejnižší z dochovaných dní':'Nejnižší roční minima'}</th><th>datum</th></tr>`+hiL.map((o,j)=>`<tr><td>${j+1}</td><td class="mono">${hFmt(o.mx)} ${hUnit()}</td><td class="mono">${hDay(o.iX)}</td><td class="mono">${loL[j]?hFmt(loL[j].mn)+' '+hUnit():'—'}</td><td class="mono">${loL[j]?hDay(loL[j].iN):'—'}</td></tr>`).join(''); }
 /* ===================== OBCE ===================== */
 function buildPlaces(p){
   p.innerHTML=`<p class="note" style="margin:0 0 10px">Cílem řízení kaskády je, aby se obce pod nádržemi i na jejich březích nezatopily. Prahy jsou orientační – odvozené z N-letých průtoků, stupňů povodňové aktivity a neškodných odtoků podle manipulačních řádů.</p>
