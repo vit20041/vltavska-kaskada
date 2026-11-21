@@ -248,7 +248,8 @@ class Sim {
     this.route = { lipno2: { buf: [], lag: 14 * 3600, k: 6 * 3600, s: 0 }, vrane: { buf: [], lag: 1.5 * 3600, k: 0.5 * 3600, s: 0 } };
     this.praha = 0; this.log = []; this.listeners = [];
     // cena a účinnost: předvolby uživatele, návrat v čase ani změna scénáře je nemění
-    this.econ = { on: true, balance: true }; this.priceShape = PRICE_SHAPE.slice(); this.priceVer = 0; this.etaTabs = {}; this.etaVer = 0;
+    this.econ = { on: true, balance: true, startCost: 3000 }; // cena jednoho startu [Kč] je orientační, uživatel ji přepisuje
+ this.priceShape = PRICE_SHAPE.slice(); this.priceVer = 0; this.etaTabs = {}; this.etaVer = 0;
     this.bal = { dev: 0, share: {}, pve: 0, rest: 0, nMan: 0 };
     // PpS
     this.pps = { on: false, offers: {}, sig: { f: 50, afrr: 0, m5: 0, m15: 0, m5t: 0, m15t: 0, ev: [] }, lam5: 0.3, lam15: 2, stats: {}, rev: { cap: 0, act: 0, spot: 0, pump: 0, pen: 0 } };
@@ -392,9 +393,15 @@ class Sim {
 
   // přepočet požadovaného průměrného odtoku na okamžitý průtok turbínami (špičkování)
   turbineSchedule(dam, Qb, Qtmax) {
+    if (!dam.par.peak) return Math.min(Qb, Qtmax); if (Qtmax <= 0) return 0;
+    const Qtp = this.planCap(dam, Qtmax);
+    // dílo s nabídnutou točivou zálohou PpS drží stroje v regulačním pásmu, cena mu rozvrh nepřesouvá
+    const spin = this.pps.on && PPS_PLANTS.includes(dam.id) && this.ppsTotals(dam.id).spin > 0;
+    if (this.econ.on && !spin && !this.econHold(dam, Qtp)) return this.econSchedule(dam, Qb, Qtmax, Qtp);
+    return Math.min(Qtmax, this.mrSchedule(dam, Qb, Qtp)); // rozvrh počítá s plnou kapacitou, stroj v době připravenosti ho nepřepíná
+  }
+  mrSchedule(dam, Qb, Qtmax) {
     const u = dam.d.units, hod = this.hourOfDay;
-    if (!dam.par.peak) return Math.min(Qb, Qtmax);
-    if (this.econ.on && !this.econHold(dam, Qtmax)) return this.econSchedule(dam, Qb, Qtmax);
     const Hpk = this.peakHours(dam); const dayVol = Qb * 24;
     if (dayVol >= Qtmax * 24) return Qtmax;
     let Qpk = Math.min(Qtmax, dayVol / Hpk), Qoff = Math.max(0, (dayVol - Qtmax * Hpk) / (24 - Hpk));
@@ -428,22 +435,41 @@ class Sim {
     for (const s of seg) { if (vol <= 1e-6) break; if (s.one && vol < u.Qmin) continue; if (!s.one && q[s.h] < Math.min(Qbest, cap) - 1e-6) continue; const room = cap - q[s.h], take = Math.min(s.s, vol, room); if (take <= 1e-6 || (q[s.h] <= 0 && take < u.Qmin)) continue; q[s.h] += take; vol -= take; }
     if (vol > 1e-6) for (const h of price.map((p, i) => i).sort((a, b) => price[b] - price[a])) { if (q[h] <= 0) continue; const take = Math.min(vol, cap - q[h]); if (take <= 0) continue; q[h] += take; vol -= take; if (vol <= 1e-6) break; }
     if (vol > 1e-6) for (const h of price.map((p, i) => i).sort((a, b) => price[b] - price[a])) { const take = Math.min(vol, nU * Qm - q[h]); if (take <= 0 || (q[h] <= 0 && take < u.Qmin)) continue; q[h] += take; vol -= take; if (vol <= 1e-6) break; }
+    this.econMerge(q, price, e1, cap, Qm, forced);
     return { q, f, Qbest, Qm };
   }
+  // třetí a další provozní blok se ruší, pokud je ztráta z horší ceny menší než náklad na další start
+  econMerge(q, price, e1, cap, Qm, forced) {
+    const sc = this.econ.startCost || 0; if (sc <= 0) return;
+    for (let it = 0; it < 8; it++) {
+      if (q.every(v => v > 0)) return; const first = q.findIndex((v, i) => v <= 0 && q[(i + 1) % 24] > 0); if (first < 0) return;
+      const blocks = []; for (let k = 1; k <= 24; k++) { const h = (first + k) % 24; if (q[h] > 0) { if (q[(h + 23) % 24] <= 0) blocks.push([]); blocks[blocks.length - 1].push(h); } }
+      if (blocks.length <= 2) return;
+      const free = blocks.filter(b => !b.some(h => forced.includes(h))); if (!free.length) return;
+      const volOf = b => b.reduce((s, h) => s + q[h], 0), B = free.sort((a, b) => volOf(a) - volOf(b))[0], rest = q.map((v, h) => h).filter(h => q[h] > 0 && !B.includes(h)).sort((a, b) => price[b] - price[a]);
+      let left = volOf(B), loss = 0; const add = {}; for (const h of rest) { const take = Math.min(left, Math.max(0, cap - q[h])); if (take <= 0) continue; add[h] = take; left -= take; if (left <= 1e-6) break; }
+      if (left > 1e-6) return; const pB = B.reduce((s, h) => s + price[h] * q[h], 0) / volOf(B); for (const h in add) loss += add[h] * e1 * (pB - price[h]);
+      const nStarts = Math.max(1, Math.ceil(Math.max(...B.map(h => q[h])) / Math.max(Qm, 1e-6))); if (loss >= sc * nStarts) return;
+      for (const h of B) q[h] = 0; for (const h in add) q[h] += add[h];
+    }
+  }
+  countStart() { const r = this.pps.rev; r.starts = (r.starts || 0) + 1; r.startKc = (r.startKc || 0) + (this.econ.startCost || 0); }
   // povodeň, doznívání povodně a nízké vyrovnávací nádrže: bezpečnost má přednost před cenou, platí rozvrh podle MŘ (s hysterezí)
   econHold(dam, Qtmax) { const d = dam.d, D = this.D, bufs = dam.id === 'orlik' ? [D.kamyk] : dam.id === 'slapy' ? [D.stechovice, D.vrane] : [D.lipno2], low = bufs.some(b => b.h < b.d.hStale + 0.25), q1 = dam.ema1 || 0, q24 = dam.ema24 || 0;
     const O = D.orlik, dry = this.drought.o || this.drought.s || O.h < O.d.hDrought + 2; // v suchu rozhoduje MŘ, zásoba se nepřesouvá kvůli ceně
     if (dam.h > d.hZas - 0.15 || q1 > 0.8 * Qtmax || low || dry) { dam.econHoldOn = true; dam.econHoldT = this.t; }
     else if (dam.econHoldOn && dam.h < d.hZas - 0.4 && q24 < 0.5 * Qtmax && O.h > O.d.hDrought + 2.5 && !bufs.some(b => b.h < b.d.hStale + 0.5) && this.t - (dam.econHoldT || 0) > 12 * 3600) dam.econHoldOn = false;
     return !!dam.econHoldOn; }
-  econSchedule(dam, Qb, Qtmax) {
-    if (Qtmax <= 0 || Qb <= 0) return 0; if (Qb >= Qtmax) return Qtmax;
+  // kapacita pro denní plán: stroj čekající na dobu připravenosti se počítá, jinak by se plán přepínal a stroje by se střídaly v cyklu
+  planCap(dam, Qtmax) { if (Qtmax <= 0) return 0; const u = dam.d.units, H = Math.max(0.5, dam.head || u.Hnom), Qa = Math.min(u.Qmax, this.unitQforP(dam, u.Pmax, H) || u.Qmax); return Math.max(Qtmax, dam.units.filter(x => x.avail && !x.fault).length * Qa); }
+  econSchedule(dam, Qb, Qtmax, Qtp) {
+    if (Qtmax <= 0 || Qb <= 0) return 0; if (Qb >= Qtp) return Qtmax;
     // plán stojí na průměru potřeby za ~6 h: okamžitý požadavek kolísá s vyrovnávacími nádržemi a násobený ve špičce by odpouštěl zásobu navíc
     dam.QbE = dam.QbE == null ? Qb : dam.QbE + (Qb - dam.QbE) * (1 - Math.exp(-this.dt / 21600)); Qb = dam.QbE;
     const H = Math.max(0.5, dam.head || dam.d.units.Hnom), key = this.priceKey() + ':' + this.etaVer, c = dam.econC;
     const hod = this.hourOfDay, h = Math.floor(hod) % 24, dQ = c ? Math.abs(c.Qb - Qb) / Math.max(1, c.Qb) : 1;
     // plán se mění jen při nové denní situaci: běžné kolísání nesmí v průběhu hodiny zapínat a vypínat soustrojí
-    if (!c || c.key !== key || Math.abs(c.Qt - Qtmax) > 0.05 * Math.max(1, c.Qt) || dQ > 0.25 || (c.day !== Math.floor(this.t / 86400) && h === 0) || Math.abs(c.H - H) > 0.06 * c.H) dam.econC = Object.assign(this.econPlan(dam, Qb, Qtmax, H), { key, Qt: Qtmax, Qb, H, day: Math.floor(this.t / 86400) });
+    if (!c || c.key !== key || Math.abs(c.Qt - Qtp) > 0.05 * Math.max(1, c.Qt) || dQ > 0.25 || (c.day !== Math.floor(this.t / 86400) && h === 0) || Math.abs(c.H - H) > 0.06 * c.H) dam.econC = Object.assign(this.econPlan(dam, Qb, Qtp, H), { key, Qt: Qtp, Qb, H, day: Math.floor(this.t / 86400) });
     const p = dam.econC; if (p.f[h] < 1 && hod - Math.floor(hod) >= p.f[h]) return 0;
     return p.q[h] > 0 ? Math.min(Qtmax, p.q[h]) : 0;
   }
@@ -587,7 +613,7 @@ class Sim {
       if (x.dir === 'pump') { x.P = 0; x.Q = 0; continue; } // čerpání řídí orlikPumpStep
       const ok = x.avail && !x.pump && !x.fault && !dam.trip, want = ok && Math.min(x.Pset, capU) > 0.01;
       if (!x.state) x.state = x.P > 0.01 ? 'run' : 'stop';
-      if (x.state === 'stop') { if (want && !(x.lock > t)) { x.state = 'start'; x.tS = t; x.tLen = tStart; } }
+      if (x.state === 'stop') { if (want && !(x.lock > t)) { x.state = 'start'; x.tS = t; x.tLen = tStart; this.countStart(); } }
       else if (x.state === 'start') { if (!want) { x.state = 'stop'; x.lock = t + tReady; } else if (t - x.tS >= tStart) x.state = 'run'; }
       else if (x.state === 'run') { if (!ok) { x.state = 'stop'; x.lock = t + tReady; x.P = 0; } else if (!want && x.P <= 0.01) { x.state = 'stop'; x.lock = t + tReady; } }
       if (x.state === 'run') { x.P = x.P + clamp(Math.min(x.Pset, capU) - x.P, -rate * 1.5, rate); x.P = clamp(x.P, 0, capU); } else x.P = 0;
@@ -719,7 +745,7 @@ class Sim {
     const u = p.u || (p.u = { state: 'stop', lock: 0, avail: true, fault: null, P: 0, Q: 0, pump: false, rev: true, Pmax: def.PtMax });
     const t = this.t, tReady = this.glob.unitReady != null ? this.glob.unitReady : 600;
     const want = !u.avail || u.fault ? 'stop' : Pt > 0.5 ? 'gen' : Pt < -0.5 ? 'pump' : 'stop';
-    if (u.state === 'stop') { if (want !== 'stop' && !(u.lock > t)) { u.state = 'start'; u.dir = want; u.tS = t; u.tLen = want === 'gen' ? 90 : 360; } }
+    if (u.state === 'stop') { if (want !== 'stop' && !(u.lock > t)) { u.state = 'start'; u.dir = want; u.tS = t; u.tLen = want === 'gen' ? 90 : 360; this.countStart(); } }
     else if (u.state === 'start') { if (want !== u.dir) { u.state = 'stop'; u.lock = t + tReady; } else if (t - u.tS >= u.tLen) u.state = 'run'; }
     else if (u.state === 'run' && want !== u.dir && Math.abs(p.P) < 0.5) { u.state = 'stop'; u.lock = t + tReady; }
     const tgt = u.state === 'run' && want === u.dir ? (u.dir === 'pump' ? -def.PpMax : Math.max(0, Pt)) : 0;
@@ -749,15 +775,19 @@ class Sim {
     let nWant = 0;
     if (p.mode === 'auto') {
       const cheap = this.econ.on ? this.econHours().cheap.includes(Math.floor(hod) % 24) : (hod >= 10 && hod < 15) || (hod >= 1 && hod < 5);
-      const ok = K.h > K.d.hStale + 0.25 && O.h < O.d.hZas - 0.05 && !O.flood && O.Qin < 600 && !(this.pps.on && this.ppsTotals('orlik').spin > 0 && false);
-      if (cheap && ok) nWant = revs.length;
+      // hystereze: čerpání začne jen s rezervou v Kamýku; když ho Kamýk ukončí, do konce levného období se znovu nespouští
+      const ok = O.h < O.d.hZas - 0.05 && !O.flood && O.Qin < 600;
+      if (!cheap || !ok) { p.on = false; if (!cheap) p.block = false; }
+      else if (p.on) { if (K.h <= K.d.hStale + 0.25) { p.on = false; p.block = true; } }
+      else if (!p.block && K.h > K.d.hStale + 0.6) p.on = true;
+      if (p.on) nWant = revs.length;
     } else if (p.mode === 'manual') nWant = Math.min(revs.length, Math.round(p.man));
     if (K.h <= K.d.hStale + 0.08) nWant = 0;
     // reverzní soustrojí: do čerpání jen ze zastavení (turbínový provoz nejdřív odlehčit a odstavit), čerpadlový rozběh ~6 min
     // (odvodnění oběžného kola stlačeným vzduchem, rozběh pomocným pohonem, fázování, zavodnění), po odstavení doba připravenosti
     const t = this.t, tReady = this.glob.unitReady != null ? this.glob.unitReady : 600; p.want = nWant;
     revs.forEach((x, i) => { const want = i < nWant && !x.fault;
-      if (x.dir !== 'pump') { if (want && x.state === 'stop' && !(x.lock > t)) { x.dir = 'pump'; x.state = 'start'; x.tS = t; x.tLen = 360; } }
+      if (x.dir !== 'pump') { if (want && x.state === 'stop' && !(x.lock > t)) { x.dir = 'pump'; x.state = 'start'; x.tS = t; x.tLen = 360; this.countStart(); } }
       else if (x.state === 'start') { if (!want) { x.state = 'stop'; x.dir = null; x.lock = t + tReady; } else if (t - x.tS >= x.tLen) x.state = 'run'; }
       else if (x.state === 'run' && !want) { x.state = 'stop'; x.dir = null; x.lock = t + tReady; }
       x.pump = x.dir === 'pump' && x.state === 'run'; });
@@ -924,9 +954,9 @@ function loadScenario(sim, key, opt) {
   sim.t = 0; sim.t0 = sc.start; sim.log = []; sim.flags = {}; sim.spaState = 0; sim.drought = { o: false, s: false };
   sim.places = PLACES_DEF.map(p => ({ def: p, val: 0, st: 0, max: 0, maxSt: 0, hours: 0 }));
   sim.pps.on = false; for (const p of PPS_PLANTS) for (const s of PPS_DEF) sim.pps.offers[p][s.id] = 0;
-  for (const s of PPS_DEF) sim.pps.stats[s.id] = { req: 0, del: 0 }; sim.pps.rev = { cap: 0, act: 0, spot: 0, pump: 0, pen: 0, mwh: 0, mkt: 0, mktT: 0 }; sim.pps.sig = { f: 50, afrr: 0, m5: 0, m15: 0, m5t: 0, m15t: 0, ev: [] }; sim.bal = { dev: 0, share: {}, pve: 0, rest: 0, nMan: 0 };
+  for (const s of PPS_DEF) sim.pps.stats[s.id] = { req: 0, del: 0 }; sim.pps.rev = { cap: 0, act: 0, spot: 0, pump: 0, pen: 0, mwh: 0, mkt: 0, mktT: 0, starts: 0, startKc: 0 }; sim.pps.sig = { f: 50, afrr: 0, m5: 0, m15: 0, m5t: 0, m15t: 0, ev: [] }; sim.bal = { dev: 0, share: {}, pve: 0, rest: 0, nMan: 0 };
   for (const d of sim.dams) { d.d = Object.assign({}, d.d0); d.mode = 'auto'; d.par.tgtOverride = null; const h = (sc.levels && sc.levels[d.id] != null) ? sc.levels[d.id] : d.d.h0; d.reset(h); d.par.Qn = d.d.Qn; for (const u of d.units) u.avail = true; }
-  sim.opump.P = 0; sim.opump.Q = 0; sim.opump.Ep = 0; sim.opump.ema = 0; sim.opump.mode = 'auto'; const o33 = sim.orlik2033; sim.orlik2033 = false;
+  sim.opump.P = 0; sim.opump.Q = 0; sim.opump.Ep = 0; sim.opump.ema = 0; sim.opump.mode = 'auto'; sim.opump.on = false; sim.opump.block = false; const o33 = sim.orlik2033; sim.orlik2033 = false;
   sim.pve.V = 0.3e6; sim.pve.P = 0; sim.pve.E = 0; sim.pve.Ep = 0; sim.pve.mode = 'auto'; sim.pve.u = null;
   for (const n of sim.nodes) { n.mode = 'scen'; n.mult = 1; n.pulses = []; n.manual = n.def.now; }
   sim.glob.prahaProt = true; sim.glob.QminVrane = 40;

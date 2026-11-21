@@ -76,6 +76,8 @@ Po dokončení úpravy: pečlivě otestovat (regrese + ostré snímky) a rovnou 
   Výchozí křivky jsou modelové, ne výrobní data.
 - `econPlan`: denní objem z MŘ se nemění, jen se přesouvá do hodin s nejvyšší hodnotou (cena × účinnost). Min. 5 h provozu (Lipno I 7 h), ranní i večerní okno,
   stálý základ mimo špičky, když se objem do špiček nevejde. `econHold`: při povodni, doznívání, suchu a nízkých vyrovnávacích nádržích platí rozvrh MŘ.
+- Starty: `planCap` (stroj v době připravenosti se v plánu počítá, jinak se stroje střídají v cyklu), hystereze čerpání Orlík 2033 (`opump.on/block`),
+  `econMerge` + `econ.startCost` (orientační Kč/start, odečítá se ve výnosech). Dílo s točivou zálohou PpS jede podle rozvrhu MŘ.
 - `balanceStep`: odchylka ručního díla od jeho automatického plánu (`Pref`) se rozloží na Orlík, Slapy, Lipno I, případně PVE; nikdy proti ochraně hladin.
 
 ## Ověřené zdroje (pro realismus)
