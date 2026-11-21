@@ -436,7 +436,7 @@ kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border-2);bord
 
 <div class="toast" id="toast"></div>
 <div class="modal" id="unitM" style="z-index:85"><div class="box" style="max-width:960px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h3 style="margin:0">⚙ <span id="uvT"></span></h3><small class="muted" id="uvS"></small></div><button class="btn" id="uvClose">Zavřít</button></div>
-  <svg id="uvSvg" viewBox="0 0 920 450" style="width:100%;height:auto;display:block;margin-top:6px"></svg>
+  <div id="uvWrap" style="position:relative;margin-top:6px"><svg id="uvSvg" viewBox="0 0 920 450" style="width:100%;height:auto;display:block"></svg></div>
   <div class="chips" id="uvPh" style="margin:6px 0 10px"></div>
   <div id="uvCtl" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
   <p class="note">Živý stav ze simulace. Fáze najíždění a doběhu se nejlépe sledují v rychlosti „reálný čas“ – 15 s/s. Otáčky jsou v % jmenovitých (v provozu je drží síť: 50 Hz = 100 %). Doběh: zavřené lopatky, volné dobíhání, pod ~25 % otáček mechanická brzda; pak doba připravenosti.</p></div></div>
@@ -1263,7 +1263,7 @@ class Sim {
   }
   orlikPumpStep(dt) { // reverzní soustrojí čerpají z Kamýku do Orlíku
     const p = this.opump, O = this.D.orlik, K = this.D.kamyk, hod = this.hourOfDay;
-    if (!this.orlik2033) { p.P = 0; p.Q = 0; return 0; }
+    if (!this.orlik2033) { p.P = 0; p.Q = 0; p.n = 0; p.want = 0; p.on = false; return 0; } // jinak by zbylý požadavek na čerpání blokoval turbíny Orlíku
     const H = Math.max(5, O.h - K.h + 1.0); p.head = H;
     const revs = O.units.filter(x => x.rev && x.avail);
     let nWant = 0;
@@ -1450,7 +1450,8 @@ function loadScenario(sim, key, opt) {
   sim.pps.on = false; for (const p of PPS_PLANTS) for (const s of PPS_DEF) sim.pps.offers[p][s.id] = 0;
   for (const s of PPS_DEF) sim.pps.stats[s.id] = { req: 0, del: 0 }; sim.pps.rev = { cap: 0, act: 0, spot: 0, pump: 0, pen: 0, mwh: 0, mkt: 0, mktT: 0, starts: 0, startKc: 0 }; sim.pps.sig = { f: 50, afrr: 0, m5: 0, m15: 0, m5t: 0, m15t: 0, ev: [] }; sim.bal = { dev: 0, share: {}, pve: 0, rest: 0, nMan: 0 };
   for (const d of sim.dams) { d.d = Object.assign({}, d.d0); d.mode = 'auto'; d.par.tgtOverride = null; const h = (sc.levels && sc.levels[d.id] != null) ? sc.levels[d.id] : d.d.h0; d.reset(h); d.par.Qn = d.d.Qn; for (const u of d.units) u.avail = true; }
-  sim.opump.P = 0; sim.opump.Q = 0; sim.opump.Ep = 0; sim.opump.ema = 0; sim.opump.mode = 'auto'; sim.opump.on = false; sim.opump.block = false; const o33 = sim.orlik2033; sim.orlik2033 = false;
+  sim.opump.P = 0; sim.opump.Q = 0; sim.opump.Ep = 0; sim.opump.ema = 0; sim.opump.mode = 'auto'; sim.opump.on = false; sim.opump.block = false; sim.opump.n = 0; sim.opump.want = 0; sim.orlik2033 = false;
+  for (const x of sim.D.orlik.units) { delete x.Pmax; delete x.Pp; delete x.Qp; delete x.PpMax; x.rev = false; x.pump = false; x.dir = null; } // po scénáři 2033 nesmí zůstat vlastnosti reverzních strojů
   sim.pve.V = 0.3e6; sim.pve.P = 0; sim.pve.E = 0; sim.pve.Ep = 0; sim.pve.mode = 'auto'; sim.pve.u = null;
   for (const n of sim.nodes) { n.mode = 'scen'; n.mult = 1; n.pulses = []; n.manual = n.def.now; }
   sim.glob.prahaProt = true; sim.glob.QminVrane = 40;
@@ -2542,15 +2543,15 @@ function drawTurbine(par,x,cx,cy,kind,s,i,bare){ const g=el('g',{transform:`tran
   const ele=el('path',{d:'M27,-62 L46,-62 L46,-96',stroke:css('--light'),'stroke-width':0,fill:'none','stroke-dasharray':'3 5',class:'flowing',opacity:0},g);
   const bolt=el('text',{x:49,y:-84,'font-size':12,fill:css('--light'),opacity:0},g); bolt.textContent='⚡';
   // aktualizace: fáze otáčení (stupně) a otevření 0..1
-  const upd=(ph,op,wetOn,pf,pump)=>{ const a0=ph*Math.PI/180; pf=pf||0;
+  const upd=(ph,op,wetOn,pf,pump,guide)=>{ const a0=ph*Math.PI/180; pf=pf||0; const gOpen=guide==null?op:guide; // rozváděcí lopatky mají vlastní otevření, u Kaplanu se liší od natočení oběžného kola
     ele.setAttribute('stroke-width',pf>0.01?(1+5*pf).toFixed(1):0); ele.setAttribute('opacity',pf>0.01?0.35+0.65*pf:0); ele.setAttribute('stroke',pump?css('--s7'):css('--light')); ele.setAttribute('style',pump?'animation-direction:reverse':''); bolt.setAttribute('opacity',pf>0.01?0.4+0.6*pf:0);
     blades.forEach((b,k)=>{ const a=a0+k*2*Math.PI/nb, sx=Math.sin(a), cz=Math.cos(a), front=cz>0;
       if (kind==='K'){ const tilt=(3+9*op)*cz, w=1.2+3.5*Math.abs(cz), r0=7*sx, r1=R*sx;
         b.setAttribute('d',`M${r0},${-3-w} L${r1},${-3-w+tilt} L${r1},${-3+w+tilt} L${r0},${-3+w} Z`); }
       else { const xt=R*sx, xb=11*sx; b.setAttribute('d',`M${xt},-13 Q${xt*0.95+3*cz},-2 ${xb},6`); b.setAttribute('fill','none'); b.setAttribute('stroke-width',1.4+1.6*Math.abs(cz)); }
       b.setAttribute('opacity',front?1:.28); });
-    const ga=(0.15+0.75*op); gv.forEach((p,j)=>{ const sg=j?1:-1, xx=sg*(kind==='K'?21:20), dx=Math.cos(ga)*4, dy=Math.sin(ga)*4; p.setAttribute('d',`M${xx-dx},${-6-dy} L${xx+dx},${-6+dy}`); });
-    wet.forEach(p=>p.setAttribute('fill',wetOn?W:css('--surface-3'))); wet.forEach(p=>p.setAttribute('fill-opacity',wetOn?.3+.6*op:1)); };
+    const ga=(0.15+0.75*gOpen); gv.forEach((p,j)=>{ const sg=j?1:-1, xx=sg*(kind==='K'?21:20), dx=Math.cos(ga)*4, dy=Math.sin(ga)*4; p.setAttribute('d',`M${xx-dx},${-6-dy} L${xx+dx},${-6+dy}`); });
+    wet.forEach(p=>p.setAttribute('fill',wetOn?W:css('--surface-3'))); wet.forEach(p=>p.setAttribute('fill-opacity',wetOn?.3+.6*gOpen:1)); };
   if (!bare){ spin[i]=spin[i]||i*23; upd(spin[i],0,false); } else upd(0,0,false);
   return {g,glow,gen,lab,lab2,out,cx,cy,upd,kind,rot:{setAttribute(){}}}; }
 
@@ -3128,53 +3129,89 @@ function closeUnit(){ UV.on=false; $('#unitM').classList.remove('on'); }
 function openUnit(damId,i){ if (damId==='pve'&&!sim.pve.u) sim.pveStep(0); const d=unitDam(damId); if (!d||!d.units[i]) return;
   UV.id=damId; UV.i=i; UV.buf=[]; UV.ph=0; UV.last=null; UV.on=true; $('#unitM').classList.add('on'); unitBuild(); requestAnimationFrame(unitFrame); }
 
-/* Půdorys rozvaděče (řez ve výšce rozváděcích lopatek, pohled shora): spirála → pevné lopatky (stator) →
-   rozváděcí lopatky (natáčejí se kolem čepů, regulují průtok) → oběžné kolo. Kaplan: lopatky kola se natáčejí (dvojitá regulace). */
-function drawPlan(par,cx,cy,R,kind){ const g=el('g',{},par), T2=css('--text-2'), STR=css('--border-2');
-  // spirála (zužuje se po obvodu) + vtok
-  let d=''; for (let i=0;i<=72;i++){ const th=i/72*2*Math.PI, r=R*(0.98-0.2*i/72); d+=(i?'L':'M')+(cx+r*Math.cos(th)).toFixed(1)+','+(cy-r*Math.sin(th)).toFixed(1); }
-  el('path',{d:d+` L${cx+R*0.78},${cy}`,fill:css('--surface-3'),stroke:T2,'stroke-width':1.6,'fill-opacity':.5},g);
-  el('path',{d:`M${cx+R*0.98},${cy} L${cx+R*0.98},${cy+R*0.62} M${cx+R*0.78},${cy} L${cx+R*0.78},${cy+R*0.62}`,fill:'none',stroke:T2,'stroke-width':1.6},g); // vtok zdola, voda ve spirále obíhá proti směru hodin
-  const water=el('circle',{cx,cy,r:R*0.74,fill:css('--water-1'),opacity:0},g);
-  // pevné lopatky (stator) – nepohyblivé, nesou spirálu
-  const Ns=kind==='K'?12:14, rs=R*0.68; for (let k=0;k<Ns;k++){ const a=k/Ns*2*Math.PI; const x=cx+rs*Math.cos(a), y=cy-rs*Math.sin(a), rot=-(a*180/Math.PI)-90-35; /* tečna po směru proudu (proti směru hodin) natočená dovnitř */
-    el('path',{d:'M-8,0 Q0,-3.2 9,0 Q0,1.6 -8,0 Z',transform:`translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${rot.toFixed(1)})`,fill:css('--conc-2'),stroke:STR},g); }
-  // rozváděcí lopatky – na čepech, zavřené ≈ tečně (překrývají se), otevřené ≈ k ose
-  const Ng=kind==='K'?24:20, rg=R*0.56, Lg=2*Math.PI*rg/Ng*1.35, gv=[];
-  for (let k=0;k<Ng;k++){ const a=k/Ng*2*Math.PI, x=cx+rg*Math.cos(a), y=cy-rg*Math.sin(a);
-    const e=el('path',{d:`M${-Lg*0.45},0 C${-Lg*0.45},${-Lg*0.13} ${-Lg*0.1},${-Lg*0.13} ${Lg*0.55},0 C${-Lg*0.1},${Lg*0.06} ${-Lg*0.45},${Lg*0.08} ${-Lg*0.45},0 Z`,fill:css('--s2'),stroke:css('--s2'),'stroke-width':.6,opacity:.9},g);
-    el('circle',{cx:x,cy:y,r:1.8,fill:T2},g); gv.push({e,x,y,a}); }
-  // oběžné kolo
-  const rr=R*0.4, rot=el('g',{},g), blades=[];
-  if (kind==='K'){ for (let k=0;k<5;k++){ const b=el('path',{fill:css('--accent'),stroke:css('--accent'),'stroke-width':1,opacity:.9},rot); blades.push(b); } el('circle',{cx,cy,r:rr*0.38,fill:css('--surface-2'),stroke:T2,'stroke-width':1.4},g); }
-  else { el('circle',{cx,cy,r:rr,fill:'none',stroke:T2,'stroke-width':2},rot); for (let k=0;k<15;k++){ const a=k/15*2*Math.PI; let p=''; for (let j=0;j<=6;j++){ const s=j/6, r=rr*(0.32+0.68*s), th=a+0.9*s*s; p+=(j?'L':'M')+(cx+r*Math.cos(th)).toFixed(1)+','+(cy-r*Math.sin(th)).toFixed(1); } el('path',{d:p,fill:'none',stroke:css('--accent'),'stroke-width':2},rot); }
-    el('circle',{cx,cy,r:rr*0.3,fill:css('--surface-2'),stroke:T2},g); }
-  // proudnice (částice vody)
-  const parts=[...Array(26)].map((_,k)=>({s:k/26,ph:k*0.37,e:el('circle',{r:1.8,fill:css('--water-line'),opacity:0},g)}));
-  const lab=(x,y,t,a)=>{ const e=el('text',{x,y,'font-size':10.5,'text-anchor':a||'middle',fill:T2},g); e.textContent=t; };
-  lab(cx+R*0.88,cy+R*0.76,'↑ vtok'); lab(cx,cy-R*1.04,'spirála · pevné lopatky · rozváděcí lopatky · oběžné kolo');
-  return { upd(ph,gate,blade,flow,pump,dt){
-    const al=(6+44*clamp01(gate))*Math.PI/180; // úhel lopatky vůči tečně: zavřeno ~6°, plně otevřeno ~50°
-    for (const v of gv){ const tang=-(v.a*180/Math.PI)-90; v.e.setAttribute('transform',`translate(${v.x.toFixed(1)},${v.y.toFixed(1)}) rotate(${(tang-al*180/Math.PI).toFixed(1)})`); }
-    rot.setAttribute('transform',`rotate(${(-ph).toFixed(1)} ${cx} ${cy})`);
-    if (kind==='K') blades.forEach((b,k)=>{ const a=k/5*2*Math.PI, w=0.18+0.42*clamp01(blade); // průmět lopatky do půdorysu roste s natočením
-      const p1=[cx+rr*0.36*Math.cos(a-w*0.6),cy-rr*0.36*Math.sin(a-w*0.6)], p2=[cx+rr*Math.cos(a-w),cy-rr*Math.sin(a-w)], p3=[cx+rr*Math.cos(a+w),cy-rr*Math.sin(a+w)], p4=[cx+rr*0.36*Math.cos(a+w*0.6),cy-rr*0.36*Math.sin(a+w*0.6)];
-      b.setAttribute('d',`M${p1} L${p2} A${rr},${rr} 0 0 0 ${p3} L${p4} Z`); });
-    water.setAttribute('opacity',flow>0.01?0.14+0.2*flow:0);
-    const dth=Math.min(6,Math.max(1,0.95/Math.tan(al))); /* stáčení proudu odpovídá úhlu lopatek: malé otevření = téměř tečně */
-    for (const q of parts){ q.s=(q.s+dt*(0.25+0.5*flow)*(pump?-1:1)+1)%1; const s=q.s, r=R*(0.9-0.55*s), th=q.ph*6+s*dth;
-      q.e.setAttribute('cx',(cx+r*Math.cos(th)).toFixed(1)); q.e.setAttribute('cy',(cy-r*Math.sin(th)).toFixed(1)); q.e.setAttribute('opacity',flow>0.01?0.85:0); } } }; }
+/* Proudění v soustrojí: kreslí se na plátna nad schématem (viewBox 920×500), geometrie je schematická, počty a úhly lopatek orientační.
+   Půdorys: spirála s lineárně ubývajícím průřezem (každá proudnice odbočí dovnitř po svém podílu obvodu = kontinuita) → pevné lopatky →
+   rozváděcí lopatky určují úhel proudu α k tečně → za nimi potenciální vír (Vr ~ 1/r, Vu ~ 1/r, proudnice = logaritmická spirála) → oběžné kolo. */
+function uvCanvas(id,x,y,w,h){ let c=$('#'+id); if (!c){ c=document.createElement('canvas'); c.id=id; c.setAttribute('aria-hidden','true'); c.style.cssText='position:absolute;pointer-events:none'; $('#uvWrap').appendChild(c); }
+  Object.assign(c.style,{left:x/9.2+'%',top:y/5+'%',width:w/9.2+'%',height:h/5+'%'}); return c; }
+function uvFit(c,W,H){ const k=Math.min(3,(c.clientWidth/W||1)*(devicePixelRatio||1)), pw=Math.max(1,Math.round(W*k)), ph=Math.max(1,Math.round(H*k)); if (c.width===pw&&c.height===ph) return false; c.width=pw; c.height=ph; return true; }
+function uvInk(){ const light=root.dataset.theme==='light'; return {light,cols:light?['#3f8ce0','#2468c4','#174f9b','#0b356d']:['#5aa9f2','#8fcbff','#c8e8ff','#ffffff'],water:light?'rgba(70,150,235,':'rgba(46,120,205,',steel:css('--text-2'),line:css('--border-2'),stay:css('--conc-2'),guide:css('--s2'),run:css('--accent'),hub:css('--surface-2'),dry:css('--surface-3')}; }
+function uvTrail(cv){ const t=document.createElement('canvas'); t.width=cv.width; t.height=cv.height; return t; }
+function uvStroke(g,ink,segs){ g.lineCap='round'; for (let b=0;b<4;b++){ const L=segs[b]; if (!L.length) continue; g.strokeStyle=ink.cols[b]; g.lineWidth=.8+b*.28; g.beginPath(); for (let i=0;i<L.length;i+=4){ g.moveTo(L[i],L[i+1]); g.lineTo(L[i+2],L[i+3]); } g.stroke(); L.length=0; } }
+
+function drawPlan(kind,nb){ const cv=uvCanvas('uvPlan',295,50,310,302), W=310, H=302, cx=152, cy=136, Ro=128, rs=97, rsv=90, rg=68, rr=47, rhub=kind==='K'?19:13, TAU=2*Math.PI, AS=35*Math.PI/180, AC=5*Math.PI/180, AM=50*Math.PI/180, Ns=kind==='K'?12:16, Ng=kind==='K'?24:20;
+  const ink=uvInk(), g=cv.getContext('2d'), pt=(r,t)=>[cx+r*Math.cos(t),cy-r*Math.sin(t)], flowDir=(t,a)=>[-Math.sin(t)*Math.cos(a)-Math.cos(t)*Math.sin(a),-Math.cos(t)*Math.cos(a)+Math.sin(t)*Math.sin(a)];
+  // profil lopatky: čep ve třetině tětivy, náběžná hrana proti proudu
+  const foil=(c,x,y,d,L,th)=>{ const nx=-d[1], ny=d[0], P=(u,v)=>[x+d[0]*L*(u-.36)+nx*L*v,y+d[1]*L*(u-.36)+ny*L*v]; const a=P(0,0), b=P(.08,th), m=P(.34,th*1.06), e=P(1,.004), f=P(.34,-th*.72), h=P(.08,-th*.62); c.moveTo(a[0],a[1]); c.bezierCurveTo(b[0],b[1],m[0],m[1],m[0],m[1]); c.quadraticCurveTo(...P(.72,th*.62),e[0],e[1]); c.quadraticCurveTo(...P(.7,-th*.42),f[0],f[1]); c.bezierCurveTo(f[0],f[1],h[0],h[1],a[0],a[1]); c.closePath(); };
+  const casing=c=>{ c.moveTo(cx+Ro,H); c.lineTo(cx+Ro,cy); for (let i=1;i<=120;i++){ const f=i/120, r=rs+(Ro-rs)*(1-f), p=pt(r,f*TAU); c.lineTo(p[0],p[1]); } c.lineTo(cx+rs,H); c.closePath(); };
+  const base=document.createElement('canvas'), trail=document.createElement('canvas'); let scale=0;
+  const paintBase=()=>{ base.width=cv.width; base.height=cv.height; const c=base.getContext('2d'); c.setTransform(scale,0,0,scale,0,0);
+    c.beginPath(); casing(c); c.moveTo(cx+rs,cy); c.arc(cx,cy,rs,0,TAU); c.fillStyle=ink.water+'.34)'; c.fill('nonzero');
+    c.beginPath(); casing(c); c.strokeStyle=ink.steel; c.lineWidth=2; c.lineJoin='round'; c.stroke();
+    c.beginPath(); c.arc(cx,cy,rs,.02,TAU-.02); c.strokeStyle=ink.line; c.lineWidth=.8; c.setLineDash([2,3]); c.stroke(); c.setLineDash([]);
+    c.fillStyle=ink.stay; c.strokeStyle=ink.line; c.lineWidth=.6; for (let k=0;k<Ns;k++){ const t=k/Ns*TAU, p=pt(rsv,t); c.beginPath(); foil(c,p[0],p[1],flowDir(t,AS),20,.11); c.fill(); c.stroke(); }
+    c.beginPath(); c.arc(cx,cy,79,0,TAU); c.strokeStyle=ink.line; c.lineWidth=1.3; c.stroke(); };
+  const P=[...Array(300)].map(()=>({st:0,s:0,y:0,phi:0,r:0,th:0,x0:0,y0:0,has:false,rEnd:0})), segs=[[],[],[],[]];
+  const reset=(p,back)=>{ p.s=Math.random()*.998+.001; p.rEnd=rhub+2+Math.random()*(rr-rhub)*.62; p.has=false; if (back){ p.st=2; p.r=p.rEnd; p.th=Math.random()*TAU; } else { p.st=0; p.y=H+Math.random()*10; p.phi=0; } };
+  P.forEach(p=>reset(p,false));
+  const angle=(r,ag)=>{ const out=rg+12, inn=rg-12; if (r>=out) return AS; if (r>inn){ const f=(out-r)/(out-inn), e=f*f*(3-2*f); return AS+(ag-AS)*e; } if (r>=rr) return ag; const f=clamp01((rr-r)/(rr-rhub)); return ag+(1.45-ag)*f*f*(3-2*f); };
+  const move=(p,V0,ag,dt,back)=>{ const sg=back?-1:1;
+    if (p.st===0){ p.y-=sg*V0*dt; if (!back&&p.y<=cy){ p.st=1; p.phi=0; } else if (back&&p.y>H+4) return reset(p,true); return [cx+rs+(Ro-rs)*p.s,p.y,V0]; }
+    if (p.st===1){ const r=rs+(Ro-rs)*Math.max(0,p.s-p.phi/TAU); p.phi+=sg*V0/r*dt; if (!back&&p.phi>=TAU*p.s){ p.st=2; p.r=rs; p.th=p.phi; } else if (back&&p.phi<=0){ p.st=0; p.y=cy; } const r2=rs+(Ro-rs)*Math.max(0,p.s-p.phi/TAU), q=pt(r2,Math.max(0,p.phi)); return [q[0],q[1],V0]; }
+    const a=angle(p.r,ag), Vr=V0*Math.sin(AS)*rs/Math.max(p.r,6), V=Math.min(330,Vr/Math.max(.06,Math.sin(a))), sa=Math.sin(a), ca=Math.cos(a);
+    p.r-=sg*V*sa*dt; p.th+=sg*V*ca/Math.max(p.r,6)*dt;
+    if (!back&&p.r<=p.rEnd) return reset(p,false);
+    if (back&&p.r>=rs){ p.st=1; p.th=((p.th%TAU)+TAU)%TAU; p.s=Math.max(.002,Math.min(.998,p.th/TAU)); p.phi=p.th; }
+    const q=pt(p.r,p.th); return [q[0],q[1],V]; };
+  let warm=false, lastBack=false;
+  return { upd(ph,gate,blade,flow,back,dt,dry){
+    const fresh=uvFit(cv,W,H); if (fresh||!scale){ scale=cv.width/W; paintBase(); trail.width=cv.width; trail.height=cv.height; }
+    const ag=AC+(AM-AC)*clamp01(gate), go=flow>.004&&!dry, V0=8+112*flow, tc=trail.getContext('2d');
+    if (back!==lastBack){ lastBack=back; P.forEach(p=>reset(p,back)); warm=false; tc.clearRect(0,0,trail.width,trail.height); }
+    if (go&&!warm){ warm=true; for (let i=0;i<260;i++) for (const p of P){ move(p,Math.max(V0,50),ag,.05,back); p.has=false; } }
+    tc.setTransform(1,0,0,1,0,0); tc.globalCompositeOperation='destination-out'; tc.fillStyle=`rgba(0,0,0,${(1-Math.exp(-dt/(go?.13:.3))).toFixed(3)})`; tc.fillRect(0,0,trail.width,trail.height); tc.globalCompositeOperation='source-over'; tc.setTransform(scale,0,0,scale,0,0);
+    if (go){ for (const p of P){ const a=move(p,V0,ag,Math.min(.05,dt),back); if (!a){ p.has=false; continue; } if (p.has&&Math.hypot(a[0]-p.x0,a[1]-p.y0)<34){ const b=a[2]<V0*1.25?0:a[2]<V0*2.1?1:a[2]<V0*3.4?2:3; segs[b].push(p.x0,p.y0,a[0],a[1]); } p.x0=a[0]; p.y0=a[1]; p.has=true; } uvStroke(tc,ink,segs); }
+    g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,cv.width,cv.height); g.drawImage(base,0,0);
+    if (dry){ g.setTransform(scale,0,0,scale,0,0); g.beginPath(); g.arc(cx,cy,rg-10,0,TAU); g.fillStyle=ink.dry; g.fill(); g.setTransform(1,0,0,1,0,0); }
+    g.drawImage(trail,0,0); g.setTransform(scale,0,0,scale,0,0);
+    // regulační kruh, táhla, páky a rozváděcí lopatky na čepech
+    const La=2*rg*Math.sin(Math.PI/Ng)*1.13, ring=clamp01(gate)*.2; g.lineWidth=.7; g.strokeStyle=ink.steel; g.globalAlpha=.55; g.beginPath(); for (let k=0;k<Ng;k++){ const t=k/Ng*TAU, c=pt(rg,t), d=flowDir(t,ag), tip=[c[0]-d[1]*7,c[1]+d[0]*7], o=pt(79,t+.1+ring); g.moveTo(c[0],c[1]); g.lineTo(tip[0],tip[1]); g.lineTo(o[0],o[1]); } g.stroke(); g.globalAlpha=1;
+    g.fillStyle=ink.guide; g.strokeStyle=ink.light?'#8a3f1d':'#ffc9ae'; g.lineWidth=.45; for (let k=0;k<Ng;k++){ const t=k/Ng*TAU, c=pt(rg,t); g.beginPath(); foil(g,c[0],c[1],flowDir(t,ag),La,.085); g.fill(); g.stroke(); }
+    g.fillStyle=ink.steel; for (let k=0;k<Ng;k++){ const c=pt(rg,k/Ng*TAU); g.beginPath(); g.arc(c[0],c[1],1.25,0,TAU); g.fill(); }
+    // oběžné kolo se otáčí ve směru víru (v čerpadlovém režimu opačně)
+    const a0=ph*Math.PI/180; g.fillStyle=ink.run; g.strokeStyle=ink.run;
+    if (kind==='K'){ const w=.2+.34*clamp01(blade), n=nb||5; g.globalAlpha=.86; for (let k=0;k<n;k++){ const a=a0+k/n*TAU; g.beginPath(); let q=pt(rhub,a-w*.72); g.moveTo(q[0],q[1]); q=pt(rr*.72,a-w*1.02); g.lineTo(q[0],q[1]); q=pt(rr,a-w*.86); g.lineTo(q[0],q[1]); g.arc(cx,cy,rr,-(a-w*.86),-(a+w*1.04),true); q=pt(rr*.68,a+w*.9); g.lineTo(q[0],q[1]); q=pt(rhub,a+w*.56); g.lineTo(q[0],q[1]); g.closePath(); g.fill(); } g.globalAlpha=1; }
+    else { g.lineWidth=1.8; g.globalAlpha=.9; const n=kind==='RF'?7:15; for (let k=0;k<n;k++){ const a=a0+k/n*TAU; g.beginPath(); for (let j=0;j<=10;j++){ const s=j/10, q=pt(rhub+(rr-rhub)*s,a+1.05*s*s); j?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]); } g.stroke(); } g.globalAlpha=1; g.beginPath(); g.arc(cx,cy,rr,0,TAU); g.strokeStyle=ink.steel; g.lineWidth=1.2; g.stroke(); }
+    g.beginPath(); g.arc(cx,cy,rhub,0,TAU); g.fillStyle=ink.hub; g.fill(); g.strokeStyle=ink.steel; g.lineWidth=1.2; g.stroke(); g.beginPath(); const m=pt(rhub*.62,a0); g.arc(m[0],m[1],1.6,0,TAU); g.fillStyle=ink.steel; g.fill();
+  } }; }
+
+/* Svislý řez: proudnice ze spirály přes rozváděcí lopatky a oběžné kolo do savky; savka se rozšiřuje, voda v ní zpomaluje. */
+function drawSection(kind){ const cv=uvCanvas('uvSec',56,172,190,162), W=190, H=162, g=cv.getContext('2d'), ink=uvInk(), X=u=>(u+51.35)*1.85, Y=v=>(v+36.76)*1.85, F=kind==='K';
+  const spline=(a)=>{ const o=[]; for (let i=0;i<a.length-1;i++){ const p0=a[Math.max(0,i-1)],p1=a[i],p2=a[i+1],p3=a[Math.min(a.length-1,i+2)]; for (let j=0;j<10;j++){ const t=j/10,t2=t*t,t3=t2*t; o.push([.5*(2*p1[0]+(p2[0]-p0[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(3*p1[0]-p0[0]-3*p2[0]+p3[0])*t3),.5*(2*p1[1]+(p2[1]-p0[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(3*p1[1]-p0[1]-3*p2[1]+p3[1])*t3)]); } } o.push(a[a.length-1]); const L=[0]; for (let i=1;i<o.length;i++) L.push(L[i-1]+Math.hypot(o[i][0]-o[i-1][0],o[i][1]-o[i-1][1])); return {o,L,len:L[L.length-1]}; };
+  const lines=[]; for (const o of [-.78,-.28,.28,.78]) { const xr=F?13+4*o:11+3*o, yo=F?34+9*o:35+8*o;
+    lines.push(spline(F?[[-45,-10+17*o],[-30,-10+15*o],[-22,-10+11*o],[-15,-8+6*o],[-xr,1],[-xr*.98,9],[-xr*1.08,21],[-xr*.5,yo-1],[14,yo],[45,yo]]:[[-41,-12+8*o],[-30,-12+7*o],[-21,-10+4*o],[-15,-7+2*o],[-xr,1],[-xr*1.02,9],[-xr*1.22,22],[-xr*.5,yo-1],[14,yo],[45,yo]]));
+    lines.push(spline(F?[[33,-10+12*o],[27,-10+11*o],[21,-10+9*o],[15,-8+5*o],[xr,1],[xr*.98,9],[xr*1.04,20],[xr+3,yo-3],[24,yo],[45,yo]]:[[36,-12+5*o],[29,-12+5*o],[21,-10+3*o],[15,-7+2*o],[xr,1],[xr*1.02,9],[xr*1.12,21],[xr+3,yo-3],[24,yo],[45,yo]])); }
+  const P=[...Array(96)].map((_,k)=>({l:k%lines.length,d:Math.random(),x:0,y:0,has:false})), segs=[[],[],[],[]], trail=document.createElement('canvas'); let scale=0;
+  const speed=f=>f<.28?1:f<.42?1+(f-.28)/.14*1.1:f<.56?2.1-(f-.42)/.14*.7:Math.max(.42,1.4-(f-.56)/.3*1); // zrychlení u kola, zpomalení v savce
+  return { upd(flow,back,dt,dry){ if (uvFit(cv,W,H)||!scale){ scale=cv.width/W; trail.width=cv.width; trail.height=cv.height; } const tc=trail.getContext('2d'), go=flow>.004&&!dry, V=8+66*flow;
+    tc.setTransform(1,0,0,1,0,0); tc.globalCompositeOperation='destination-out'; tc.fillStyle=`rgba(0,0,0,${(1-Math.exp(-dt/(go?.11:.25))).toFixed(3)})`; tc.fillRect(0,0,trail.width,trail.height); tc.globalCompositeOperation='source-over'; tc.setTransform(scale,0,0,scale,0,0);
+    if (go) for (const p of P){ const l=lines[p.l], sv=speed(p.d); p.d+=(back?-1:1)*V*sv*Math.min(.05,dt)/l.len; if (p.d>=1||p.d<=0){ p.d=back?1-Math.random()*.03:Math.random()*.03; p.l=Math.floor(Math.random()*lines.length); p.has=false; continue; }
+      const L=lines[p.l], t=p.d*L.len; let lo=0, hi=L.L.length-1; while (hi-lo>1){ const m=(lo+hi)>>1; if (L.L[m]<=t) lo=m; else hi=m; } const f=(t-L.L[lo])/Math.max(1e-6,L.L[hi]-L.L[lo]), x=X(L.o[lo][0]+(L.o[hi][0]-L.o[lo][0])*f), y=Y(L.o[lo][1]+(L.o[hi][1]-L.o[lo][1])*f);
+      if (p.has&&Math.hypot(x-p.x,y-p.y)<16) segs[sv<.8?0:sv<1.3?1:sv<1.8?2:3].push(p.x,p.y,x,y); p.x=x; p.y=y; p.has=true; }
+    if (go) uvStroke(tc,ink,segs); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,cv.width,cv.height); g.drawImage(trail,0,0); } }; }
 
 function unitBuild(){ const d=unitDam(UV.id), x=d.units[UV.i], kind=x.rev?'RF':(d.d.units.type||'K'), pve=UV.id==='pve', name=pve?'PVE Štěchovice II – reverzní soustrojí':`${d.name} ${x.rev?'RTG':'TG'}${UV.i+1}`;
   const pm=x.Pmax||d.d.units.Pmax;
   $('#uvT').textContent=name; $('#uvS').textContent=`${KINDNAME[kind]} · ${fmt(pm,pm<10?2:0)} MW${pve?' (čerpadlo '+PVE_DEF.PpMax+' MW)':''} · Qmax ${fmt(d.d.units.Qmax,0)} m³/s · spád ~${fmt(d.d.units.Hnom,0)} m`;
   const s=$('#uvSvg'); s.setAttribute('viewBox','0 0 920 500'); s.innerHTML=''; const E=(t,a,p)=>el(t,a,p||s);
   const defs=E('defs',{}); E('filter',{id:'uvGl',x:'-50%',y:'-50%',width:'200%',height:'200%'},defs).innerHTML='<feGaussianBlur stdDeviation="5"/>';
-  E('text',{x:150,y:342,'text-anchor':'middle','font-size':11,fill:css('--muted')}).textContent='svislý řez soustrojím';
+  E('text',{x:150,y:352,'text-anchor':'middle','font-size':11,fill:css('--muted')}).textContent='svislý řez soustrojím';
   UV.tb=drawTurbine(s,x,150,240,kind,1.85,UV.i,true); UV.tb.glow.setAttribute('filter','url(#uvGl)');
-  UV.plan=drawPlan(s,415,200,112,kind);
+  UV.plan=drawPlan(kind,x.nb); UV.sec=drawSection(kind==='K'?'K':'F'); UV.sg=null;
+  { const lg=[['--conc-2','pevné'],['--s2','rozváděcí'],['--accent','oběžné kolo']]; let lx=304; for (const [c,t] of lg){ E('rect',{x:lx,y:21,width:10,height:10,rx:2,fill:css(c)}); const w=E('text',{x:lx+14,y:30,'font-size':11,fill:css('--text-2')}); w.textContent=t; lx+=t.length*6+30; }
+    const dg=E('linearGradient',{id:'uvSpd'},defs), cc=uvInk().cols; cc.forEach((c,k)=>E('stop',{offset:k/3,'stop-color':c},dg)); E('text',{x:304,y:46,'font-size':10.5,fill:css('--muted')}).textContent='rychlost vody: pomalu'; E('rect',{x:414,y:39,width:48,height:7,rx:3,fill:'url(#uvSpd)'}); E('text',{x:467,y:46,'font-size':10.5,fill:css('--muted')}).textContent='rychle'; }
   UV.phT=E('text',{x:150,y:24,'text-anchor':'middle','font-size':15,'font-weight':750}); UV.noteT=E('text',{x:150,y:42,'text-anchor':'middle','font-size':11,fill:css('--text-2')});
-  UV.betaT=E('text',{x:395,y:345,'text-anchor':'middle','font-size':11.5,fill:css('--text-2')});
+  UV.betaT=E('text',{x:450,y:356,'text-anchor':'middle','font-size':10.5,fill:css('--muted')});
   // otáčkoměr
   const cx=790,cy=420,R=56; UV.tc=[cx,cy,R]; E('path',{d:`M${cx-R},${cy} A${R},${R} 0 0 1 ${cx+R},${cy}`,fill:'none',stroke:css('--surface-3'),'stroke-width':11});
   const ang=v=>Math.PI*(1-v/1.2), arc=(a,b,c)=>{ const p=v=>[cx+R*Math.cos(ang(v)),cy-R*Math.sin(ang(v))]; E('path',{d:`M${p(a)} A${R},${R} 0 0 1 ${p(b)}`,fill:'none',stroke:css(c),'stroke-width':11,opacity:.55}); };
@@ -3217,11 +3254,14 @@ function unitFrame(now){ if (!UV.on) return; const dt=UV.last?Math.min(0.1,(now-
   UV.ph=(UV.ph+r.n*260*dt*(back?-1:1)+360)%360; const flow=clamp01(r.Q/r.Qmax), wet=r.Q>0.3||r.k==='roztaceni'&&!back||r.k==='buzeni'||r.k==='fazovani'&&!back;
   // Kaplan: natočení lopatek oběžného kola vázané na otevření rozváděcích lopatek (kombinátor; závisí i na spádu)
   const beta=kind==='K'?clamp01((r.gate-0.08)/0.85*(0.9+0.1*clamp01(d.d.units.Hnom/Math.max(1,r.H)))):0;
-  UV.tb.upd(UV.ph,kind==='K'?beta:r.gate,wet,clamp01(r.P/r.Pmax),back);
+  // lopatky se v obraze přestavují plynule jako od servomotoru; voda stojí ve spirále i při zavřených lopatkách, chybí jen při revizi a čerpadlovém rozběhu ve vzduchu
+  const k=1-Math.exp(-dt/.35); if (UV.sg==null){ UV.sg=r.gate; UV.sb=beta; UV.sf=flow; } else { UV.sg+=(r.gate-UV.sg)*k; UV.sb+=(beta-UV.sb)*k; UV.sf+=(flow-UV.sf)*k; }
+  const dry=!x.avail||(x.state==='start'&&x.dir==='pump'&&(sim.t-x.tS)/(x.tLen||360)<.85), flowV=wet?Math.max(UV.sf,r.Q>0.05?0.05:0):0;
+  UV.tb.upd(UV.ph,kind==='K'?UV.sb:UV.sg,!dry,clamp01(r.P/r.Pmax),back,UV.sg); UV.sec.upd(flowV,back,dt,dry);
   UV.tb.glow.setAttribute('opacity',r.brk&&r.P>0.05?Math.min(.9,.3+.6*r.P/r.Pmax):r.exc?.2:0);
   UV.tb.gen.setAttribute('stroke',back&&r.brk?css('--s7'):r.brk?css('--light'):r.exc?css('--warning'):css('--border-2'));
-  UV.plan.upd(UV.ph,r.gate,beta,wet?Math.max(flow,r.Q>0.05?0.15:0.08):0,back,dt);
-  UV.betaT.textContent=kind==='K'?`rozváděcí lopatky ${fmt(r.gate*100,0)} % · natočení lopatek oběžného kola ${fmt(beta*100,0)} % rozsahu (kombinátor)`:`rozváděcí lopatky ${fmt(r.gate*100,0)} % · oběžné kolo s pevnými lopatkami`;
+  UV.plan.upd(UV.ph,UV.sg,UV.sb,flowV,back,dt,dry);
+  UV.betaT.textContent=dry?'schematický půdorys · oběžné kolo bez vody':r.gate<.005?'schematický půdorys · lopatky zavřené, voda stojí před nimi':'schematický půdorys · počty a úhly lopatek jsou orientační';
   const ph=UPH.find(p=>p[0]===r.k), col=r.k==='porucha'?'--critical':r.k==='provoz'||r.k==='cerpani'?'--good':r.k==='klid'||r.k==='pripravenost'?'--muted':'--warning';
   UV.phT.textContent=ph[1].toUpperCase(); UV.phT.setAttribute('fill',css(col)); if (UV.noteK!==r.note){ UV.noteK=r.note; const w=r.note.split(' '), L=[]; let c=''; for (const z of w){ if ((c+' '+z).trim().length>44&&c){ L.push(c); c=z; } else c=(c+' '+z).trim(); } L.push(c); UV.noteT.innerHTML=L.slice(0,3).map((l,k)=>`<tspan x="150" dy="${k?13:0}">${l}</tspan>`).join(''); }
   const [cx,cy,R]=UV.tc, a=Math.PI*(1-Math.min(1.2,r.n)/1.2); UV.needle.setAttribute('x2',cx+(R-12)*Math.cos(a)); UV.needle.setAttribute('y2',cy-(R-12)*Math.sin(a)); UV.nT.textContent=fmt(r.n*100,1)+' %';

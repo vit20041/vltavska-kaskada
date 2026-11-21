@@ -366,15 +366,15 @@ function drawTurbine(par,x,cx,cy,kind,s,i,bare){ const g=el('g',{transform:`tran
   const ele=el('path',{d:'M27,-62 L46,-62 L46,-96',stroke:css('--light'),'stroke-width':0,fill:'none','stroke-dasharray':'3 5',class:'flowing',opacity:0},g);
   const bolt=el('text',{x:49,y:-84,'font-size':12,fill:css('--light'),opacity:0},g); bolt.textContent='⚡';
   // aktualizace: fáze otáčení (stupně) a otevření 0..1
-  const upd=(ph,op,wetOn,pf,pump)=>{ const a0=ph*Math.PI/180; pf=pf||0;
+  const upd=(ph,op,wetOn,pf,pump,guide)=>{ const a0=ph*Math.PI/180; pf=pf||0; const gOpen=guide==null?op:guide; // rozváděcí lopatky mají vlastní otevření, u Kaplanu se liší od natočení oběžného kola
     ele.setAttribute('stroke-width',pf>0.01?(1+5*pf).toFixed(1):0); ele.setAttribute('opacity',pf>0.01?0.35+0.65*pf:0); ele.setAttribute('stroke',pump?css('--s7'):css('--light')); ele.setAttribute('style',pump?'animation-direction:reverse':''); bolt.setAttribute('opacity',pf>0.01?0.4+0.6*pf:0);
     blades.forEach((b,k)=>{ const a=a0+k*2*Math.PI/nb, sx=Math.sin(a), cz=Math.cos(a), front=cz>0;
       if (kind==='K'){ const tilt=(3+9*op)*cz, w=1.2+3.5*Math.abs(cz), r0=7*sx, r1=R*sx;
         b.setAttribute('d',`M${r0},${-3-w} L${r1},${-3-w+tilt} L${r1},${-3+w+tilt} L${r0},${-3+w} Z`); }
       else { const xt=R*sx, xb=11*sx; b.setAttribute('d',`M${xt},-13 Q${xt*0.95+3*cz},-2 ${xb},6`); b.setAttribute('fill','none'); b.setAttribute('stroke-width',1.4+1.6*Math.abs(cz)); }
       b.setAttribute('opacity',front?1:.28); });
-    const ga=(0.15+0.75*op); gv.forEach((p,j)=>{ const sg=j?1:-1, xx=sg*(kind==='K'?21:20), dx=Math.cos(ga)*4, dy=Math.sin(ga)*4; p.setAttribute('d',`M${xx-dx},${-6-dy} L${xx+dx},${-6+dy}`); });
-    wet.forEach(p=>p.setAttribute('fill',wetOn?W:css('--surface-3'))); wet.forEach(p=>p.setAttribute('fill-opacity',wetOn?.3+.6*op:1)); };
+    const ga=(0.15+0.75*gOpen); gv.forEach((p,j)=>{ const sg=j?1:-1, xx=sg*(kind==='K'?21:20), dx=Math.cos(ga)*4, dy=Math.sin(ga)*4; p.setAttribute('d',`M${xx-dx},${-6-dy} L${xx+dx},${-6+dy}`); });
+    wet.forEach(p=>p.setAttribute('fill',wetOn?W:css('--surface-3'))); wet.forEach(p=>p.setAttribute('fill-opacity',wetOn?.3+.6*gOpen:1)); };
   if (!bare){ spin[i]=spin[i]||i*23; upd(spin[i],0,false); } else upd(0,0,false);
   return {g,glow,gen,lab,lab2,out,cx,cy,upd,kind,rot:{setAttribute(){}}}; }
 

@@ -85,6 +85,11 @@ Po dokončení úpravy: pečlivě otestovat (regrese + ostré snímky) a rovnou 
 - Souvislá 40letá řada hladin nádrží NENÍ veřejná. levels.json = jen doložené dny: kopie portálu PVL v Internet Archive (`tools/wayback_download.ps1`, od 2007), zprávy PVL o suchu, `live/nadrze-archiv.csv` (plní workflow). Nedopočítávat ani neinterpolovat.
 - Přednost má portál před zprávou (datum vydání nemusí být dnem měření); staré stránky mají slepené sloupce („723.8661“ = 723,86 + 61). Povodeň 2002: tabulka v příloze 3 má v PDF posunuté řádky.
 
+## Detail soustrojí – proudění (21. 11. 2026)
+- `drawPlan`/`drawSection` (ui.html) kreslí na plátna `#uvPlan`, `#uvSec` nad SVG. Půdorys: spirála s lineárně ubývajícím průřezem (kontinuita),
+  za rozváděcími lopatkami potenciální vír (Vr, Vu ~ 1/r); úhel proudu = úhel lopatek; čerpání = obrácený směr po stejných proudnicích.
+- Geometrie, počty a úhly lopatek jsou schematické. Voda stojí ve spirále i při zavřených lopatkách; suché je kolo jen při revizi a čerpadlovém rozběhu.
+
 ## Ověřené zdroje (pro realismus)
 - ČEZ: Slapy – strojovna přímo pod přelivy (přelévaná elektrárna), kapacita přelivů 2400 m³/s.
 - Orlík: stávající přeliv + 2 spodní výpusti ≈ 3150 m³/s; nový boční bezpečnostní přeliv (3 pole se segmentovými uzávěry,

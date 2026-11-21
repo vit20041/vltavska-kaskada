@@ -769,7 +769,7 @@ class Sim {
   }
   orlikPumpStep(dt) { // reverzní soustrojí čerpají z Kamýku do Orlíku
     const p = this.opump, O = this.D.orlik, K = this.D.kamyk, hod = this.hourOfDay;
-    if (!this.orlik2033) { p.P = 0; p.Q = 0; return 0; }
+    if (!this.orlik2033) { p.P = 0; p.Q = 0; p.n = 0; p.want = 0; p.on = false; return 0; } // jinak by zbylý požadavek na čerpání blokoval turbíny Orlíku
     const H = Math.max(5, O.h - K.h + 1.0); p.head = H;
     const revs = O.units.filter(x => x.rev && x.avail);
     let nWant = 0;
@@ -956,7 +956,8 @@ function loadScenario(sim, key, opt) {
   sim.pps.on = false; for (const p of PPS_PLANTS) for (const s of PPS_DEF) sim.pps.offers[p][s.id] = 0;
   for (const s of PPS_DEF) sim.pps.stats[s.id] = { req: 0, del: 0 }; sim.pps.rev = { cap: 0, act: 0, spot: 0, pump: 0, pen: 0, mwh: 0, mkt: 0, mktT: 0, starts: 0, startKc: 0 }; sim.pps.sig = { f: 50, afrr: 0, m5: 0, m15: 0, m5t: 0, m15t: 0, ev: [] }; sim.bal = { dev: 0, share: {}, pve: 0, rest: 0, nMan: 0 };
   for (const d of sim.dams) { d.d = Object.assign({}, d.d0); d.mode = 'auto'; d.par.tgtOverride = null; const h = (sc.levels && sc.levels[d.id] != null) ? sc.levels[d.id] : d.d.h0; d.reset(h); d.par.Qn = d.d.Qn; for (const u of d.units) u.avail = true; }
-  sim.opump.P = 0; sim.opump.Q = 0; sim.opump.Ep = 0; sim.opump.ema = 0; sim.opump.mode = 'auto'; sim.opump.on = false; sim.opump.block = false; const o33 = sim.orlik2033; sim.orlik2033 = false;
+  sim.opump.P = 0; sim.opump.Q = 0; sim.opump.Ep = 0; sim.opump.ema = 0; sim.opump.mode = 'auto'; sim.opump.on = false; sim.opump.block = false; sim.opump.n = 0; sim.opump.want = 0; sim.orlik2033 = false;
+  for (const x of sim.D.orlik.units) { delete x.Pmax; delete x.Pp; delete x.Qp; delete x.PpMax; x.rev = false; x.pump = false; x.dir = null; } // po scénáři 2033 nesmí zůstat vlastnosti reverzních strojů
   sim.pve.V = 0.3e6; sim.pve.P = 0; sim.pve.E = 0; sim.pve.Ep = 0; sim.pve.mode = 'auto'; sim.pve.u = null;
   for (const n of sim.nodes) { n.mode = 'scen'; n.mult = 1; n.pulses = []; n.manual = n.def.now; }
   sim.glob.prahaProt = true; sim.glob.QminVrane = 40;
