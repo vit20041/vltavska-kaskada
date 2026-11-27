@@ -16,14 +16,22 @@ const DAM_MAP = { 'VD Lipno 1': 'lipno1', 'VD Lipno 2': 'lipno2', 'VD Hněvkovic
 const STATIONS = { MARO: 1, VLCB: 1, LUBE: 1, OTPI: 1, SANE: 2, BEBE: 3, VLCH: 2 };
 
 // přehled nádrží: řádky tabulky → {dams, ts}
+// Sloupce se hledají podle záhlaví (PVL 26. 11. 2026 vložilo sloupec „Účel“ a pořadí se posunulo);
+// bez záhlaví platí původní pořadí Nádrž | Tok | Datum | Hladina | Objem | Přítok | Odtok.
 function parseDams(html) {
   const dams = {}; let ts = '';
+  let col = { ts: 2, h: 3, V: 4, qin: 5, qout: 6 };
   for (const row of html.split(/<tr[\s>]/i).slice(1)) {
     const body = row.split(/<\/tr>/i)[0];
-    const cells = [...body.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => text(m[1]));
+    const cells = [...body.matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(m => text(m[1]));
+    const find = re => cells.findIndex(c => re.test(c));
+    if (find(/^Hladina vody/i) >= 0 && find(/^Datum/i) >= 0) {
+      col = { ts: find(/^Datum/i), h: find(/^Hladina vody/i), V: find(/^Objem/i), qin: find(/^Přítok/i), qout: find(/^Odtok$/i) };
+      continue;
+    }
     if (cells.length > 6 && DAM_MAP[cells[0]]) {
-      dams[DAM_MAP[cells[0]]] = { h: num(cells[3]), V: num(cells[4]), qin: num(cells[5]), qout: num(cells[6]) };
-      ts = ts || cells[2];
+      dams[DAM_MAP[cells[0]]] = { h: num(cells[col.h]), V: num(cells[col.V]), qin: num(cells[col.qin]), qout: num(cells[col.qout]) };
+      ts = ts || cells[col.ts];
     }
   }
   return { dams, ts };
